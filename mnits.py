@@ -36,7 +36,6 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 from optax.losses import softmax_cross_entropy_with_integer_labels
-from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.transforms import Compose, ToTensor
 
@@ -289,7 +288,7 @@ def apply_model_trade(state, images, labels, key):
 
     new_state = state.apply_gradients(grads=grads)
 
-    return new_state, grads, loss, metrics #| state.opt_state.hyperparams
+    return new_state, grads, loss, metrics  #| state.opt_state.hyperparams
 
 
 # @jax.jit
@@ -389,10 +388,9 @@ def create_train_state(rng):
     return train_state.TrainState.create(apply_fn=cnn.apply, params=params, tx=tx)
 
 
-@jax.pmap
+@partial(jax.pmap, axis_name="batch", )
 def accuracy(state, data):
     inputs, labels = data
-
     logits = state.apply_fn({"params": state.params}, inputs)
     return jnp.mean(jnp.argmax(logits, axis=-1) == labels)
 
@@ -435,7 +433,6 @@ def train_and_evaluate(
         wandb.init(name='vit-b4', project='cifar10-20m')
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
-
     transform_train = [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip(),
                        # AutoAugment(), Cutout(),
                        ToTensor()]
@@ -448,7 +445,7 @@ def train_and_evaluate(
 
     # train_dataloader = DataLoader(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, num_workers=16, drop_last=True)
 
-    _, train_dataloader,test_dataloader = get_train_dataloader()
+    _, train_dataloader, test_dataloader = get_train_dataloader()
     train_dataloader_iter = iter(train_dataloader)
 
     # test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
@@ -460,21 +457,12 @@ def train_and_evaluate(
     log_interval = 200
     pmap_pgd = jax.pmap(pgd_attack3)
 
-
     rng = jax.random.key(0)
 
     rng, init_rng = jax.random.split(rng)
     state = create_train_state(init_rng, )
 
     state = flax.jax_utils.replicate(state)
-
-
-
-
-
-
-
-
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
@@ -519,7 +507,10 @@ def train_and_evaluate(
                 images = shard(images)
                 labels = shard(labels)
 
-                clean_accuracy = jax.lax.psum(accuracy(state, (images, labels))) / images.shape[0]
+                clean_accuracy = accuracy(state, (images, labels)) / images.shape[0]
+
+                clean_accuracy = jax.lax.pmean(clean_accuracy, axis_name='batch')
+
                 # adversarial_images = pgd_attack(images, labels, params, epsilon=EPSILON)
                 adversarial_images = pmap_pgd(images, labels, state, )
                 adversarial_accuracy = jnp.sum(accuracy(state, (adversarial_images, labels))) / images.shape[0]
