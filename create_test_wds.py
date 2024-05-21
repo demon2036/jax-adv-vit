@@ -24,7 +24,7 @@ shard_filename = str(shard_dir_path / 'shards-%05d.tar')
 
 with wds.ShardWriter(
         shard_filename, maxcount=128,
-) as sink, tqdm(test_dataloader) as pbar:
+) as sink, tqdm(test_dataset) as pbar:
     for i, (img, label) in enumerate(pbar):
         sink.write({
             "__key__": str(i),

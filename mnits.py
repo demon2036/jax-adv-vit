@@ -500,10 +500,10 @@ def train_and_evaluate(
             for data in test_dataloader:
                 data = jax.tree_map(np.asarray, data)
                 images, labels = data
-                # images = einops.rearrange(images, 'b c h w->b h w c')
+                images = einops.rearrange(images, 'b c h w->b h w c')
                 # images = images.astype(jnp.float32) / 255
 
-                print(images.shape)
+                # print(images.shape)
 
                 images = shard(images)
                 labels = shard(labels)
