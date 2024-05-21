@@ -489,7 +489,7 @@ def train_and_evaluate(
                                                 transform=Compose(
                                                     transform_test))  # 0.5, 0.5
 
-    test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
+    # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
     log_interval = 10
     old_state=state

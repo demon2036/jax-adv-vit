@@ -128,8 +128,8 @@ def get_train_dataloader(batch_size=1024,
 
     test_dataset = wds.DataPipeline(
         wds.SimpleShardList(test_shard_path),
-        wds.slice(jax.process_index(), None, jax.process_count()),
-        wds.split_by_worker,
+        # wds.slice(jax.process_index(), None, jax.process_count()),
+        # wds.split_by_worker,
         wds.cached_tarfile_to_samples(),
         wds.decode("pil"),
         wds.to_tuple("jpg.pyd", "cls"),
@@ -138,10 +138,10 @@ def get_train_dataloader(batch_size=1024,
     test_dataloader = DataLoader(
         test_dataset,
         batch_size=(batch_size := batch_size // jax.process_count()),
-        num_workers=8,
+        num_workers=16,
         collate_fn=partial(collate_and_pad, batch_size=batch_size),
         drop_last=False,
-        prefetch_factor=2,
+        prefetch_factor=1,
         persistent_workers=True,
     )
 
