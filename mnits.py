@@ -392,6 +392,8 @@ def create_train_state(rng):
 @jax.pmap
 def accuracy(state, data):
     inputs, labels = data
+    inputs=inputs.astype(jnp.float32)
+    labels=labels.astype(jnp.float32)
     logits = state.apply_fn({"params": state.params}, inputs)
     return jnp.mean(jnp.argmax(logits, axis=-1) == labels)
 

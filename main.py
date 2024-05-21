@@ -65,7 +65,7 @@ def create_transforms() -> tuple[nn.Module, nn.Module]:
         T.PILToTensor(),
     ]
 
-    test_transforms=[
+    test_transforms = [
         T.ToTensor()
     ]
 
@@ -90,7 +90,6 @@ def collate_and_pad(batch: list[Any], batch_size: int = 1) -> Any:
 def get_train_dataloader(batch_size=1024):
     shard_path = 'gs://caster-us-central-2b/cifar10-20m-wds/shards-{00000..01290}.tar'
     test_shard_path = 'gs://caster-us-central-2b/cifar10-test-wds/shards-{00000..00078}.tar'
-
 
     # shard_path = './shards_01/shards-00040.tar'
 
@@ -143,8 +142,7 @@ def get_train_dataloader(batch_size=1024):
         persistent_workers=True,
     )
 
-
-    return dataset, train_dataloader,test_dataloader
+    return dataset, train_dataloader, test_dataloader
 
 
 if __name__ == '__main__':
