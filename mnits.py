@@ -392,8 +392,8 @@ def create_train_state(rng):
 def accuracy(state, data):
     inputs, labels = data
     logits = state.apply_fn({"params": state.params}, inputs)
-    clean_accuracy=jnp.mean(jnp.argmax(logits, axis=-1) == labels)
-    clean_accuracy=jax.lax.pmean(clean_accuracy, axis_name='batch')
+    clean_accuracy = jnp.mean(jnp.argmax(logits, axis=-1) == labels)
+    clean_accuracy = jax.lax.pmean(clean_accuracy, axis_name='batch')
     return clean_accuracy
 
 
@@ -417,6 +417,39 @@ def dataset_stats(state, data_loader, iter_per_epoch, ):
 
         adversarial_accuracy += jnp.mean(accuracy(state, (adversarial_images, labels))) / iter_per_epoch
     return {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
+
+
+def eval(test_dataloader,state,):
+    pmap_pgd = jax.pmap(pgd_attack3)
+    average_meter = AverageMeter(use_latest=["learning_rate"])
+    for data in test_dataloader:
+        data = jax.tree_util.tree_map(np.asarray, data)
+        images, labels = data
+
+        images = images.astype(jnp.float32)
+        labels = labels.astype(jnp.int64)
+        images = einops.rearrange(images, 'b c h w->b h w c')
+        # images = images.astype(jnp.float32) / 255
+
+        # print(images.shape)
+
+        images = shard(images)
+        labels = shard(labels)
+
+        clean_accuracy = accuracy(state, (images, labels))  # / images.shape[0]
+
+        # clean_accuracy = jax.lax.pmean(clean_accuracy, axis_name='batch')
+
+        # adversarial_images = pgd_attack(images, labels, params, epsilon=EPSILON)
+        adversarial_images = pmap_pgd(images, labels, state, )
+        adversarial_accuracy = accuracy(state, (adversarial_images, labels))
+
+        # adversarial_accuracy = jnp.sum(accuracy(state, (adversarial_images, labels))) / images.shape[0]
+        metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
+        average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
+    if jax.process_index() == 0:
+        metrics = average_meter.summary('val/')
+        wandb.log(metrics, 1)
 
 
 def train_and_evaluate(
@@ -457,7 +490,7 @@ def train_and_evaluate(
     # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
     log_interval = 200
-    pmap_pgd = jax.pmap(pgd_attack3)
+
 
     rng = jax.random.key(0)
 
@@ -495,35 +528,7 @@ def train_and_evaluate(
             wandb.log(metrics, step)
 
         if step % log_interval == 0:
-            average_meter = AverageMeter(use_latest=["learning_rate"])
-            for data in test_dataloader:
-                data = jax.tree_util.tree_map(np.asarray, data)
-                images, labels = data
-
-                images = images.astype(jnp.float32)
-                labels = labels.astype(jnp.int64)
-                images = einops.rearrange(images, 'b c h w->b h w c')
-                # images = images.astype(jnp.float32) / 255
-
-                # print(images.shape)
-
-                images = shard(images)
-                labels = shard(labels)
-
-                clean_accuracy = accuracy(state, (images, labels)) #/ images.shape[0]
-
-                #clean_accuracy = jax.lax.pmean(clean_accuracy, axis_name='batch')
-
-                # adversarial_images = pgd_attack(images, labels, params, epsilon=EPSILON)
-                adversarial_images = pmap_pgd(images, labels, state, )
-                adversarial_accuracy =accuracy(state, (adversarial_images, labels))
-
-                # adversarial_accuracy = jnp.sum(accuracy(state, (adversarial_images, labels))) / images.shape[0]
-                metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
-                average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
-            if jax.process_index() == 0:
-                metrics = average_meter.summary('val/')
-                wandb.log(metrics, step)
+            eval(test_dataloader,state)
 
     return state
 
