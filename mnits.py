@@ -455,10 +455,10 @@ def eval(test_dataloader, state, ):
 
         # adversarial_accuracy = jnp.sum(accuracy(state, (adversarial_images, labels))) / images.shape[0]
         # metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
-    #     average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
-    # if jax.process_index() == 0:
-    #     metrics = average_meter.summary('val/')
-    #     wandb.log(metrics, 1)
+        average_meter.update(**metrics)
+    if jax.process_index() == 0:
+        metrics = average_meter.summary('val/')
+        wandb.log(metrics, 1)
 
 
 def train_and_evaluate(
@@ -527,17 +527,18 @@ def train_and_evaluate(
 
         batch_images = shard(batch_images)
         batch_labels = shard(batch_labels)
-
-        state, grads, loss, metrics = apply_model_trade(state, batch_images, batch_labels, train_step_key)
         """
+        state, grads, loss, metrics = apply_model_trade(state, batch_images, batch_labels, train_step_key)
+        
         # state = update_model(state, grads)
         if jax.process_index() == 0:
             average_meter.update(**metrics)
             metrics = average_meter.summary('train/')
             wandb.log(metrics, step)
-        """
+       
         if step % log_interval == 0:
             eval(test_dataloader, state)
+         """
 
     return state
 
