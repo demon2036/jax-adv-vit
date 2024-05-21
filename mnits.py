@@ -453,16 +453,17 @@ def train_and_evaluate(
 
     # train_dataloader = DataLoader(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, num_workers=16, drop_last=True)
 
-    _, train_dataloader = get_train_dataloader()
+    _, train_dataloader,test_dataloader = get_train_dataloader()
     train_dataloader_iter = iter(train_dataloader)
 
-    test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
-                                                transform=Compose(
-                                                    transform_test))  # 0.5, 0.5
+    # test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
+    #                                             transform=Compose(
+    #                                                 transform_test))  # 0.5, 0.5
+    #
+    # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
-    test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
-
-    log_interval = 100
+    log_interval = 200
+    pmap_pgd = jax.pmap(pgd_attack3)
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
@@ -492,9 +493,7 @@ def train_and_evaluate(
             metrics = average_meter.summary('train/')
             wandb.log(metrics, step)
 
-
         if step % log_interval == 0:
-            pmap_pgd = jax.pmap(pgd_attack3)
             for data in test_dataloader:
                 data = jax.tree_map(np.asarray, data)
                 images, labels = data

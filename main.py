@@ -144,7 +144,7 @@ def get_train_dataloader(batch_size=1024):
     )
 
 
-    return dataset, train_dataloader
+    return dataset, train_dataloader,test_dataloader
 
 
 if __name__ == '__main__':
