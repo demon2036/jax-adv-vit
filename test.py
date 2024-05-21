@@ -17,34 +17,9 @@
 Library file which executes the training and evaluation loop for MNIST.
 The data is loaded using tensorflow_datasets.
 """
-from functools import partial
-
-import einops
-import flax.jax_utils
-import torchvision
-import tqdm
-from flax.training.common_utils import shard, shard_prng_key
-# See issue #620.
-# pytype: disable=wrong-keyword-args
-
-from absl import logging
-from flax import linen as nn
-# from flax.metrics import tensorboard
-from flax.training import train_state
-import jax
-import jax.numpy as jnp
-import numpy as np
-import optax
-from optax.losses import softmax_cross_entropy_with_integer_labels
-from torchvision import transforms
-from torchvision.transforms import Compose, ToTensor
-
-# from auto_augment import AutoAugment, Cutout
 from main import get_train_dataloader
-from model import ViT
-import os
-import wandb
-from utils2 import AverageMeter
+import jax
+
 
 jax.distributed.initialize()
 
@@ -63,9 +38,6 @@ L2_REG = 0.0001  # @param{type:"number"}
 EPSILON = 8 / 255  # @param{type:"number"}
 
 os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
-
-
-
 
 if __name__ == "__main__":
     _, train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE)
