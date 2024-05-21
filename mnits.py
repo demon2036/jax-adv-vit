@@ -289,7 +289,7 @@ def apply_model_trade(state, images, labels, key):
 
     new_state = state.apply_gradients(grads=grads)
 
-    return new_state, grads, loss, metrics
+    return new_state, grads, loss, metrics | state.opt_state.hyperparams
 
 
 # @jax.jit
@@ -482,7 +482,7 @@ def train_and_evaluate(
         #     state, train_dataloader, input_rng, step
         # )
         # for data in tqdm.tqdm(train_dataloader):
-        """
+
         data = next(train_dataloader_iter)
 
         data = jax.tree_map(np.asarray, data)
@@ -503,7 +503,7 @@ def train_and_evaluate(
             average_meter.update(**metrics)
             metrics = average_meter.summary('train/')
             wandb.log(metrics, step)
-        """
+
         if step % log_interval == 0:
             for data in test_dataloader:
                 data = jax.tree_util.tree_map(np.asarray, data)
