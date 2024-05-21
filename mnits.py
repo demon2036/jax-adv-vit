@@ -524,7 +524,7 @@ def train_and_evaluate(
             wandb.log(metrics, step)
          """
         if step % log_interval == 0:
-            eval(test_dataloader, old_state)
+            eval(test_dataloader, state)
 
     return state
 

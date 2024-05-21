@@ -91,9 +91,6 @@ def get_train_dataloader(batch_size=1024,
                          shard_path='gs://caster-us-central-2b/cifar10-20m-wds/shards-{00000..01290}.tar',
                          test_shard_path='gs://caster-us-central-2b/cifar10-test-wds/shards-{00000..00078}.tar'
                          ):
-
-
-
     # shard_path = './shards_01/shards-00040.tar'
 
     train_transform, test_transform = create_transforms()
@@ -126,15 +123,34 @@ def get_train_dataloader(batch_size=1024,
 
     )
 
-    test_dataset = wds.DataPipeline(
-        wds.SimpleShardList(test_shard_path),
-        # wds.slice(jax.process_index(), None, jax.process_count()),
-        # wds.split_by_worker,
-        wds.cached_tarfile_to_samples(),
-        wds.decode("pil"),
-        wds.to_tuple("jpg.pyd", "cls"),
+    # test_dataset = wds.DataPipeline(
+    #     wds.SimpleShardList(test_shard_path),
+    #     # wds.slice(jax.process_index(), None, jax.process_count()),
+    #     # wds.split_by_worker,
+    #     wds.cached_tarfile_to_samples(),
+    #     wds.decode("pil"),
+    #     wds.to_tuple("jpg.pyd", "cls"),
+    #     wds.map_tuple(test_transform, torch.tensor),
+    # )
+
+    ops = [
+        itertools.cycle,
+        wds.detshuffle(),
+        wds.slice(jax.process_index(), None, jax.process_count()),
+        wds.split_by_worker,
+        # # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
+        wds.detshuffle(),
+        wds.decode("pil", handler=wds.ignore_and_continue),
+        wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
+        # partial(repeat_samples, repeats=3),
         wds.map_tuple(test_transform, torch.tensor),
-    )
+    ]
+
+    test_dataset = wds.WebDataset(urls=test_shard_path, handler=wds.ignore_and_continue)
+
+    for op in ops:
+        test_dataset = test_dataset.compose(op)
+
     test_dataloader = DataLoader(
         test_dataset,
         batch_size=(batch_size := batch_size // jax.process_count()),
@@ -145,22 +161,18 @@ def get_train_dataloader(batch_size=1024,
         persistent_workers=True,
     )
 
-
-
-
     return dataset, train_dataloader, test_dataloader
 
 
 if __name__ == '__main__':
-    dataset, train_dataloader, test_dataloader=get_train_dataloader(test_shard_path='./cifar10-test-wds/shards-{00000..00078}.tar',shard_path='./cifar10-test-wds/shards-{00000..00078}.tar')
-
+    dataset, train_dataloader, test_dataloader = get_train_dataloader(
+        test_shard_path='./cifar10-test-wds/shards-{00000..00078}.tar',
+        shard_path='./cifar10-test-wds/shards-{00000..00078}.tar')
 
     for data in test_dataloader:
-        img,_=data
+        img, _ = data
         print(img.shape)
         break
-
-
 
 # if __name__ == "__main__":
 #     model = MAE_ViT_2_T()
