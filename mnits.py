@@ -1,4 +1,5 @@
 import jax
+from torch.utils.data import DataLoader
 
 jax.distributed.initialize()
 
@@ -484,11 +485,11 @@ def train_and_evaluate(
 
     train_dataloader_iter = iter(train_dataloader)
 
-    # test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
-    #                                             transform=Compose(
-    #                                                 transform_test))  # 0.5, 0.5
-    #
-    # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
+    test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
+                                                transform=Compose(
+                                                    transform_test))  # 0.5, 0.5
+
+    test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
     log_interval = 10
     old_state=state
@@ -514,7 +515,7 @@ def train_and_evaluate(
         batch_images = shard(batch_images)
         batch_labels = shard(batch_labels)
 
-        # state = apply_model_trade(state, batch_images, batch_labels, train_step_key)
+        state = apply_model_trade(state, batch_images, batch_labels, train_step_key)
         """
         # state = update_model(state, grads)
         if jax.process_index() == 0:
