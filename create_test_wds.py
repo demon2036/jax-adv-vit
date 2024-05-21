@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import einops
 import numpy as np
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
@@ -26,12 +27,18 @@ with wds.ShardWriter(
         shard_filename, maxcount=128,
 ) as sink, tqdm(test_dataset) as pbar:
     for i, (img, label) in enumerate(pbar):
-        print(np.array(img).shape)
+        # print(np.array(img).shape)
+
+        temp=np.array(img)
+        temp=einops.rearrange(temp,'c h w->h w c')
+        print(temp.shape)
 
         sink.write({
             "__key__": str(i),
-            "jpg.pyd": np.array(img),
+            "jpg.pyd": temp,
             "cls": np.array(label),
             # "json": label,
         })
-        """ """
+
+
+

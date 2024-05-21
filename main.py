@@ -87,9 +87,12 @@ def collate_and_pad(batch: list[Any], batch_size: int = 1) -> Any:
     return default_collate(batch + [pad] * (batch_size - len(batch)))
 
 
-def get_train_dataloader(batch_size=1024):
-    shard_path = 'gs://caster-us-central-2b/cifar10-20m-wds/shards-{00000..01290}.tar'
-    test_shard_path = 'gs://caster-us-central-2b/cifar10-test-wds/shards-{00000..00078}.tar'
+def get_train_dataloader(batch_size=1024,
+                         shard_path='gs://caster-us-central-2b/cifar10-20m-wds/shards-{00000..01290}.tar',
+                         test_shard_path='gs://caster-us-central-2b/cifar10-test-wds/shards-{00000..00078}.tar'
+                         ):
+
+
 
     # shard_path = './shards_01/shards-00040.tar'
 
@@ -149,7 +152,15 @@ def get_train_dataloader(batch_size=1024):
 
 
 if __name__ == '__main__':
-    get_train_dataloader()
+    dataset, train_dataloader, test_dataloader=get_train_dataloader(test_shard_path='./cifar10-test-wds/shards-{00000..00078}.tar',shard_path='./cifar10-test-wds/shards-{00000..00078}.tar')
+
+
+    for data in test_dataloader:
+        img,_=data
+        print(img.shape)
+        break
+
+
 
 # if __name__ == "__main__":
 #     model = MAE_ViT_2_T()
