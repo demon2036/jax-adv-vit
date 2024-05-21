@@ -393,8 +393,15 @@ def accuracy(state, data):
     inputs, labels = data
     logits = state.apply_fn({"params": state.params}, inputs)
     clean_accuracy = jnp.mean(jnp.argmax(logits, axis=-1) == labels)
-    clean_accuracy = jax.lax.pmean(clean_accuracy, axis_name='batch')
-    return clean_accuracy
+
+
+    adversarial_images = pgd_attack3(inputs, labels, state, )
+    logits_adv = state.apply_fn({"params": state.params}, adversarial_images)
+    adversarial_accuracy = jnp.mean(jnp.argmax(logits_adv, axis=-1) == labels)
+
+    metrics={"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
+    metrics=jax.lax.pmean(metrics,axis_name='batch')
+    return metrics
 
 
 def dataset_stats(state, data_loader, iter_per_epoch, ):
@@ -436,16 +443,18 @@ def eval(test_dataloader, state, ):
         images = shard(images)
         labels = shard(labels)
 
-        clean_accuracy = accuracy(state, (images, labels))  # / images.shape[0]
+        metrics=accuracy(state, (images, labels))
+
+        # clean_accuracy = accuracy(state, (images, labels))  # / images.shape[0]
 
         # clean_accuracy = jax.lax.pmean(clean_accuracy, axis_name='batch')
 
         # adversarial_images = pgd_attack(images, labels, params, epsilon=EPSILON)
-        adversarial_images = pmap_pgd(images, labels, state, )
-        adversarial_accuracy = accuracy(state, (adversarial_images, labels))
+        # adversarial_images = pmap_pgd(images, labels, state, )
+        # adversarial_accuracy = accuracy(state, (adversarial_images, labels))
 
         # adversarial_accuracy = jnp.sum(accuracy(state, (adversarial_images, labels))) / images.shape[0]
-        metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
+        # metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
         average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
     if jax.process_index() == 0:
         metrics = average_meter.summary('val/')
