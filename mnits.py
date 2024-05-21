@@ -419,7 +419,7 @@ def dataset_stats(state, data_loader, iter_per_epoch, ):
     return {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
 
 
-def eval(test_dataloader,state,):
+def eval(test_dataloader, state, ):
     pmap_pgd = jax.pmap(pgd_attack3)
     average_meter = AverageMeter(use_latest=["learning_rate"])
     for data in test_dataloader:
@@ -489,8 +489,7 @@ def train_and_evaluate(
     #
     # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
-    log_interval = 200
-
+    log_interval = 10
 
     rng = jax.random.key(0)
 
@@ -505,7 +504,7 @@ def train_and_evaluate(
         #     state, train_dataloader, input_rng, step
         # )
         # for data in tqdm.tqdm(train_dataloader):
-        """"""
+
         data = next(train_dataloader_iter)
 
         data = jax.tree_util.tree_map(np.asarray, data)
@@ -519,16 +518,16 @@ def train_and_evaluate(
 
         batch_images = shard(batch_images)
         batch_labels = shard(batch_labels)
-
+        """
         state, grads, loss, metrics = apply_model_trade(state, batch_images, batch_labels, train_step_key)
         # state = update_model(state, grads)
         if jax.process_index() == 0:
             average_meter.update(**metrics)
             metrics = average_meter.summary('train/')
             wandb.log(metrics, step)
-
+        """
         if step % log_interval == 0:
-            eval(test_dataloader,state)
+            eval(test_dataloader, state)
 
     return state
 
