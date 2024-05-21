@@ -288,7 +288,7 @@ def apply_model_trade(state, images, labels, key):
 
     new_state = state.apply_gradients(grads=grads)
 
-    return new_state#, grads, loss, metrics  #| state.opt_state.hyperparams
+    return new_state  #, grads, loss, metrics  #| state.opt_state.hyperparams
 
 
 # @jax.jit
@@ -426,8 +426,6 @@ def dataset_stats(state, data_loader, iter_per_epoch, ):
 
 
 def eval(test_dataloader, state, ):
-    pmap_pgd = jax.pmap(pgd_attack3)
-
     average_meter = AverageMeter(use_latest=["learning_rate"])
     for data in test_dataloader:
         data = jax.tree_util.tree_map(np.asarray, data)
@@ -435,6 +433,9 @@ def eval(test_dataloader, state, ):
 
         images = images.astype(jnp.float32)
         labels = labels.astype(jnp.int64)
+
+        print(images.shape)
+
         images = einops.rearrange(images, 'b c h w->b h w c')
         # images = images.astype(jnp.float32) / 255
 
@@ -490,6 +491,18 @@ def train_and_evaluate(
     # train_dataloader = DataLoader(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, num_workers=16, drop_last=True)
 
     _, train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE)
+
+
+
+    rng = jax.random.key(0)
+
+    rng, init_rng = jax.random.split(rng)
+    state = create_train_state(init_rng, )
+
+    state = flax.jax_utils.replicate(state)
+    eval(test_dataloader, state)
+
+
     train_dataloader_iter = iter(train_dataloader)
 
     # test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
@@ -500,12 +513,6 @@ def train_and_evaluate(
 
     log_interval = 10
 
-    rng = jax.random.key(0)
-
-    rng, init_rng = jax.random.split(rng)
-    state = create_train_state(init_rng, )
-
-    state = flax.jax_utils.replicate(state)
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
@@ -528,7 +535,7 @@ def train_and_evaluate(
         batch_images = shard(batch_images)
         batch_labels = shard(batch_labels)
 
-        state  = apply_model_trade(state, batch_images, batch_labels, train_step_key)
+        state = apply_model_trade(state, batch_images, batch_labels, train_step_key)
         """
         # state = update_model(state, grads)
         if jax.process_index() == 0:
@@ -538,7 +545,6 @@ def train_and_evaluate(
          """
         if step % log_interval == 0:
             eval(test_dataloader, state)
-
 
     return state
 
