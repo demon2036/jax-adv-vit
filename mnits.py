@@ -518,8 +518,9 @@ def train_and_evaluate(
 
         batch_images = shard(batch_images)
         batch_labels = shard(batch_labels)
-        """
+
         state, grads, loss, metrics = apply_model_trade(state, batch_images, batch_labels, train_step_key)
+        """
         # state = update_model(state, grads)
         if jax.process_index() == 0:
             average_meter.update(**metrics)
