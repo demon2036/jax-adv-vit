@@ -142,16 +142,7 @@ def get_train_dataloader(batch_size=1024):
         persistent_workers=True,
     )
 
-    print(1)
-    for data in test_dataloader:
-        i,_=data
-        print(3)
-        print(i.shape)
-        break
 
-    print(2)
-    while True:
-        pass
 
 
     return dataset, train_dataloader, test_dataloader
