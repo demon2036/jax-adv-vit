@@ -436,7 +436,7 @@ def eval(test_dataloader, state, ):
 
         print(images.shape)
 
-        images = einops.rearrange(images, 'b c h w->b h w c')
+        # images = einops.rearrange(images, 'b c h w->b h w c')
         # images = images.astype(jnp.float32) / 255
 
         # print(images.shape)
