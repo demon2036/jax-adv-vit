@@ -50,7 +50,7 @@ jax.distributed.initialize()
 
 EPOCHS = 1000  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the training set:
-TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
+TRAIN_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the test set:
 TEST_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Learning rate for the optimizer:
@@ -480,7 +480,7 @@ def train_and_evaluate(
 
     # train_dataloader = DataLoader(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, num_workers=16, drop_last=True)
 
-    _, train_dataloader, test_dataloader = get_train_dataloader()
+    _, train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE)
     train_dataloader_iter = iter(train_dataloader)
 
     # test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,

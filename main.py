@@ -134,7 +134,7 @@ def get_train_dataloader(batch_size=1024):
     )
     test_dataloader = DataLoader(
         dataset,
-        batch_size=(batch_size := 1024 // jax.process_count()),
+        batch_size=(batch_size := batch_size // jax.process_count()),
         num_workers=8,
         collate_fn=partial(collate_and_pad, batch_size=batch_size),
         drop_last=False,
