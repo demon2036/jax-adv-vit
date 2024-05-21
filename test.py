@@ -17,6 +17,8 @@
 Library file which executes the training and evaluation loop for MNIST.
 The data is loaded using tensorflow_datasets.
 """
+import argparse
+
 from dataset import create_dataloaders
 from main import get_train_dataloader
 import jax
