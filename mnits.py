@@ -283,6 +283,8 @@ def apply_model_trade(state, images, labels, key):
     metrics['accuracy'] = accuracy_std
     metrics['adversarial accuracy'] = accuracy_adv
 
+    metrics = jax.lax.pmean(metrics, axis_name="batch")
+
     grads = jax.lax.pmean(grads, axis_name="batch")
 
     new_state = state.apply_gradients(grads=grads)

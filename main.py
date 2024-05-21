@@ -65,7 +65,11 @@ def create_transforms() -> tuple[nn.Module, nn.Module]:
         T.PILToTensor(),
     ]
 
-    return T.Compose(train_transforms), T.Compose(train_transforms)
+    test_transforms=[
+        T.ToTensor()
+    ]
+
+    return T.Compose(train_transforms), T.Compose(test_transforms)
 
 
 def repeat_samples(samples: Iterator[Any], repeats: int = 1) -> Iterator[Any]:
@@ -85,9 +89,12 @@ def collate_and_pad(batch: list[Any], batch_size: int = 1) -> Any:
 
 def get_train_dataloader(batch_size=1024):
     shard_path = 'gs://caster-us-central-2b/cifar10-20m-wds/shards-{00000..01290}.tar'
+    test_shard_path = 'gs://caster-us-central-2b/cifar10-test-wds/shards-{00000..00078}.tar'
+
+
     # shard_path = './shards_01/shards-00040.tar'
 
-    train_transform, valid_transform = create_transforms()
+    train_transform, test_transform = create_transforms()
     ops = [
         itertools.cycle,
         wds.detshuffle(),
@@ -116,14 +123,26 @@ def get_train_dataloader(batch_size=1024):
         persistent_workers=True,
 
     )
-    # print(1)
-    # for data in dataset:
-    #     print(1)
-    #     print(data)
-    #     break
-    # print(2)
-    # while True:
-    #     pass
+
+    dataset = wds.DataPipeline(
+        wds.SimpleShardList(test_shard_path),
+        wds.slice(jax.process_index(), None, jax.process_count()),
+        wds.split_by_worker,
+        wds.cached_tarfile_to_samples(),
+        wds.decode("pil"),
+        wds.to_tuple("jpg", "cls"),
+        wds.map_tuple(test_transform, torch.tensor),
+    )
+    test_dataloader = DataLoader(
+        dataset,
+        batch_size=(batch_size := 1024 // jax.process_count()),
+        num_workers=8,
+        collate_fn=partial(collate_and_pad, batch_size=batch_size),
+        drop_last=False,
+        prefetch_factor=2,
+        persistent_workers=True,
+    )
+
 
     return dataset, train_dataloader
 
