@@ -1,0 +1,14 @@
+model_target: moe_baseline.moe_model_baseline.MAE_ViT_2_T_moe
+seed: 2022
+batch_size: 4096
+max_device_batch_size: 512
+base_learning_rate: 1.5e-4
+weight_decay: 0.05
+mask_ratio: 0.75
+total_epoch: 2000
+warmup_epoch: 200
+loss: l2
+mixed_precision: 'fp16'
+save_model_path: save_model_path/mae/moe_baseline
+save_model_name: moe_baseline_tiny
+

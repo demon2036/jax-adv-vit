@@ -1,0 +1,12 @@
+model_target: moe_fork_noise.moe_model_fork_hugging.MAE_ViT_2_T_moe
+seed: 2022
+batch_size: 128
+max_device_batch_size: 256
+base_learning_rate: 1.0e-3
+weight_decay: 0.05
+total_epoch: 100
+warmup_epoch: 5
+pretrained_model_path: None
+save_model_path: save_model_path/mae/moe_fork_noise
+save_model_name: moe_fork_noise_tiny
+mixed_precision: 'fp16'

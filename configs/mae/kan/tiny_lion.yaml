@@ -1,0 +1,25 @@
+model_target: baseline.model.MAE_ViT_2_T
+seed: 2022
+batch_size: 1024
+max_device_batch_size: 256
+base_learning_rate: 1.5e-4
+weight_decay: 0.05
+mask_ratio: 0.75
+total_epoch: 2000
+warmup_epoch: 200
+loss: l2
+mixed_precision: 'fp16'
+save_model_path: save_model_path/mae/baseline_aux
+save_model_name: baseline_aux09_tiny
+use_aux_dataset: False
+optimizer:
+  target: optimizers.lion.Lion
+  configs:
+#    blr: 1.0e-3
+#    lr: 0.0012
+#    lr: 0.005
+    lr: 4.0e-2
+    betas: [0.9, 0.99]
+    weight_decay: 0.5
+
+

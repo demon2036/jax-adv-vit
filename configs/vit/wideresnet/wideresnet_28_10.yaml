@@ -1,0 +1,11 @@
+model_target: wideresnet.wideresnet.wideresnetwithswish
+seed: 2022
+batch_size: 128
+max_device_batch_size: 256
+base_learning_rate: 1.0e-3
+weight_decay: 0.05
+total_epoch: 100
+warmup_epoch: 5
+save_model_path: save_model_path/finetune/wideresnet
+save_model_name: wideresnet_28_10
+mixed_precision: 'fp16'

@@ -1,0 +1,21 @@
+model_target: mae_adv.model_flip.MAE_ViT_2_T
+seed: 2022
+batch_size: 4096
+max_device_batch_size: 1024
+base_learning_rate: 1.5e-4
+weight_decay: 0.05
+mask_ratio: 0.75
+total_epoch: 2000
+warmup_epoch: 200
+save_every: 100
+loss: l2
+mixed_precision: 'bf16'
+save_model_path: save_model_path/mae/adv_feat
+save_model_name: adv_feat_tiny
+use_aux_dataset: false
+optimizer:
+  target: torch.optim.AdamW
+  configs:
+    blr: 1.0e-4
+    betas: [0.9, 0.999]
+    weight_decay: 0.05

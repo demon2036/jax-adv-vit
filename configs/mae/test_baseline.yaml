@@ -1,0 +1,23 @@
+model_target: baseline.model.MAE_ViT_2_T
+seed: 2022
+batch_size: 4096
+max_device_batch_size: 1024
+weight_decay: 0.05
+mask_ratio: 0.75
+total_epoch: 2000
+warmup_epoch: 200
+loss: l2
+mixed_precision: 'fp16'
+save_model_path: save_model_path/mae/baseline_aux
+save_model_name: baseline_aux09_tiny
+use_aux_dataset: False
+unsup_fraction: 0.9
+aux_data_filename: /home/jtitor/Downloads/1m.npz
+optimizer:
+  target: optimizers.lion.Lion
+  configs:
+    blr: 3.0e-5
+    betas: [0.9, 0.99]
+    weight_decay: 0.1
+
+

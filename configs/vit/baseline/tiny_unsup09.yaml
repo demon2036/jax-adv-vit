@@ -1,0 +1,18 @@
+model_target: baseline.model.MAE_ViT_2_T
+seed: 2022
+batch_size: 128
+max_device_batch_size: 256
+base_learning_rate: 1.0e-3
+weight_decay: 0.05
+total_epoch: 100
+warmup_epoch: 5
+save_model_path: save_model_path/vit/baseline_aux
+save_model_name: baseline_aux09_tiny
+mixed_precision: 'fp16'
+use_aux_dataset: true
+unsup_fraction: 0.9
+aux_data_filename: 1m.npz
+
+
+
+
