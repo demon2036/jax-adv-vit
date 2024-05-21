@@ -1,22 +1,7 @@
-# Copyright 2024 The Flax Authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+import jax
 
-"""MNIST example.
+jax.distributed.initialize()
 
-Library file which executes the training and evaluation loop for MNIST.
-The data is loaded using tensorflow_datasets.
-"""
 from functools import partial
 
 import einops
@@ -31,7 +16,7 @@ from absl import logging
 from flax import linen as nn
 # from flax.metrics import tensorboard
 from flax.training import train_state
-import jax
+
 import jax.numpy as jnp
 import numpy as np
 import optax
@@ -45,8 +30,6 @@ from model import ViT
 import os
 import wandb
 from utils2 import AverageMeter
-
-jax.distributed.initialize()
 
 EPOCHS = 1000  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the training set:
@@ -492,8 +475,6 @@ def train_and_evaluate(
 
     _, train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE)
 
-
-
     rng = jax.random.key(0)
 
     rng, init_rng = jax.random.split(rng)
@@ -501,7 +482,6 @@ def train_and_evaluate(
 
     state = flax.jax_utils.replicate(state)
     eval(test_dataloader, state)
-
 
     train_dataloader_iter = iter(train_dataloader)
 
@@ -512,7 +492,6 @@ def train_and_evaluate(
     # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
     log_interval = 10
-
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)

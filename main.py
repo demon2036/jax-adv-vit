@@ -123,7 +123,7 @@ def get_train_dataloader(batch_size=1024):
 
     )
 
-    dataset = wds.DataPipeline(
+    test_dataset = wds.DataPipeline(
         wds.SimpleShardList(test_shard_path),
         wds.slice(jax.process_index(), None, jax.process_count()),
         wds.split_by_worker,
@@ -133,7 +133,7 @@ def get_train_dataloader(batch_size=1024):
         wds.map_tuple(test_transform, torch.tensor),
     )
     test_dataloader = DataLoader(
-        dataset,
+        test_dataset,
         batch_size=(batch_size := batch_size // jax.process_count()),
         num_workers=8,
         collate_fn=partial(collate_and_pad, batch_size=batch_size),
