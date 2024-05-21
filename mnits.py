@@ -94,7 +94,7 @@ class CNN(nn.Module):
 #     return loss_value + 0.5 * l2reg * sqnorm
 
 
-def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter=10):
+def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter=1):
     """PGD attack on the L-infinity ball with radius epsilon.
 
   Args:
@@ -173,7 +173,7 @@ def loss_fun_trade(state, data):
     return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
 
 
-def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=None):
+def trade(image, label, state, epsilon=0.1, maxiter=1, step_size=0.007, key=None):
     """PGD attack on the L-infinity ball with radius epsilon.
 
   Args:
@@ -535,10 +535,10 @@ def train_and_evaluate(
             average_meter.update(**metrics)
             metrics = average_meter.summary('train/')
             wandb.log(metrics, step)
-       
+         """
         if step % log_interval == 0:
             eval(test_dataloader, state)
-         """
+
 
     return state
 
