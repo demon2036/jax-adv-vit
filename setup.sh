@@ -26,6 +26,7 @@ eval "$(~/miniconda3/bin/conda shell.bash hook)"
 pip install -U jax[tpu] -f https://storage.googleapis.com/jax-releases/libtpu_releases.html
 pip install -U torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 pip install -U flax optax chex webdataset timm wandb
+pip install einops
 
 
 # 3. Install Pillow-SIMD.
