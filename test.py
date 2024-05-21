@@ -37,7 +37,7 @@ L2_REG = 0.0001  # @param{type:"number"}
 # @markdown Adversarial perturbations lie within the infinity-ball of radius epsilon.
 EPSILON = 8 / 255  # @param{type:"number"}
 
-os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
+# os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
 
 if __name__ == "__main__":
     _, train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE)
