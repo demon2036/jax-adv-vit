@@ -544,4 +544,10 @@ def train_and_evaluate(
 
 
 if __name__ == "__main__":
-    train_and_evaluate()
+    _, train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE)
+    train_dataloader_iter = iter(train_dataloader)
+
+    for _ in range(100):
+        data=next(train_dataloader_iter)
+
+    # train_and_evaluate()
