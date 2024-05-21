@@ -130,7 +130,7 @@ def get_train_dataloader(batch_size=1024):
         wds.split_by_worker,
         wds.cached_tarfile_to_samples(),
         wds.decode("pil"),
-        wds.to_tuple("jpg", "cls"),
+        wds.to_tuple("jpg.pyd", "cls"),
         wds.map_tuple(test_transform, torch.tensor),
     )
     test_dataloader = DataLoader(
