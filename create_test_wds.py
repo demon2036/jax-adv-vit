@@ -26,7 +26,7 @@ with wds.ShardWriter(
         shard_filename, maxcount=128,
 ) as sink, tqdm(test_dataset) as pbar:
     for i, (img, label) in enumerate(pbar):
-        # print(np.array(label).dtype)
+        print(np.array(img).shape)
 
         sink.write({
             "__key__": str(i),
