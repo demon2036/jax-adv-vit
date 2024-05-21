@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
 import torchvision
@@ -16,8 +17,6 @@ test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, downlo
 
 test_dataloader = DataLoader(test_dataset, 1, shuffle=False, num_workers=16, drop_last=False)
 
-
-
 shard_path = './cifar10-test-wds'
 shard_dir_path = Path(shard_path)
 shard_dir_path.mkdir(exist_ok=True)
@@ -25,16 +24,14 @@ shard_filename = str(shard_dir_path / 'shards-%05d.tar')
 
 with wds.ShardWriter(
         shard_filename, maxcount=128,
-) as sink, tqdm(test_dataloader) as pbar:
+) as sink, tqdm(test_dataset) as pbar:
     for i, (img, label) in enumerate(pbar):
+        # print(np.array(label).dtype)
 
-        print(img.dtype,label.dtype)
-
-        """
         sink.write({
             "__key__": str(i),
-            "jpg.pyd": img,
-            "cls": int(label),
+            "jpg.pyd": np.array(img),
+            "cls": np.array(label),
             # "json": label,
         })
-        """
+        """ """
