@@ -78,7 +78,7 @@ class CNN(nn.Module):
 #     return loss_value + 0.5 * l2reg * sqnorm
 
 
-def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter=1):
+def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter=10):
     """PGD attack on the L-infinity ball with radius epsilon.
 
   Args:
@@ -157,7 +157,7 @@ def loss_fun_trade(state, data):
     return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
 
 
-def trade(image, label, state, epsilon=0.1, maxiter=1, step_size=0.007, key=None):
+def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=None):
     """PGD attack on the L-infinity ball with radius epsilon.
 
   Args:
@@ -272,7 +272,7 @@ def apply_model_trade(state, images, labels, key):
 
     new_state = state.apply_gradients(grads=grads)
 
-    return new_state  #, grads, loss, metrics  #| state.opt_state.hyperparams
+    return new_state,metrics  #, grads, loss, metrics  #| state.opt_state.hyperparams
 
 
 # @jax.jit
@@ -514,7 +514,7 @@ def train_and_evaluate(
         batch_images = shard(batch_images)
         batch_labels = shard(batch_labels)
 
-        state = apply_model_trade(state, batch_images, batch_labels, train_step_key)
+        state,metrics = apply_model_trade(state, batch_images, batch_labels, train_step_key)
         """"""
         # state = update_model(state, grads)
         if jax.process_index() == 0:
