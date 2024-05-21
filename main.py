@@ -115,10 +115,10 @@ def get_train_dataloader(batch_size=1024):
     train_dataloader = DataLoader(
         dataset,
         batch_size=batch_size // jax.process_count(),
-        num_workers=16,
+        num_workers=32,
         # collate_fn=partial(collate_and_shuffle, repeats=args.augment_repeats),
         drop_last=True,
-        prefetch_factor=4,
+        prefetch_factor=10,
         persistent_workers=True,
 
     )

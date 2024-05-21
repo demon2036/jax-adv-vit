@@ -485,7 +485,7 @@ def train_and_evaluate(
 
         data = next(train_dataloader_iter)
 
-        data = jax.tree_map(np.asarray, data)
+        data = jax.tree_util.tree_map(np.asarray, data)
         batch_images, batch_labels = data
         batch_images = batch_images.astype(jnp.float32) / 255
         batch_labels = batch_labels.astype(jnp.float32)
