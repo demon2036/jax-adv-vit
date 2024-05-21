@@ -34,7 +34,7 @@ from utils2 import AverageMeter
 
 EPOCHS = 1000  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the training set:
-TRAIN_BATCH_SIZE = 64  # @param{type:"integer"}
+TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the test set:
 TEST_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Learning rate for the optimizer:
@@ -491,8 +491,7 @@ def train_and_evaluate(
 
     # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
-    log_interval = 10
-    old_state=state
+    log_interval = 100
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
@@ -516,13 +515,13 @@ def train_and_evaluate(
         batch_labels = shard(batch_labels)
 
         state = apply_model_trade(state, batch_images, batch_labels, train_step_key)
-        """
+        """"""
         # state = update_model(state, grads)
         if jax.process_index() == 0:
             average_meter.update(**metrics)
             metrics = average_meter.summary('train/')
             wandb.log(metrics, step)
-         """
+
         if step % log_interval == 0:
             eval(test_dataloader, state)
 
