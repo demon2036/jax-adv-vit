@@ -481,7 +481,6 @@ def train_and_evaluate(
     state = create_train_state(init_rng, )
 
     state = flax.jax_utils.replicate(state)
-    eval(test_dataloader, state)
 
     train_dataloader_iter = iter(train_dataloader)
 
@@ -492,6 +491,7 @@ def train_and_evaluate(
     # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
     log_interval = 10
+    old_state=state
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
@@ -523,7 +523,7 @@ def train_and_evaluate(
             wandb.log(metrics, step)
          """
         if step % log_interval == 0:
-            eval(test_dataloader, state)
+            eval(test_dataloader, old_state)
 
     return state
 
