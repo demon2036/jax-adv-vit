@@ -29,6 +29,6 @@ with wds.ShardWriter(
         sink.write({
             "__key__": str(i),
             "jpg.pyd": img,
-            "cls": label,
+            "cls": int(label),
             # "json": label,
         })

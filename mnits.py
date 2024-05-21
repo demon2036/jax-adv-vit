@@ -434,12 +434,6 @@ def train_and_evaluate(
         wandb.init(name='vit-b4', project='cifar10-20m')
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
-    rng = jax.random.key(0)
-
-    rng, init_rng = jax.random.split(rng)
-    state = create_train_state(init_rng, )
-
-    state = flax.jax_utils.replicate(state)
 
     transform_train = [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip(),
                        # AutoAugment(), Cutout(),
@@ -464,6 +458,15 @@ def train_and_evaluate(
 
     log_interval = 200
     pmap_pgd = jax.pmap(pgd_attack3)
+
+
+    rng = jax.random.key(0)
+
+    rng, init_rng = jax.random.split(rng)
+    state = create_train_state(init_rng, )
+
+    state = flax.jax_utils.replicate(state)
+
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
