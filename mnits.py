@@ -495,6 +495,7 @@ def train_and_evaluate(
             wandb.log(metrics, step)
 
         if step % log_interval == 0:
+            average_meter = AverageMeter(use_latest=["learning_rate"])
             for data in test_dataloader:
                 data = jax.tree_util.tree_map(np.asarray, data)
                 images, labels = data
@@ -509,19 +510,17 @@ def train_and_evaluate(
                 images = shard(images)
                 labels = shard(labels)
 
-                clean_accuracy = accuracy(state, (images, labels))[0] #/ images.shape[0]
+                clean_accuracy = accuracy(state, (images, labels)) #/ images.shape[0]
 
                 #clean_accuracy = jax.lax.pmean(clean_accuracy, axis_name='batch')
 
                 # adversarial_images = pgd_attack(images, labels, params, epsilon=EPSILON)
                 adversarial_images = pmap_pgd(images, labels, state, )
-                adversarial_accuracy =accuracy(state, (adversarial_images, labels))[0]
+                adversarial_accuracy =accuracy(state, (adversarial_images, labels))
 
                 # adversarial_accuracy = jnp.sum(accuracy(state, (adversarial_images, labels))) / images.shape[0]
                 metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
-
-                if jax.process_index() == 0:
-                    average_meter.update(**metrics)
+                average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
             if jax.process_index() == 0:
                 metrics = average_meter.summary('val/')
                 wandb.log(metrics, step)
