@@ -392,8 +392,7 @@ def create_train_state(rng):
 @jax.pmap
 def accuracy(state, data):
     inputs, labels = data
-    inputs=inputs.astype(jnp.float32)
-    labels=labels.astype(jnp.float32)
+
     logits = state.apply_fn({"params": state.params}, inputs)
     return jnp.mean(jnp.argmax(logits, axis=-1) == labels)
 
@@ -470,6 +469,13 @@ def train_and_evaluate(
     state = flax.jax_utils.replicate(state)
 
 
+
+
+
+
+
+
+
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
         # state, step = train_epoch(
@@ -500,8 +506,11 @@ def train_and_evaluate(
         """
         if step % log_interval == 0:
             for data in test_dataloader:
-                data = jax.tree_map(np.asarray, data)
+                data = jax.tree_util.tree_map(np.asarray, data)
                 images, labels = data
+
+                images = images.astype(jnp.float32)
+                labels = labels.astype(jnp.int64)
                 images = einops.rearrange(images, 'b c h w->b h w c')
                 # images = images.astype(jnp.float32) / 255
 

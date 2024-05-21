@@ -8,6 +8,7 @@ import webdataset as wds
 from tqdm import tqdm
 
 transform_test = [PILToTensor()]
+ransform_test = [ToTensor()]
 
 test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
                                             transform=Compose(
@@ -24,11 +25,16 @@ shard_filename = str(shard_dir_path / 'shards-%05d.tar')
 
 with wds.ShardWriter(
         shard_filename, maxcount=128,
-) as sink, tqdm(test_dataset) as pbar:
+) as sink, tqdm(test_dataloader) as pbar:
     for i, (img, label) in enumerate(pbar):
+
+        print(img.dtype,label.dtype)
+
+        """
         sink.write({
             "__key__": str(i),
             "jpg.pyd": img,
             "cls": int(label),
             # "json": label,
         })
+        """
