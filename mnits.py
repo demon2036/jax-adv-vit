@@ -487,10 +487,8 @@ def train_and_evaluate(
         # state = update_model(state, grads)
         if jax.process_index() == 0:
             average_meter.update(**metrics)
-
-        metrics = average_meter.summary('train/')
-
-        wandb.log(metrics, step)
+            metrics = average_meter.summary('train/')
+            wandb.log(metrics, step)
 
         if step % log_interval == 0:
             pmap_pgd = jax.pmap(pgd_attack3)
