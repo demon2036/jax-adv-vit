@@ -289,7 +289,7 @@ def apply_model_trade(state, images, labels, key):
 
     new_state = state.apply_gradients(grads=grads)
 
-    return new_state, grads, loss, metrics | state.opt_state.hyperparams
+    return new_state, grads, loss, metrics #| state.opt_state.hyperparams
 
 
 # @jax.jit
@@ -482,7 +482,7 @@ def train_and_evaluate(
         #     state, train_dataloader, input_rng, step
         # )
         # for data in tqdm.tqdm(train_dataloader):
-        """
+        """"""
         data = next(train_dataloader_iter)
 
         data = jax.tree_util.tree_map(np.asarray, data)
@@ -503,7 +503,7 @@ def train_and_evaluate(
             average_meter.update(**metrics)
             metrics = average_meter.summary('train/')
             wandb.log(metrics, step)
-        """
+
         if step % log_interval == 0:
             for data in test_dataloader:
                 data = jax.tree_util.tree_map(np.asarray, data)
@@ -519,7 +519,7 @@ def train_and_evaluate(
                 images = shard(images)
                 labels = shard(labels)
 
-                clean_accuracy = jnp.sum(accuracy(state, (images, labels))) / images.shape[0]
+                clean_accuracy = jax.lax.psum(accuracy(state, (images, labels))) / images.shape[0]
                 # adversarial_images = pgd_attack(images, labels, params, epsilon=EPSILON)
                 adversarial_images = pmap_pgd(images, labels, state, )
                 adversarial_accuracy = jnp.sum(accuracy(state, (adversarial_images, labels))) / images.shape[0]
