@@ -49,7 +49,6 @@ from utils2 import AverageMeter
 
 jax.distributed.initialize()
 
-
 EPOCHS = 1000  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the training set:
 TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
@@ -65,8 +64,6 @@ L2_REG = 0.0001  # @param{type:"number"}
 EPSILON = 8 / 255  # @param{type:"number"}
 
 os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
-
-wandb.init(name='vit-t2', project='cifar10-20m')
 
 
 class CNN(nn.Module):
@@ -431,6 +428,10 @@ def train_and_evaluate(
     The train state (which includes the `.params`).
   """
 
+    if jax.process_index() == 0:
+        wandb.init(name='vit-b4', project='cifar10-20m')
+        average_meter = AverageMeter(use_latest=["learning_rate"])
+
     rng = jax.random.key(0)
 
     rng, init_rng = jax.random.split(rng)
@@ -444,9 +445,9 @@ def train_and_evaluate(
 
     transform_test = [ToTensor()]
 
-    train_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=True, download=True,
-                                                 transform=Compose(
-                                                     transform_train))  # 0.5, 0.5
+    # train_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=True, download=True,
+    #                                              transform=Compose(
+    #                                                  transform_train))  # 0.5, 0.5
 
     # train_dataloader = DataLoader(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, num_workers=16, drop_last=True)
 
@@ -459,12 +460,9 @@ def train_and_evaluate(
 
     test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
-    step = 0
-    average_meter = AverageMeter(use_latest=["learning_rate"])
-
     log_interval = 100
 
-    for epoch in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
+    for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
         # state, step = train_epoch(
         #     state, train_dataloader, input_rng, step
@@ -473,7 +471,6 @@ def train_and_evaluate(
 
         data = next(train_dataloader_iter)
 
-        step += 1
         data = jax.tree_map(np.asarray, data)
         batch_images, batch_labels = data
         batch_images = batch_images.astype(jnp.float32) / 255
@@ -488,8 +485,8 @@ def train_and_evaluate(
 
         state, grads, loss, metrics = apply_model_trade(state, batch_images, batch_labels, train_step_key)
         # state = update_model(state, grads)
-
-        average_meter.update(**metrics)
+        if jax.process_index() == 0:
+            average_meter.update(**metrics)
 
         metrics = average_meter.summary('train/')
 
@@ -510,9 +507,12 @@ def train_and_evaluate(
                 adversarial_images = pmap_pgd(images, labels, state, )
                 adversarial_accuracy = jnp.sum(accuracy(state, (adversarial_images, labels))) / images.shape[0]
                 metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
-                average_meter.update(**metrics)
-            metrics = average_meter.summary('val/')
-            wandb.log(metrics, step)
+
+                if jax.process_index() == 0:
+                    average_meter.update(**metrics)
+            if jax.process_index() == 0:
+                metrics = average_meter.summary('val/')
+                wandb.log(metrics, step)
 
     return state
 

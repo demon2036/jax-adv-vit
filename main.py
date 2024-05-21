@@ -21,7 +21,7 @@ from collections.abc import Iterator
 from functools import partial
 from typing import Any
 
-# import jax
+import jax
 import numpy as np
 import torch
 import torch.nn as nn
@@ -83,7 +83,7 @@ def collate_and_pad(batch: list[Any], batch_size: int = 1) -> Any:
     return default_collate(batch + [pad] * (batch_size - len(batch)))
 
 
-def get_train_dataloader():
+def get_train_dataloader(batch_size=1024):
     shard_path = 'gs://caster-us-central-2b/cifar10-20m-wds/shards-{00000..01290}.tar'
     # shard_path = './shards_01/shards-00040.tar'
 
@@ -91,7 +91,7 @@ def get_train_dataloader():
     ops = [
         itertools.cycle,
         wds.detshuffle(),
-        #
+        wds.slice(jax.process_index(), None, jax.process_count()),
         wds.split_by_worker,
         # # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
         wds.detshuffle(),
@@ -108,7 +108,7 @@ def get_train_dataloader():
 
     train_dataloader = DataLoader(
         dataset,
-        batch_size=1024,
+        batch_size=batch_size // jax.process_count(),
         num_workers=16,
         # collate_fn=partial(collate_and_shuffle, repeats=args.augment_repeats),
         drop_last=True,
