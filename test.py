@@ -21,11 +21,11 @@ import argparse
 import random
 
 from dataset import create_dataloaders
-from main import get_train_dataloader
+# from main import get_train_dataloader
 import jax
 
-jax.distributed.initialize()
-
+# jax.distributed.initialize()
+"""
 EPOCHS = 1000  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the training set:
 TRAIN_BATCH_SIZE = 64  # @param{type:"integer"}
@@ -41,7 +41,7 @@ L2_REG = 0.0001  # @param{type:"number"}
 EPSILON = 8 / 255  # @param{type:"number"}
 
 # os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
-
+"""
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--train-dataset-shards")
