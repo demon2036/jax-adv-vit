@@ -414,32 +414,13 @@ def eval(test_dataloader, state, ):
     for data in test_dataloader:
         data = jax.tree_util.tree_map(np.asarray, data)
         images, labels = data
-
         images = images.astype(jnp.float32)
         labels = labels.astype(jnp.int64)
-
-        # print(images.shape)
-
         images = einops.rearrange(images, 'b c h w->b h w c')
-        # images = images.astype(jnp.float32) / 255
-
-        # print(images.shape)
-
         images = shard(images)
         labels = shard(labels)
-
         metrics = accuracy(state, (images, labels))
 
-        # clean_accuracy = accuracy(state, (images, labels))  # / images.shape[0]
-
-        # clean_accuracy = jax.lax.pmean(clean_accuracy, axis_name='batch')
-
-        # adversarial_images = pgd_attack(images, labels, params, epsilon=EPSILON)
-        # adversarial_images = pmap_pgd(images, labels, state, )
-        # adversarial_accuracy = accuracy(state, (adversarial_images, labels))
-
-        # adversarial_accuracy = jnp.sum(accuracy(state, (adversarial_images, labels))) / images.shape[0]
-        # metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
         average_meter.update(**metrics)
     if jax.process_index() == 0:
         metrics = average_meter.summary('val/')
@@ -523,7 +504,21 @@ def train_and_evaluate(
             wandb.log(metrics, step)
 
         if step % log_interval == 0:
-            eval(test_dataloader, state)
+            # eval(test_dataloader, state)
+            for data in test_dataloader:
+                data = jax.tree_util.tree_map(np.asarray, data)
+                images, labels = data
+                images = images.astype(jnp.float32)
+                labels = labels.astype(jnp.int64)
+                images = einops.rearrange(images, 'b c h w->b h w c')
+                images = shard(images)
+                labels = shard(labels)
+                metrics = accuracy(state, (images, labels))
+                if jax.process_index() == 0:
+                    average_meter.update(**metrics)
+            if jax.process_index() == 0:
+                metrics = average_meter.summary('val/')
+                wandb.log(metrics, 1)
 
     return state
 
