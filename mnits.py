@@ -329,7 +329,7 @@ def create_train_state(rng):
         # polynomial_degree=args.polynomial_degree,
     )
 
-    # cnn = CNN()
+    cnn = CNN()
 
     image_shape = [1, 28, 28, 1]
     image_shape = [1, 32, 32, 3]
@@ -510,6 +510,12 @@ def train_and_evaluate(
                 images, labels = data
                 images = images.astype(jnp.float32)
                 labels = labels.astype(jnp.int64)
+
+
+                print(images)
+                while True:
+                    pass
+
                 images = einops.rearrange(images, 'b c h w->b h w c')
                 images = shard(images)
                 labels = shard(labels)
