@@ -151,8 +151,8 @@ def get_train_dataloader(batch_size=1024,
     for op in ops:
         test_dataset = test_dataset.compose(op)
     #
-    test_batch_size = 256
-    num_workers = 8
+    test_batch_size = 1024
+    num_workers = 2
 
     test_dataloader = DataLoader(
         test_dataset,
@@ -160,7 +160,7 @@ def get_train_dataloader(batch_size=1024,
         num_workers=num_workers,
         collate_fn=partial(collate_and_pad, batch_size=test_batch_size),
         drop_last=False,
-        prefetch_factor=1,
+        prefetch_factor=4,
         persistent_workers=True,
     )
 
@@ -170,7 +170,7 @@ def get_train_dataloader(batch_size=1024,
 
         print(labels)
 
-        print(img.shape[0])
+        # print(img.shape[0])
         count += img.shape[0]
         # count += 1
 
