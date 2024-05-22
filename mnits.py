@@ -455,9 +455,11 @@ def train_and_evaluate(
 
     # train_dataloader = DataLoader(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, num_workers=16, drop_last=True)
 
-    _, train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE,
-                                                                test_shard_path='./cifar10-test-wds/shards-{00000..00078}.tar',
-                                                                shard_path='./cifar10-test-wds/shards-{00000..00078}.tar')
+    # _, train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE,
+    #                                                             test_shard_path='./cifar10-test-wds/shards-{00000..00078}.tar',
+    #                                                             shard_path='./cifar10-test-wds/shards-{00000..00078}.tar')
+
+    _, train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE,)
 
     rng = jax.random.key(0)
 
