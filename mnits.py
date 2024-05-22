@@ -37,7 +37,7 @@ TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the test set:
 TEST_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Learning rate for the optimizer:
-LEARNING_RATE = 0.001  # @param{type:"number"}
+LEARNING_RATE = 3e-3  # @param{type:"number"}
 # @markdown The dataset to use.
 DATASET = "cifar10"  # @param{type:"string"}
 # @markdown The amount of L2 regularization to use:
@@ -360,7 +360,7 @@ def create_train_state(rng):
 
     learning_rate = optax.warmup_cosine_decay_schedule(
         init_value=1e-6,
-        peak_value=1e-3,
+        peak_value=LEARNING_RATE,
         warmup_steps=50000 * 5 // TRAIN_BATCH_SIZE,
         decay_steps=50000 * EPOCHS // TRAIN_BATCH_SIZE,
         end_value=1e-5,
@@ -383,7 +383,7 @@ def accuracy(state, data):
 
     metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy, "num_samples": labels != -1}
 
-    metrics = jax.tree_map(lambda x: (x * (labels != -1)).sum(), metrics)
+    metrics = jax.tree_util.tree_map(lambda x: (x * (labels != -1)).sum(), metrics)
 
     metrics = jax.lax.psum(metrics, axis_name='batch')
 
@@ -474,7 +474,7 @@ def train_and_evaluate(
                                                 transform=Compose(
                                                     transform_test))  # 0.5, 0.5
 
-    test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
+    # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
     log_interval = 100
 
@@ -525,11 +525,11 @@ def train_and_evaluate(
                 # print(metrics)
 
                 if jax.process_index() == 0:
-                    average_meter.update(**metrics)
+                    average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
             if jax.process_index() == 0:
                 metrics = average_meter.summary("val/")
                 num_samples = metrics.pop("val/num_samples")
-                metrics = jax.tree_map(lambda x: x / num_samples, metrics)
+                metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
                 wandb.log(metrics, step)
 
     return state
