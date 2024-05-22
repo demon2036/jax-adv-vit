@@ -443,7 +443,7 @@ def train_and_evaluate(
   """
 
     if jax.process_index() == 0:
-        wandb.init(name='vit-b4', project='cifar10-20m-2')
+        wandb.init(name='vit-b4', project='cifar10-20m')
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
     transform_train = [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip(),
