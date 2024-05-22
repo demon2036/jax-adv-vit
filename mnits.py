@@ -38,11 +38,11 @@ TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the test set:
 TEST_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Learning rate for the optimizer:
-LEARNING_RATE = 4e-5  # @param{type:"number"}
-WEIGHT_DECAY = 0.05
-
-# LEARNING_RATE = 1e-3  # @param{type:"number"}
+# LEARNING_RATE = 4e-5  # @param{type:"number"}
 # WEIGHT_DECAY = 0.05
+
+LEARNING_RATE = 1e-3  # @param{type:"number"}
+WEIGHT_DECAY = 0.05
 
 # @markdown The dataset to use.
 DATASET = "cifar10"  # @param{type:"string"}
@@ -294,7 +294,7 @@ def apply_model_trade(state, data, key):
     new_state = state.apply_gradients(grads=grads)
     # metrics.update(state.opt_state.hyperparams)
 
-    return new_state, metrics|state.opt_state.hyperparams
+    return new_state, metrics | state.opt_state.hyperparams
 
 
 def create_train_state(rng):
@@ -307,7 +307,7 @@ def create_train_state(rng):
         heads=3 * factor ** 2,
         labels=10,
         layerscale=True,
-        patch_size=2 ,
+        patch_size=2,
         image_size=32,
         posemb='learnable',
         pooling='cls',
@@ -329,7 +329,7 @@ def create_train_state(rng):
     def create_optimizer_fn(
             learning_rate: optax.Schedule,
     ) -> optax.GradientTransformation:
-        tx = optax.lion(
+        tx = optax.adamw(
             learning_rate=learning_rate,
             # eps=args.adam_eps,
             weight_decay=WEIGHT_DECAY,
@@ -493,7 +493,7 @@ def train_and_evaluate(
 
         return jax.tree_util.tree_map(_prepare, xs)
 
-    train_dataloader_iter=map(prepare_tf_data,train_dataloader_iter)
+    train_dataloader_iter = map(prepare_tf_data, train_dataloader_iter)
 
     train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
@@ -519,7 +519,6 @@ def train_and_evaluate(
 
         # state = update_model(state, grads)
         if jax.process_index() == 0:
-
             # print(flax.jax_utils.unreplicate(metrics))
 
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
@@ -528,8 +527,6 @@ def train_and_evaluate(
             wandb.log(metrics, step)
             # while True:
             #     pass
-
-
 
         if step % log_interval == 0:
             # eval(test_dataloader, state)
