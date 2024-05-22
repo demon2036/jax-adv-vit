@@ -258,6 +258,10 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
 @partial(jax.pmap, axis_name="batch", )
 def apply_model_trade(state, images, labels, key):
+    images, labels = data
+    images = images.astype(jnp.float32) / 255
+    labels = labels.astype(jnp.float32)
+
     """Computes gradients, loss and accuracy for a single batch."""
     adv_image = trade(images, labels, state, key=key)
 
@@ -512,23 +516,20 @@ def train_and_evaluate(
         """"""
         data = next(train_dataloader_iter)
 
-        data = jax.tree_util.tree_map(np.asarray, data)
-        batch_images, batch_labels = data
-        batch_images = batch_images.astype(jnp.float32) / 255
-        batch_labels = batch_labels.astype(jnp.float32)
+        data = shard(jax.tree_util.tree_map(np.asarray, data))
+        # batch_images, batch_labels = data
+        # batch_images = batch_images.astype(jnp.float32) / 255
+        # batch_labels = batch_labels.astype(jnp.float32)
         # batch_images = einops.rearrange(batch_images, 'b c h w->b h w c')
 
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
 
-        batch_images = shard(batch_images)
-        batch_labels = shard(batch_labels)
-
-        state, metrics = apply_model_trade(state, batch_images, batch_labels, train_step_key)
+        state, metrics = apply_model_trade(state, data, train_step_key)
 
         # state = update_model(state, grads)
         if jax.process_index() == 0:
-            average_meter.update(**metrics)
+            average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
             wandb.log(metrics, step)
 
