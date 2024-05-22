@@ -284,8 +284,9 @@ def apply_model_trade(state, images, labels, key):
     grads = jax.lax.pmean(grads, axis_name="batch")
 
     new_state = state.apply_gradients(grads=grads)
+    metrics.update(state.opt_state.hyperparams)
 
-    return new_state, metrics.update(state.opt_state.hyperparams)
+    return new_state, metrics
 
 
 # @jax.jit
