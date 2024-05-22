@@ -1,6 +1,5 @@
 import jax
 
-
 jax.distributed.initialize()
 
 from functools import partial
@@ -376,14 +375,19 @@ def create_train_state(rng):
 def accuracy(state, data):
     inputs, labels = data
     logits = state.apply_fn({"params": state.params}, inputs)
-    clean_accuracy = jnp.mean(jnp.argmax(logits, axis=-1) == labels)
+    clean_accuracy = jnp.argmax(logits, axis=-1) == labels
 
     adversarial_images = pgd_attack3(inputs, labels, state, )
     logits_adv = state.apply_fn({"params": state.params}, adversarial_images)
-    adversarial_accuracy = jnp.mean(jnp.argmax(logits_adv, axis=-1) == labels)
+    adversarial_accuracy = jnp.argmax(logits_adv, axis=-1) == labels
 
-    metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
-    metrics = jax.lax.pmean(metrics, axis_name='batch')
+    metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy, "num_samples": labels != -1}
+
+    metrics = jax.tree_map(lambda x: (x * (labels != -1)).sum(), metrics)
+
+    metrics = jax.lax.psum(metrics, axis_name='batch')
+
+    # metrics = jax.lax.pmean(metrics, axis_name='batch')
     return metrics
 
 
@@ -496,7 +500,7 @@ def train_and_evaluate(
         batch_labels = shard(batch_labels)
 
         state, metrics = apply_model_trade(state, batch_images, batch_labels, train_step_key)
-       
+
         # state = update_model(state, grads)
         if jax.process_index() == 0:
             average_meter.update(**metrics)
@@ -523,9 +527,10 @@ def train_and_evaluate(
                 if jax.process_index() == 0:
                     average_meter.update(**metrics)
             if jax.process_index() == 0:
-                metrics = average_meter.summary('val/')
+                metrics = average_meter.summary("val/")
+                num_samples = metrics.pop("val/num_samples")
+                metrics = jax.tree_map(lambda x: x / num_samples, metrics)
                 wandb.log(metrics, step)
-
 
     return state
 
