@@ -123,7 +123,6 @@ def get_train_dataloader(batch_size=1024,
         drop_last=True,
         prefetch_factor=10,
         persistent_workers=True,
-
     )
 
     # test_dataset = wds.DataPipeline(
@@ -161,7 +160,7 @@ def get_train_dataloader(batch_size=1024,
         num_workers=num_workers,
         collate_fn=partial(collate_and_pad, batch_size=test_batch_size),
         drop_last=False,
-        prefetch_factor=1,
+        prefetch_factor=2,
         persistent_workers=True,
     )
 

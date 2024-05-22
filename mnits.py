@@ -1,9 +1,10 @@
 import jax
 
+
 jax.distributed.initialize()
 
 from functools import partial
-
+from torch.utils.data import DataLoader
 import einops
 import flax.jax_utils
 import torchvision
@@ -328,7 +329,7 @@ def create_train_state(rng):
         # polynomial_degree=args.polynomial_degree,
     )
 
-    cnn = CNN()
+    # cnn = CNN()
 
     image_shape = [1, 28, 28, 1]
     image_shape = [1, 32, 32, 3]
@@ -469,7 +470,7 @@ def train_and_evaluate(
                                                 transform=Compose(
                                                     transform_test))  # 0.5, 0.5
 
-    # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
+    test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
     log_interval = 100
 
@@ -513,7 +514,6 @@ def train_and_evaluate(
                 # print(images)
                 # while True:
                 #     pass
-
                 images = einops.rearrange(images, 'b c h w->b h w c')
                 images = shard(images)
                 labels = shard(labels)
@@ -524,7 +524,6 @@ def train_and_evaluate(
                     average_meter.update(**metrics)
             if jax.process_index() == 0:
                 metrics = average_meter.summary('val/')
-
                 wandb.log(metrics, step)
 
 
