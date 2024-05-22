@@ -47,7 +47,7 @@ class AverageMeter:
         self.buffer.clear()
 
         return {
-            f"{prefix}{k}": v[-1] if k in self.use_latest else np.mean(v)
+            f"{prefix}{k}": v[-1].items() if k in self.use_latest else np.mean(v)
             for k, v in buffer.items()
         }
 
