@@ -39,6 +39,8 @@ TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
 TEST_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Learning rate for the optimizer:
 LEARNING_RATE = 1e-3  # @param{type:"number"}
+WEIGHT_DECAY = 0.05
+
 # @markdown The dataset to use.
 DATASET = "cifar10"  # @param{type:"string"}
 # @markdown The amount of L2 regularization to use:
@@ -292,9 +294,6 @@ def apply_model_trade(state, data, key):
     return new_state, metrics
 
 
-
-
-
 def create_train_state(rng):
     """Creates initial `TrainState`."""
 
@@ -327,11 +326,10 @@ def create_train_state(rng):
     def create_optimizer_fn(
             learning_rate: optax.Schedule,
     ) -> optax.GradientTransformation:
-        tx = optax.adamw(
+        tx = optax.lion(
             learning_rate=learning_rate,
-
             # eps=args.adam_eps,
-            weight_decay=0.05,
+            weight_decay=WEIGHT_DECAY,
             # mask=partial(tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
         )
         # if args.lr_decay < 1.0:
@@ -475,6 +473,7 @@ def train_and_evaluate(
     # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
     log_interval = 200
+    train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 4)
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
@@ -484,6 +483,8 @@ def train_and_evaluate(
         # for data in tqdm.tqdm(train_dataloader):
         """"""
         data = next(train_dataloader_iter)
+
+
 
         data = shard(jax.tree_util.tree_map(np.asarray, data))
         # batch_images, batch_labels = data
@@ -500,6 +501,7 @@ def train_and_evaluate(
         if jax.process_index() == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
+            print(metrics)
             wandb.log(metrics, step)
 
         if step % log_interval == 0:
