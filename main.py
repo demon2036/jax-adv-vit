@@ -152,13 +152,16 @@ def get_train_dataloader(batch_size=1024,
         test_dataset = test_dataset.compose(op)
     #
     test_batch_size = 1024
-    num_workers = 2
+    num_workers = 16
+
+    count= jax.process_count()
+    # count=8
 
     test_dataloader = DataLoader(
         test_dataset,
-        batch_size=test_batch_size // jax.process_count(),
+        batch_size=test_batch_size // count,
         num_workers=num_workers,
-        collate_fn=partial(collate_and_pad, batch_size=test_batch_size),
+        collate_fn=partial(collate_and_pad, batch_size=test_batch_size // count),
         drop_last=False,
         prefetch_factor=4,
         persistent_workers=True,
@@ -166,7 +169,7 @@ def get_train_dataloader(batch_size=1024,
 
     # count = 0
     # for data in test_dataloader:
-    #     img, labels= data
+    #     img, labels = data
     #
     #     print(labels)
     #

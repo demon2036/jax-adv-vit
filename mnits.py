@@ -37,7 +37,7 @@ TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the test set:
 TEST_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Learning rate for the optimizer:
-LEARNING_RATE = 3e-3  # @param{type:"number"}
+LEARNING_RATE = 1e-3 # @param{type:"number"}
 # @markdown The dataset to use.
 DATASET = "cifar10"  # @param{type:"string"}
 # @markdown The amount of L2 regularization to use:
