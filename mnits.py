@@ -219,7 +219,6 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
     grad_adversarial = jax.grad(adversarial_loss)
     for _ in range(maxiter):
         # compute gradient of the loss wrt to the image
-
         sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial(x_adv, logits)))
         # heuristic step-size 2 eps / maxiter
         # image_perturbation += step_size * sign_grad
@@ -257,7 +256,7 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
 
 @partial(jax.pmap, axis_name="batch", )
-def apply_model_trade(state, images, labels, key):
+def apply_model_trade(state, data, key):
     images, labels = data
     images = images.astype(jnp.float32) / 255
     labels = labels.astype(jnp.float32)
@@ -293,37 +292,7 @@ def apply_model_trade(state, images, labels, key):
     return new_state, metrics
 
 
-# @jax.jit
-# def update_model(state, grads):
-#     return state.apply_gradients(grads=grads)
 
-
-def train_epoch(state, train_dataloader, rng, step=0):
-    """Train for a single epoch."""
-    average_meter = AverageMeter(use_latest=["learning_rate"])
-    for data in tqdm.tqdm(train_dataloader):
-        step += 1
-        data = jax.tree_map(np.asarray, data)
-        batch_images, batch_labels = data
-
-        batch_images = einops.rearrange(batch_images, 'b c h w->b h w c')
-
-        rng, train_step_key = jax.random.split(rng, num=2)
-        train_step_key = shard_prng_key(train_step_key)
-
-        batch_images = shard(batch_images)
-        batch_labels = shard(batch_labels)
-
-        state, grads, loss, metrics = apply_model_trade(state, batch_images, batch_labels, train_step_key)
-        # state = update_model(state, grads)
-
-        average_meter.update(**metrics)
-
-        metrics = average_meter.summary('train/')
-
-        wandb.log(metrics, step)
-
-    return state, step
 
 
 def create_train_state(rng):
