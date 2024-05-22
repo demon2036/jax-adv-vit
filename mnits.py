@@ -466,14 +466,14 @@ def train_and_evaluate(
 
     train_dataloader_iter = iter(train_dataloader)
 
-    test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
-                                                transform=Compose(
-                                                    transform_test))  # 0.5, 0.5
+    # test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
+    #                                             transform=Compose(
+    #                                                 transform_test))  # 0.5, 0.5
 
     # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
     log_interval = 200
-    train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
+    # train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
@@ -483,8 +483,6 @@ def train_and_evaluate(
         # for data in tqdm.tqdm(train_dataloader):
         """"""
         data = next(train_dataloader_iter)
-
-
 
         data = shard(jax.tree_util.tree_map(np.asarray, data))
         # batch_images, batch_labels = data
