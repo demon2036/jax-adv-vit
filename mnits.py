@@ -473,7 +473,7 @@ def train_and_evaluate(
     # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
     log_interval = 200
-    train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 4)
+    train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
