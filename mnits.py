@@ -473,7 +473,26 @@ def train_and_evaluate(
     # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
     log_interval = 200
-    # train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
+
+    def prepare_tf_data(xs):
+        """Convert a input batch from tf Tensors to numpy arrays."""
+        local_device_count = jax.local_device_count()
+
+        def _prepare(x):
+            # Use _numpy() for zero-copy conversion between TF and NumPy.
+            # x = {'img': x['img'], 'cls': x['cls']}
+            x = np.asarray(x)
+            # x = x._numpy()  # pylint: disable=protected-access
+
+            # reshape (host_batch_size, height, width, 3) to
+            # (local_devices, device_batch_size, height, width, 3)
+            return x.reshape((local_device_count, -1) + x.shape[1:])
+
+        return jax.tree_util.tree_map(_prepare, xs)
+
+    train_dataloader_iter=map(prepare_tf_data,train_dataloader_iter)
+
+    train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
@@ -484,7 +503,7 @@ def train_and_evaluate(
         """"""
         data = next(train_dataloader_iter)
 
-        data = shard(jax.tree_util.tree_map(np.asarray, data))
+        # data = shard(jax.tree_util.tree_map(np.asarray, data))
         # batch_images, batch_labels = data
         # batch_images = batch_images.astype(jnp.float32) / 255
         # batch_labels = batch_labels.astype(jnp.float32)
@@ -498,14 +517,14 @@ def train_and_evaluate(
         # state = update_model(state, grads)
         if jax.process_index() == 0:
 
-            print(flax.jax_utils.unreplicate(metrics))
+            # print(flax.jax_utils.unreplicate(metrics))
 
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
-            print(metrics)
+            # print(metrics)
             wandb.log(metrics, step)
-            while True:
-                pass
+            # while True:
+            #     pass
 
 
 
