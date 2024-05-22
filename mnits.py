@@ -32,7 +32,7 @@ import os
 import wandb
 from utils2 import AverageMeter, save_checkpoint_in_background
 
-EPOCHS = 1000  # @param{type:"integer"}
+EPOCHS = 2400  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the training set:
 TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the test set:
@@ -487,7 +487,7 @@ def train_and_evaluate(
 
     # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
 
-    log_interval = 100
+    log_interval = 200
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
