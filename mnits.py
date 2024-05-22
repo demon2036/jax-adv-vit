@@ -515,13 +515,14 @@ def train_and_evaluate(
                 labels = shard(labels)
                 metrics = accuracy(state, (images, labels))
 
-                print(metrics)
+
 
                 if jax.process_index() == 0:
                     average_meter.update(**metrics)
             if jax.process_index() == 0:
                 metrics = average_meter.summary('val/')
-                wandb.log(metrics, 1)
+                print(metrics)
+                wandb.log(metrics, step)
 
     return state
 
