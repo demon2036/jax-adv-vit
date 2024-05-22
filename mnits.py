@@ -480,7 +480,7 @@ def train_and_evaluate(
         #     state, train_dataloader, input_rng, step
         # )
         # for data in tqdm.tqdm(train_dataloader):
-
+        """
         data = next(train_dataloader_iter)
 
         data = jax.tree_util.tree_map(np.asarray, data)
@@ -496,13 +496,13 @@ def train_and_evaluate(
         batch_labels = shard(batch_labels)
 
         state, metrics = apply_model_trade(state, batch_images, batch_labels, train_step_key)
-        """"""
+       
         # state = update_model(state, grads)
         if jax.process_index() == 0:
             average_meter.update(**metrics)
             metrics = average_meter.summary('train/')
             wandb.log(metrics, step)
-
+        """
         if step % log_interval == 0:
             # eval(test_dataloader, state)
             for data in test_dataloader:
