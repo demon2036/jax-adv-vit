@@ -289,9 +289,9 @@ def apply_model_trade(state, data, key):
     grads = jax.lax.pmean(grads, axis_name="batch")
 
     new_state = state.apply_gradients(grads=grads)
-    metrics.update(state.opt_state.hyperparams)
+    # metrics.update(state.opt_state.hyperparams)
 
-    return new_state, metrics
+    return new_state, metrics|state.opt_state.hyperparams
 
 
 def create_train_state(rng):
@@ -497,9 +497,16 @@ def train_and_evaluate(
 
         # state = update_model(state, grads)
         if jax.process_index() == 0:
+
+            print(flax.jax_utils.unreplicate(metrics))
+
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
             print(metrics)
+
+            while True:
+                pass
+
             wandb.log(metrics, step)
 
         if step % log_interval == 0:
