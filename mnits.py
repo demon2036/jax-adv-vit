@@ -1,4 +1,5 @@
 import jax
+from flax.serialization import msgpack_serialize
 
 jax.distributed.initialize()
 
@@ -29,7 +30,7 @@ from main import get_train_dataloader
 from model import ViT
 import os
 import wandb
-from utils2 import AverageMeter
+from utils2 import AverageMeter, save_checkpoint_in_background
 
 EPOCHS = 1000  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the training set:
@@ -37,7 +38,7 @@ TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the test set:
 TEST_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Learning rate for the optimizer:
-LEARNING_RATE = 1e-3 # @param{type:"number"}
+LEARNING_RATE = 1e-3  # @param{type:"number"}
 # @markdown The dataset to use.
 DATASET = "cifar10"  # @param{type:"string"}
 # @markdown The amount of L2 regularization to use:
@@ -541,6 +542,10 @@ def train_and_evaluate(
                 num_samples = metrics.pop("val/num_samples")
                 metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
                 wandb.log(metrics, step)
+
+                params = flax.jax_utils.unreplicate(state.params)
+                params_bytes = msgpack_serialize(params)
+                save_checkpoint_in_background(params_bytes=params_bytes, postfix="last")
 
     return state
 
