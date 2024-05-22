@@ -139,11 +139,12 @@ def get_train_dataloader(batch_size=1024,
     ops = [
 
         wds.slice(jax.process_index(), None, jax.process_count()),
-        wds.split_by_worker,
+        # wds.split_by_worker,
         # # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
         wds.decode("pil", handler=wds.ignore_and_continue),
         wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
         wds.map_tuple(test_transform, torch.tensor),
+
     ]
 
     test_dataset = wds.WebDataset(urls=test_shard_path, handler=wds.ignore_and_continue)
@@ -152,12 +153,13 @@ def get_train_dataloader(batch_size=1024,
         test_dataset = test_dataset.compose(op)
     #
     test_batch_size = 128
+    num_workers = 16
 
     test_dataloader = DataLoader(
         test_dataset,
         batch_size=test_batch_size // jax.process_count(),
-        num_workers=128,
-        # collate_fn=partial(collate_and_pad, batch_size=test_batch_size),
+        num_workers=num_workers,
+        collate_fn=partial(collate_and_pad, batch_size=test_batch_size),
         drop_last=False,
         prefetch_factor=1,
         persistent_workers=True,

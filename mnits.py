@@ -508,7 +508,7 @@ def train_and_evaluate(
                 data = jax.tree_util.tree_map(np.asarray, data)
                 images, labels = data
                 images = images.astype(jnp.float32)
-                labels = labels.astype(jnp.float32)
+                labels = labels.astype(jnp.int64)
 
                 # print(images)
                 # while True:
@@ -527,8 +527,8 @@ def train_and_evaluate(
 
                 wandb.log(metrics, step)
 
-        while True:
-            pass
+            while True:
+                pass
 
     return state
 
