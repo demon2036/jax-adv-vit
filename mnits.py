@@ -1,7 +1,7 @@
 import jax
 from torch.utils.data import DataLoader
 
-# jax.distributed.initialize()
+jax.distributed.initialize()
 
 from functools import partial
 
