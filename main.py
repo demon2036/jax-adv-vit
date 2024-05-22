@@ -164,20 +164,20 @@ def get_train_dataloader(batch_size=1024,
         persistent_workers=True,
     )
 
-    count = 0
-    for data in test_dataloader:
-        img, labels= data
-
-        print(labels)
-
-        # print(img.shape[0])
-        count += img.shape[0]
-        # count += 1
-
-    print(count, jax.process_count())
-
-    while True:
-        pass
+    # count = 0
+    # for data in test_dataloader:
+    #     img, labels= data
+    #
+    #     print(labels)
+    #
+    #     # print(img.shape[0])
+    #     count += img.shape[0]
+    #     # count += 1
+    #
+    # print(count, jax.process_count())
+    #
+    # while True:
+    #     pass
 
     return dataset, train_dataloader, test_dataloader
 
