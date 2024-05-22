@@ -514,6 +514,9 @@ def train_and_evaluate(
                 images = shard(images)
                 labels = shard(labels)
                 metrics = accuracy(state, (images, labels))
+
+                print(metrics)
+
                 if jax.process_index() == 0:
                     average_meter.update(**metrics)
             if jax.process_index() == 0:
