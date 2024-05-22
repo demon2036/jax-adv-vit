@@ -511,9 +511,9 @@ def train_and_evaluate(
                 images = images.astype(jnp.float32)
                 labels = labels.astype(jnp.int64)
 
-                print(images)
-                while True:
-                    pass
+                # print(images)
+                # while True:
+                #     pass
 
                 images = einops.rearrange(images, 'b c h w->b h w c')
                 images = shard(images)
