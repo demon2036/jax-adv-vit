@@ -304,7 +304,7 @@ def create_train_state(rng):
         heads=3 * factor ** 2,
         labels=10,
         layerscale=True,
-        patch_size=2 * factor,
+        patch_size=2 ,
         image_size=32,
         posemb='learnable',
         pooling='cls',
@@ -326,7 +326,7 @@ def create_train_state(rng):
     def create_optimizer_fn(
             learning_rate: optax.Schedule,
     ) -> optax.GradientTransformation:
-        tx = optax.lion(
+        tx = optax.adamw(
             learning_rate=learning_rate,
             # eps=args.adam_eps,
             weight_decay=WEIGHT_DECAY,
