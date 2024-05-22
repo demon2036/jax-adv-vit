@@ -149,9 +149,9 @@ def get_train_dataloader(batch_size=1024,
 
     test_dataloader = DataLoader(
         test_dataset,
-        batch_size=(batch_size := batch_size // jax.process_count()),
+        batch_size=128 // jax.process_count(),
         num_workers=8,
-        collate_fn=partial(collate_and_pad, batch_size=batch_size),
+        collate_fn=partial(collate_and_pad, batch_size=128),
         drop_last=False,
         prefetch_factor=2,
         persistent_workers=True,
