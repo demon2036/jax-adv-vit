@@ -1,5 +1,4 @@
 import jax
-from torch.utils.data import DataLoader
 
 jax.distributed.initialize()
 
@@ -455,11 +454,7 @@ def train_and_evaluate(
 
     # train_dataloader = DataLoader(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, num_workers=16, drop_last=True)
 
-    # _, train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE,
-    #                                                             test_shard_path='./cifar10-test-wds/shards-{00000..00078}.tar',
-    #                                                             shard_path='./cifar10-test-wds/shards-{00000..00078}.tar')
-
-    _, train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE,)
+    _, train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE)
 
     rng = jax.random.key(0)
 
@@ -508,14 +503,13 @@ def train_and_evaluate(
             wandb.log(metrics, step)
         """
         if step % log_interval == 0:
-            count = 0
             # eval(test_dataloader, state)
             for data in test_dataloader:
                 data = jax.tree_util.tree_map(np.asarray, data)
                 images, labels = data
                 images = images.astype(jnp.float32)
-                labels = labels.astype(jnp.int64)
-                count += labels.shape[0]
+                labels = labels.astype(jnp.float32)
+
                 # print(images)
                 # while True:
                 #     pass
@@ -526,16 +520,15 @@ def train_and_evaluate(
                 metrics = accuracy(state, (images, labels))
                 print(metrics)
 
-
                 if jax.process_index() == 0:
                     average_meter.update(**metrics)
             if jax.process_index() == 0:
                 metrics = average_meter.summary('val/')
 
                 wandb.log(metrics, step)
-            print(count)
-            while True:
-                pass
+
+        while True:
+            pass
 
     return state
 
