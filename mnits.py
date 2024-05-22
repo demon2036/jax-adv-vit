@@ -503,11 +503,11 @@ def train_and_evaluate(
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
             print(metrics)
-
+            wandb.log(metrics, step)
             while True:
                 pass
 
-            wandb.log(metrics, step)
+
 
         if step % log_interval == 0:
             # eval(test_dataloader, state)
