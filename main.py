@@ -146,13 +146,13 @@ def get_train_dataloader(batch_size=1024,
 
     ]
 
-    test_dataset = wds.WebDataset(urls=test_shard_path, handler=wds.ignore_and_continue)
+    test_dataset = wds.WebDataset(urls=test_shard_path, handler=wds.ignore_and_continue).mcached()
 
     for op in ops:
         test_dataset = test_dataset.compose(op)
     #
     test_batch_size = 1024
-    num_workers = 16
+    num_workers = 32
 
     count= jax.process_count()
     # count=8
@@ -163,7 +163,7 @@ def get_train_dataloader(batch_size=1024,
         num_workers=num_workers,
         collate_fn=partial(collate_and_pad, batch_size=test_batch_size // count),
         drop_last=False,
-        prefetch_factor=4,
+        prefetch_factor=10,
         persistent_workers=True,
     )
 

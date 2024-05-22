@@ -373,7 +373,17 @@ def create_train_state(rng):
 
 @partial(jax.pmap, axis_name="batch", )
 def accuracy(state, data):
+    # inputs, labels = data
+
     inputs, labels = data
+    inputs = inputs.astype(jnp.float32)
+    labels = labels.astype(jnp.int64)
+
+    # print(images)
+    # while True:
+    #     pass
+    inputs = einops.rearrange(inputs, 'b c h w->b h w c')
+
     logits = state.apply_fn({"params": state.params}, inputs)
     clean_accuracy = jnp.argmax(logits, axis=-1) == labels
 
@@ -509,19 +519,19 @@ def train_and_evaluate(
 
         if step % log_interval == 0:
             # eval(test_dataloader, state)
-            for data in test_dataloader:
-                data = jax.tree_util.tree_map(np.asarray, data)
-                images, labels = data
-                images = images.astype(jnp.float32)
-                labels = labels.astype(jnp.int64)
-
-                # print(images)
-                # while True:
-                #     pass
-                images = einops.rearrange(images, 'b c h w->b h w c')
-                images = shard(images)
-                labels = shard(labels)
-                metrics = accuracy(state, (images, labels))
+            for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
+                data = shard(jax.tree_util.tree_map(np.asarray, data))
+                # images, labels = data
+                # images = images.astype(jnp.float32)
+                # labels = labels.astype(jnp.int64)
+                #
+                # # print(images)
+                # # while True:
+                # #     pass
+                # images = einops.rearrange(images, 'b c h w->b h w c')
+                # images = shard(images)
+                # labels = shard(labels)
+                metrics = accuracy(state, data)
                 # print(metrics)
 
                 if jax.process_index() == 0:
