@@ -85,7 +85,7 @@ def collate_and_shuffle(batch: list[Any], repeats: int = 1) -> Any:
 def collate_and_pad(batch: list[Any], batch_size: int = 1) -> Any:
     pad = tuple(torch.full_like(x, fill_value=-1) for x in batch[0])
 
-    print(batch_size,len(batch))
+    print(batch_size, len(batch))
 
     return default_collate(batch + [pad] * (batch_size - len(batch)))
 
@@ -118,7 +118,7 @@ def get_train_dataloader(batch_size=1024,
     train_dataloader = DataLoader(
         dataset,
         batch_size=batch_size // jax.process_count(),
-        num_workers=1,
+        num_workers=128,
         # collate_fn=partial(collate_and_shuffle, repeats=args.augment_repeats),
         drop_last=True,
         prefetch_factor=1,
@@ -137,6 +137,7 @@ def get_train_dataloader(batch_size=1024,
     # )
 
     ops = [
+
         wds.slice(jax.process_index(), None, jax.process_count()),
         wds.split_by_worker,
         # # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
@@ -149,16 +150,33 @@ def get_train_dataloader(batch_size=1024,
 
     for op in ops:
         test_dataset = test_dataset.compose(op)
+    #
+    test_batch_size = 128
 
     test_dataloader = DataLoader(
         test_dataset,
-        batch_size=128 // jax.process_count(),
-        num_workers=8,
-        collate_fn=partial(collate_and_pad, batch_size=128),
+        batch_size=test_batch_size // jax.process_count(),
+        num_workers=128,
+        # collate_fn=partial(collate_and_pad, batch_size=test_batch_size),
         drop_last=False,
-        prefetch_factor=2,
+        prefetch_factor=1,
         persistent_workers=True,
     )
+
+    count = 0
+    for data in test_dataloader:
+        img, _ = data
+
+        print(img.shape)
+
+        print(img.shape[0])
+        count += img.shape[0]
+        # count += 1
+
+    print(count, jax.process_count())
+
+    while True:
+        pass
 
     return dataset, train_dataloader, test_dataloader
 
