@@ -144,16 +144,24 @@ def apply_model(state, images, labels):
     return new_state, grads, loss, accuracy
 
 
+# def loss_fun_trade(state, data):
+#
+#     image, inputs, labels = data
+#     x_adv = inputs.astype(jnp.float32)
+#
+#     x = image.astype(jnp.float32)
+#
+#     logits = state.apply_fn({"params": state.params}, x)
+#     logits_adv = state.apply_fn({"params": state.params}, x_adv)
+#
+#     return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
+
+
 def loss_fun_trade(state, data):
     """Compute the loss of the network."""
-    image, inputs, labels = data
+    inputs, logits = data
     x_adv = inputs.astype(jnp.float32)
-
-    x = image.astype(jnp.float32)
-
-    logits = state.apply_fn({"params": state.params}, x)
     logits_adv = state.apply_fn({"params": state.params}, x_adv)
-
     return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
 
 
@@ -198,16 +206,21 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
      """
 
+    logits = jax.lax.stop_gradient(state.apply_fn({"params": state.params}, image))
+
     x_adv = 0.001 * jax.random.normal(key, shape=image.shape) + image
 
-    def adversarial_loss(adv_image, image):
-        return loss_fun_trade(state, (image, adv_image, label))
+    # def adversarial_loss(adv_image, image):
+    #     return loss_fun_trade(state, (image, adv_image, label))
+
+    def adversarial_loss(adv_image, logits):
+        return loss_fun_trade(state, (adv_image, logits))
 
     grad_adversarial = jax.grad(adversarial_loss)
     for _ in range(maxiter):
         # compute gradient of the loss wrt to the image
 
-        sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial(x_adv, image)))
+        sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial(x_adv, logits)))
         # heuristic step-size 2 eps / maxiter
         # image_perturbation += step_size * sign_grad
 
@@ -272,7 +285,7 @@ def apply_model_trade(state, images, labels, key):
 
     new_state = state.apply_gradients(grads=grads)
 
-    return new_state, metrics  #, grads, loss, metrics  #| state.opt_state.hyperparams
+    return new_state, metrics.update(state.opt_state.hyperparams)
 
 
 # @jax.jit
