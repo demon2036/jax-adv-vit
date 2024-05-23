@@ -267,7 +267,7 @@ def apply_model_trade(state, data, key):
     labels = labels.astype(jnp.float32)
 
     """Computes gradients, loss and accuracy for a single batch."""
-    adv_image = trade(images, labels, state, key=key)
+    adv_image = trade(images, labels, state, key=key,epsilon=EPSILON)
 
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, images)
@@ -307,7 +307,7 @@ def create_train_state(rng):
         heads=3 * factor ** 2,
         labels=10,
         layerscale=True,
-        patch_size=2,
+        patch_size=2*factor,
         image_size=32,
         posemb='learnable',
         pooling='cls',
