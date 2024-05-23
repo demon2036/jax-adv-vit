@@ -106,12 +106,8 @@ def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter
 
     def adversarial_loss(perturbation):
         logits = state.apply_fn({"params": state.params}, image + perturbation)
-        # sqnorm = tree_l2_norm(params, squared=True)
         loss_value = jnp.mean(softmax_cross_entropy_with_integer_labels(logits, label))
-        # return loss_value + 0.5 * l2reg * sqnorm
         return loss_value
-
-        # return loss_fun(params, 0, (image + perturbation, label))
 
     grad_adversarial = jax.grad(adversarial_loss)
     for _ in range(maxiter):
@@ -267,12 +263,13 @@ def apply_model_trade(state, data, key):
     labels = labels.astype(jnp.float32)
 
     """Computes gradients, loss and accuracy for a single batch."""
-    adv_image = trade(images, labels, state, key=key,epsilon=EPSILON)
+    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON)
 
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, images)
         logits_adv = state.apply_fn({'params': params}, adv_image)
         one_hot = jax.nn.one_hot(labels, 10)
+        one_hot = optax.smooth_labels(one_hot, 0.1)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
         trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
         metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
@@ -307,7 +304,7 @@ def create_train_state(rng):
         heads=3 * factor ** 2,
         labels=10,
         layerscale=True,
-        patch_size=2*factor,
+        patch_size=2 * factor,
         image_size=32,
         posemb='learnable',
         pooling='cls',
