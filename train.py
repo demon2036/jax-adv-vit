@@ -314,7 +314,7 @@ def accuracy(state, data):
     # print(images)
     # while True:
     #     pass
-    inputs = einops.rearrange(inputs, 'b c h w->b h w c')
+    # inputs = einops.rearrange(inputs, 'b c h w->b h w c')
 
     logits = state.apply_fn({"params": state.params}, inputs)
     clean_accuracy = jnp.argmax(logits, axis=-1) == labels
@@ -448,7 +448,7 @@ def train_and_evaluate(
         #     state, train_dataloader, input_rng, step
         # )
         # for data in tqdm.tqdm(train_dataloader):
-        """
+
         data = next(train_dataloader_iter)
         data_origin = next(train_origin_dataloader_iter)
 
@@ -473,7 +473,7 @@ def train_and_evaluate(
             wandb.log(metrics, step)
             # while True:
             #     pass
-        """
+        """"""
         if step % log_interval == 0:
             # eval(test_dataloader, state)
             for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
@@ -489,7 +489,7 @@ def train_and_evaluate(
                 # images = shard(images)
                 # labels = shard(labels)
 
-                print(data[0].shape)
+                # print(data[0].shape)
 
                 metrics = accuracy(state, data)
                 # print(metrics)
