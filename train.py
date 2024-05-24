@@ -54,35 +54,6 @@ EPSILON = 8 / 255  # @param{type:"number"}
 os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
 
 
-class CNN(nn.Module):
-    """A simple CNN model."""
-
-    @nn.compact
-    def __call__(self, x):
-        x = nn.Conv(features=32, kernel_size=(3, 3))(x)
-        x = nn.relu(x)
-        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
-        x = nn.Conv(features=64, kernel_size=(3, 3))(x)
-        x = nn.relu(x)
-        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
-        x = x.reshape((x.shape[0], -1))  # flatten
-        x = nn.Dense(features=256)(x)
-        x = nn.relu(x)
-        x = nn.Dense(features=10)(x)
-        return x
-
-
-# @jax.jit
-# def loss_fun(params, l2reg, data):
-#     """Compute the loss of the network."""
-#     inputs, labels = data
-#     x = inputs.astype(jnp.float32)
-#     logits = net.apply({"params": params}, x)
-#     sqnorm = tree_l2_norm(params, squared=True)
-#     loss_value = jnp.mean(softmax_cross_entropy_with_integer_labels(logits, labels))
-#     return loss_value + 0.5 * l2reg * sqnorm
-
-
 def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter=10):
     """PGD attack on the L-infinity ball with radius epsilon.
 
@@ -143,19 +114,6 @@ def apply_model(state, images, labels):
     new_state = state.apply_gradients(grads=grads)
 
     return new_state, grads, loss, accuracy
-
-
-# def loss_fun_trade(state, data):
-#
-#     image, inputs, labels = data
-#     x_adv = inputs.astype(jnp.float32)
-#
-#     x = image.astype(jnp.float32)
-#
-#     logits = state.apply_fn({"params": state.params}, x)
-#     logits_adv = state.apply_fn({"params": state.params}, x_adv)
-#
-#     return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
 
 
 def loss_fun_trade(state, data):
@@ -239,26 +197,14 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
     return x_adv
 
 
-# @jax.jit
-# def loss_fun_trade_train(params, data):
-#     """Compute the loss of the network."""
-#     image, inputs, labels = data
-#     x_adv = inputs.astype(jnp.float32)
-#
-#     x = image.astype(jnp.float32)
-#
-#     logits = net.apply({"params": params}, x)
-#     logits_adv = net.apply({"params": params}, x_adv)
-#
-#     loss_natural = softmax_cross_entropy_with_integer_labels(logits, labels)
-#
-#     return (loss_natural + 5 * optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
-#                                                    nn.softmax(logits, axis=1))).mean()
-
-
 @partial(jax.pmap, axis_name="batch", )
-def apply_model_trade(state, data, key):
+def apply_model_trade(state, data, data_origin, key):
     images, labels = data
+    images_origin, labels_origin = data_origin
+
+    images = jnp.concatenate([images, images_origin], axis=0)
+    labels = jnp.concatenate([labels, labels_origin], axis=0)
+
     images = images.astype(jnp.float32) / 255
     labels = labels.astype(jnp.float32)
 
@@ -455,7 +401,7 @@ def train_and_evaluate(
 
     # train_dataloader = DataLoader(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, num_workers=16, drop_last=True)
 
-    _, train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE)
+    train_dataloader, test_dataloader, train_origin_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE)
 
     rng = jax.random.key(0)
 
@@ -465,6 +411,7 @@ def train_and_evaluate(
     state = flax.jax_utils.replicate(state)
 
     train_dataloader_iter = iter(train_dataloader)
+    train_origin_dataloader_iter = iter(train_origin_dataloader)
 
     # test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
     #                                             transform=Compose(
@@ -491,8 +438,9 @@ def train_and_evaluate(
         return jax.tree_util.tree_map(_prepare, xs)
 
     train_dataloader_iter = map(prepare_tf_data, train_dataloader_iter)
-
     train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
+    train_origin_dataloader_iter = map(prepare_tf_data, train_origin_dataloader_iter)
+    train_origin_dataloader_iter = flax.jax_utils.prefetch_to_device(train_origin_dataloader_iter, 2)
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
@@ -502,6 +450,7 @@ def train_and_evaluate(
         # for data in tqdm.tqdm(train_dataloader):
         """"""
         data = next(train_dataloader_iter)
+        data_origin = next(train_origin_dataloader_iter)
 
         # data = shard(jax.tree_util.tree_map(np.asarray, data))
         # batch_images, batch_labels = data
@@ -512,7 +461,7 @@ def train_and_evaluate(
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
 
-        state, metrics = apply_model_trade(state, data, train_step_key)
+        state, metrics = apply_model_trade(state, data, data_origin, train_step_key)
 
         # state = update_model(state, grads)
         if jax.process_index() == 0:

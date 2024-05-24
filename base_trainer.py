@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from utils import get_obj_from_str, json_print
 from functools import partial
 
-from main import get_train_dataloader
+from datasets import get_train_dataloader
 
 
 class BaseTrainer:

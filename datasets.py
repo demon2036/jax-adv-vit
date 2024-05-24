@@ -134,13 +134,14 @@ def get_train_dataloader(batch_size=1024,
     # )
 
     ops = [
-
+        # wds.detshuffle(),
         wds.slice(jax.process_index(), None, jax.process_count()),
         # wds.split_by_worker,
         # # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
+        # wds.detshuffle(),
         wds.decode("pil", handler=wds.ignore_and_continue),
         wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
-        wds.map_tuple(test_transform, torch.tensor),
+        # wds.map_tuple(test_transform, torch.tensor),
 
     ]
 
@@ -152,45 +153,31 @@ def get_train_dataloader(batch_size=1024,
     test_batch_size = 1024
     num_workers = 32
 
-    count= jax.process_count()
+    count = jax.process_count()
     # count=8
 
     test_dataloader = DataLoader(
         test_dataset,
         batch_size=test_batch_size // count,
         num_workers=num_workers,
-        collate_fn=partial(collate_and_pad, batch_size=test_batch_size // count),
+        # collate_fn=partial(collate_and_pad, batch_size=test_batch_size // count),
         drop_last=False,
         prefetch_factor=10,
         persistent_workers=True,
     )
 
-    # count = 0
-    # for data in test_dataloader:
-    #     img, labels = data
-    #
-    #     print(labels)
-    #
-    #     # print(img.shape[0])
-    #     count += img.shape[0]
-    #     # count += 1
-    #
-    # print(count, jax.process_count())
-    #
-    # while True:
-    #     pass
 
-    return dataset, train_dataloader, test_dataloader
+    return train_dataloader, test_dataloader
 
 
 if __name__ == '__main__':
-    dataset, train_dataloader, test_dataloader = get_train_dataloader(
+    train_dataloader, test_dataloader = get_train_dataloader(
         test_shard_path='./cifar10-test-wds/shards-{00000..00078}.tar',
         shard_path='./cifar10-test-wds/shards-{00000..00078}.tar')
 
     for data in test_dataloader:
         img, _ = data
-        print(img.shape)
+        print(img)
         break
 
 # if __name__ == "__main__":
