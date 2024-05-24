@@ -177,7 +177,7 @@ def get_train_dataloader(batch_size=1024,
         test_dataset,
         batch_size=test_batch_size // process_count,
         num_workers=num_workers,
-        # collate_fn=partial(collate_and_pad, batch_size=test_batch_size // count),
+        collate_fn=partial(collate_and_pad, batch_size=test_batch_size // count),
         drop_last=False,
         prefetch_factor=10,
         persistent_workers=True,
@@ -193,7 +193,7 @@ if __name__ == '__main__':
 
     for data in test_dataloader:
         img, _ = data
-        print(img)
+        print(img.shape)
         break
 
 # if __name__ == "__main__":
