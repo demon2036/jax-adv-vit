@@ -314,7 +314,7 @@ def accuracy(state, data):
     # print(images)
     # while True:
     #     pass
-    # inputs = einops.rearrange(inputs, 'b c h w->b h w c')
+    inputs = einops.rearrange(inputs, 'b c h w->b h w c')
 
     logits = state.apply_fn({"params": state.params}, inputs)
     clean_accuracy = jnp.argmax(logits, axis=-1) == labels

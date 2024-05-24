@@ -159,7 +159,7 @@ def get_train_dataloader(batch_size=1024,
         # wds.detshuffle(),
         wds.decode("pil", handler=wds.ignore_and_continue),
         wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
-        # wds.map_tuple(test_transform, torch.tensor),
+        wds.map_tuple(test_transform, torch.tensor),
 
     ]
 
