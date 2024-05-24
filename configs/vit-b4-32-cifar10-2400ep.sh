@@ -7,8 +7,8 @@ python main.py \
     --heads 12  \
     --labels 10  \
     --layerscale True  \
-    --patch_size 4  \
-    --image_size 32  \
+    --patch-size 4  \
+    --image-size 32  \
     --posemb "learnable"  \
     --pooling 'cls'  \
     --dropout 0.0  \
