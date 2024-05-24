@@ -295,7 +295,7 @@ def apply_model_trade(state, data, key):
 
     return new_state, metrics | state.opt_state.hyperparams
 
- factor = 2
+factor = 2
 def create_train_state(rng,
                        layers=12,
                         dim=192 * factor ** 2,
