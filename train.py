@@ -26,7 +26,7 @@ from torchvision import transforms
 from torchvision.transforms import Compose, ToTensor
 
 # from auto_augment import AutoAugment, Cutout
-from datasets import get_train_dataloader
+from datasets_fork import get_train_dataloader
 from model import ViT
 import os
 import wandb
