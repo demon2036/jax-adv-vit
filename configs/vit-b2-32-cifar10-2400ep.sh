@@ -6,7 +6,7 @@ python main.py \
     --dim 768  \
     --heads 12  \
     --labels 10  \
-    --layerscale True  \
+    --layerscale   \
     --patch-size 2  \
     --image-size 32  \
     --posemb "learnable"  \
