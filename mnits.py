@@ -39,7 +39,7 @@ TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
 TEST_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Learning rate for the optimizer:
 LEARNING_RATE = 4e-4  # @param{type:"number"}
-WEIGHT_DECAY = 0.05
+WEIGHT_DECAY = 0.5
 
 # LEARNING_RATE = 1e-3  # @param{type:"number"}
 # WEIGHT_DECAY = 0.05
