@@ -1,3 +1,5 @@
+import argparse
+
 import jax
 from flax.serialization import msgpack_serialize
 
@@ -263,7 +265,7 @@ def apply_model_trade(state, data, key):
     labels = labels.astype(jnp.float32)
 
     """Computes gradients, loss and accuracy for a single batch."""
-    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON)
+    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON,step_size=2/255)
 
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, images)
@@ -293,31 +295,39 @@ def apply_model_trade(state, data, key):
 
     return new_state, metrics | state.opt_state.hyperparams
 
-
-def create_train_state(rng):
+ factor = 2
+def create_train_state(rng,
+                       layers=12,
+                        dim=192 * factor ** 2,
+                        heads=3 * factor ** 2,
+                        labels=10,
+                        layerscale=True,
+                        patch_size=2 * factor,
+                        image_size=32,
+                        posemb="learnable",
+                        pooling='cls',
+                        dropout=0.0,
+                        droppath=0.0,):
     """Creates initial `TrainState`."""
 
-    factor = 2
+
     cnn = ViT(
-        layers=12,
-        dim=192 * factor ** 2,
-        heads=3 * factor ** 2,
-        labels=10,
-        layerscale=True,
-        patch_size=2 * factor,
-        image_size=32,
-        posemb='learnable',
-        pooling='cls',
-        dropout=0.0,
-        droppath=0.0,
-        # grad_ckpt=args.grad_ckpt,
-        use_kan=False,
-        # polynomial_degree=args.polynomial_degree,
+        layers=layers,
+        dim=dim,
+        heads=heads,
+        labels=labels,
+        layerscale=layerscale,
+        patch_size=patch_size,
+        image_size=image_size,
+        posemb=posemb,
+        pooling=pooling,
+        dropout=dropout,
+        droppath=droppath,
     )
 
     # cnn = CNN()
 
-    image_shape = [1, 28, 28, 1]
+    # image_shape = [1, 28, 28, 1]
     image_shape = [1, 32, 32, 3]
 
     params = cnn.init(rng, jnp.ones(image_shape))['params']
@@ -427,7 +437,7 @@ def eval(test_dataloader, state, ):
         wandb.log(metrics, 1)
 
 
-def train_and_evaluate(
+def train_and_evaluate(args
 ) -> train_state.TrainState:
     """Execute model training and evaluation loop.
 
@@ -440,12 +450,9 @@ def train_and_evaluate(
   """
 
     if jax.process_index() == 0:
-        wandb.init(name='vit-b4', project='cifar10-20m')
+        wandb.init(name=args.name, project=args.project)
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
-    transform_train = [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip(),
-                       # AutoAugment(), Cutout(),
-                       ToTensor()]
 
     transform_test = [ToTensor()]
 
@@ -453,14 +460,25 @@ def train_and_evaluate(
     #                                              transform=Compose(
     #                                                  transform_train))  # 0.5, 0.5
 
-    # train_dataloader = DataLoader(train_dataset, TRAIN_BATCH_SIZE, shuffle=True, num_workers=16, drop_last=True)
 
     train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE)
 
     rng = jax.random.key(0)
 
     rng, init_rng = jax.random.split(rng)
-    state = create_train_state(init_rng, )
+    state = create_train_state(init_rng,
+                               layers=args.layers,
+                               dim=args.dim,
+                               heads=args.heads,
+                               labels=args.labels,
+                               layerscale=args.layerscale,
+                               patch_size=args.patch_size,
+                               image_size=args.image_size,
+                               posemb=args.posemb,
+                               pooling=args.pooling,
+                               dropout=args.dropout,
+                               droppath=args.droppath,
+                               )
 
     state = flax.jax_utils.replicate(state)
 
@@ -496,51 +514,24 @@ def train_and_evaluate(
 
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
-        # state, step = train_epoch(
-        #     state, train_dataloader, input_rng, step
-        # )
-        # for data in tqdm.tqdm(train_dataloader):
-        """"""
         data = next(train_dataloader_iter)
-
-        # data = shard(jax.tree_util.tree_map(np.asarray, data))
-        # batch_images, batch_labels = data
-        # batch_images = batch_images.astype(jnp.float32) / 255
-        # batch_labels = batch_labels.astype(jnp.float32)
-        # batch_images = einops.rearrange(batch_images, 'b c h w->b h w c')
 
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
 
         state, metrics = apply_model_trade(state, data, train_step_key)
 
-        # state = update_model(state, grads)
         if jax.process_index() == 0:
-            # print(flax.jax_utils.unreplicate(metrics))
-
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
             # print(metrics)
             wandb.log(metrics, step)
-            # while True:
-            #     pass
+
 
         if step % log_interval == 0:
-            # eval(test_dataloader, state)
             for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
                 data = shard(jax.tree_util.tree_map(np.asarray, data))
-                # images, labels = data
-                # images = images.astype(jnp.float32)
-                # labels = labels.astype(jnp.int64)
-                #
-                # # print(images)
-                # # while True:
-                # #     pass
-                # images = einops.rearrange(images, 'b c h w->b h w c')
-                # images = shard(images)
-                # labels = shard(labels)
                 metrics = accuracy(state, data)
-                # print(metrics)
 
                 if jax.process_index() == 0:
                     average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
@@ -563,5 +554,64 @@ if __name__ == "__main__":
     #
     # for _ in range(100):
     #     data=next(train_dataloader_iter)
+    parser = argparse.ArgumentParser()
+    # parser.add_argument("--train-dataset-shards")
+    # parser.add_argument("--valid-dataset-shards")
+    # parser.add_argument("--train-batch-size", type=int, default=2048)
+    # parser.add_argument("--valid-batch-size", type=int, default=256)
+    # parser.add_argument("--train-loader-workers", type=int, default=40)
+    # parser.add_argument("--valid-loader-workers", type=int, default=5)
 
-    train_and_evaluate()
+    # parser.add_argument("--random-crop", default="rrc")
+    # parser.add_argument("--color-jitter", type=float, default=0.0)
+    # parser.add_argument("--auto-augment", default="rand-m9-mstd0.5-inc1")
+    # parser.add_argument("--random-erasing", type=float, default=0.25)
+    # parser.add_argument("--augment-repeats", type=int, default=3)
+    # parser.add_argument("--test-crop-ratio", type=float, default=0.875)
+
+    # parser.add_argument("--mixup", type=float, default=0.8)
+    # parser.add_argument("--cutmix", type=float, default=1.0)
+    # parser.add_argument("--criterion", default="ce")
+    # parser.add_argument("--label-smoothing", type=float, default=0.1)
+
+    parser.add_argument("--layers", type=int, default=12)
+    parser.add_argument("--dim", type=int, default=768)
+    parser.add_argument("--heads", type=int, default=12)
+    parser.add_argument("--labels", type=int, default=-1)
+    parser.add_argument("--layerscale", action="store_true", default=False)
+    parser.add_argument("--patch-size", type=int, default=16)
+    parser.add_argument("--image-size", type=int, default=224)
+    parser.add_argument("--posemb", default="learnable")
+    parser.add_argument("--pooling", default="cls")
+    parser.add_argument("--dropout", type=float, default=0.0)
+    parser.add_argument("--droppath", type=float, default=0.1)
+    parser.add_argument("--grad-ckpt", action="store_true", default=False)
+
+    # parser.add_argument("--init-seed", type=int, default=random.randint(0, 1000000))
+    # parser.add_argument("--mixup-seed", type=int, default=random.randint(0, 1000000))
+    # parser.add_argument("--dropout-seed", type=int, default=random.randint(0, 1000000))
+    # parser.add_argument("--shuffle-seed", type=int, default=random.randint(0, 1000000))
+    # parser.add_argument("--pretrained-ckpt")
+    # parser.add_argument("--label-mapping")
+    #
+    # parser.add_argument("--optimizer", default="adamw")
+    # parser.add_argument("--learning-rate", type=float, default=1e-3)
+    # parser.add_argument("--weight-decay", type=float, default=0.05)
+    # parser.add_argument("--adam-b1", type=float, default=0.9)
+    # parser.add_argument("--adam-b2", type=float, default=0.999)
+    # parser.add_argument("--adam-eps", type=float, default=1e-8)
+    # parser.add_argument("--lr-decay", type=float, default=1.0)
+    # parser.add_argument("--clip-grad", type=float, default=0.0)
+    # parser.add_argument("--grad-accum", type=int, default=1)
+    #
+    # parser.add_argument("--warmup-steps", type=int, default=10000)
+    # parser.add_argument("--training-steps", type=int, default=200000)
+    # parser.add_argument("--log-interval", type=int, default=50)
+    # parser.add_argument("--eval-interval", type=int, default=0)
+    #
+    parser.add_argument("--project")
+    parser.add_argument("--name")
+    # parser.add_argument("--ipaddr")
+    # parser.add_argument("--hostname")
+    # parser.add_argument("--output-dir", default=".")
+    train_and_evaluate(parser.parse_args())

@@ -133,6 +133,7 @@ def get_train_dataloader(batch_size=1024,
     #     wds.map_tuple(test_transform, torch.tensor),
     # )
 
+
     ops = [
         # wds.detshuffle(),
         wds.slice(jax.process_index(), None, jax.process_count()),
@@ -165,7 +166,6 @@ def get_train_dataloader(batch_size=1024,
         prefetch_factor=10,
         persistent_workers=True,
     )
-
 
     return train_dataloader, test_dataloader
 
