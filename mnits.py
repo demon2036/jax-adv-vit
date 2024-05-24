@@ -38,11 +38,11 @@ TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the test set:
 TEST_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Learning rate for the optimizer:
-# LEARNING_RATE = 4e-5  # @param{type:"number"}
-# WEIGHT_DECAY = 0.05
-
-LEARNING_RATE = 1e-3  # @param{type:"number"}
+LEARNING_RATE = 4e-4  # @param{type:"number"}
 WEIGHT_DECAY = 0.05
+
+# LEARNING_RATE = 1e-3  # @param{type:"number"}
+# WEIGHT_DECAY = 0.05
 
 # @markdown The dataset to use.
 DATASET = "cifar10"  # @param{type:"string"}
@@ -326,7 +326,7 @@ def create_train_state(rng):
     def create_optimizer_fn(
             learning_rate: optax.Schedule,
     ) -> optax.GradientTransformation:
-        tx = optax.adamw(
+        tx = optax.lion(
             learning_rate=learning_rate,
             # eps=args.adam_eps,
             weight_decay=WEIGHT_DECAY,
