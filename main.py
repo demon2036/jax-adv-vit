@@ -41,8 +41,8 @@ TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
 TEST_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Learning rate for the optimizer:
 LEARNING_RATE = 1e-4  # @param{type:"number"}
-# WEIGHT_DECAY = 0.5
-WEIGHT_DECAY = 1.0
+WEIGHT_DECAY = 0.5
+# WEIGHT_DECAY = 1.0
 # LEARNING_RATE = 1e-3  # @param{type:"number"}
 # WEIGHT_DECAY = 0.05
 
@@ -211,7 +211,10 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
     logits = jax.lax.stop_gradient(state.apply_fn({"params": state.params}, image))
 
-    x_adv = 0.001 * jax.random.normal(key, shape=image.shape) + image
+    # x_adv = 0.001 * jax.random.normal(key, shape=image.shape) + image
+
+    x_adv = jax.random.uniform(key, shape=image.shape, minval=-epsilon, maxval=epsilon) + image
+    x_adv = jnp.clip(x_adv, 0, 1)
 
     # def adversarial_loss(adv_image, image):
     #     return loss_fun_trade(state, (image, adv_image, label))
@@ -265,7 +268,7 @@ def apply_model_trade(state, data, key):
     labels = labels.astype(jnp.float32)
 
     """Computes gradients, loss and accuracy for a single batch."""
-    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON,step_size=2/255)
+    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
 
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, images)
@@ -295,21 +298,25 @@ def apply_model_trade(state, data, key):
 
     return new_state, metrics | state.opt_state.hyperparams
 
+
 factor = 2
+
+
 def create_train_state(rng,
                        layers=12,
-                        dim=192 * factor ** 2,
-                        heads=3 * factor ** 2,
-                        labels=10,
-                        layerscale=True,
-                        patch_size=2 * factor,
-                        image_size=32,
-                        posemb="learnable",
-                        pooling='cls',
-                        dropout=0.0,
-                        droppath=0.0,):
+                       dim=192 * factor ** 2,
+                       heads=3 * factor ** 2,
+                       labels=10,
+                       layerscale=True,
+                       patch_size=2 * factor,
+                       image_size=32,
+                       posemb="learnable",
+                       pooling='cls',
+                       dropout=0.0,
+                       droppath=0.0,
+                       clip_grad=1.0,
+                       ):
     """Creates initial `TrainState`."""
-
 
     cnn = ViT(
         layers=layers,
@@ -350,8 +357,8 @@ def create_train_state(rng,
         #     label_fn = partial(get_layer_index_fn, num_layers=args.layers)
         #     label_fn = partial(tree_map_with_path, label_fn)
         #     tx = optax.chain(tx, optax.multi_transform(layerwise_scales, label_fn))
-        # if args.clip_grad > 0:
-        #     tx = optax.chain(optax.clip_by_global_norm(args.clip_grad), tx)
+        # if clip_grad > 0:
+        #     tx = optax.chain(optax.clip_by_global_norm(clip_grad), tx)
         return tx
 
     learning_rate = optax.warmup_cosine_decay_schedule(
@@ -438,7 +445,7 @@ def eval(test_dataloader, state, ):
 
 
 def train_and_evaluate(args
-) -> train_state.TrainState:
+                       ) -> train_state.TrainState:
     """Execute model training and evaluation loop.
 
   Args:
@@ -453,13 +460,11 @@ def train_and_evaluate(args
         wandb.init(name=args.name, project=args.project)
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
-
     transform_test = [ToTensor()]
 
     # train_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=True, download=True,
     #                                              transform=Compose(
     #                                                  transform_train))  # 0.5, 0.5
-
 
     train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE)
 
@@ -526,7 +531,6 @@ def train_and_evaluate(args
             metrics = average_meter.summary('train/')
             # print(metrics)
             wandb.log(metrics, step)
-
 
         if step % log_interval == 0:
             for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
