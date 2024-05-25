@@ -36,13 +36,13 @@ from utils2 import AverageMeter, save_checkpoint_in_background
 
 EPOCHS = 2400  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the training set:
-TRAIN_BATCH_SIZE = 4096  # @param{type:"integer"}
+TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
 # @markdown Number of samples for each batch in the test set:
 TEST_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Learning rate for the optimizer:
 LEARNING_RATE = 1e-4  # @param{type:"number"}
 # WEIGHT_DECAY = 0.5
-WEIGHT_DECAY = 10.0
+WEIGHT_DECAY = 1.0
 # LEARNING_RATE = 1e-3  # @param{type:"number"}
 # WEIGHT_DECAY = 0.05
 
