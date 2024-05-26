@@ -212,10 +212,10 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
     logits = jax.lax.stop_gradient(state.apply_fn({"params": state.params}, image))
 
-    # x_adv = 0.001 * jax.random.normal(key, shape=image.shape) + image
+    x_adv = 0.001 * jax.random.normal(key, shape=image.shape) + image
 
-    x_adv = jax.random.uniform(key, shape=image.shape, minval=-epsilon, maxval=epsilon) + image
-    x_adv = jnp.clip(x_adv, 0, 1)
+    # x_adv = jax.random.uniform(key, shape=image.shape, minval=-epsilon, maxval=epsilon) + image
+    # x_adv = jnp.clip(x_adv, 0, 1)
 
     # def adversarial_loss(adv_image, image):
     #     return loss_fun_trade(state, (image, adv_image, label))
@@ -559,6 +559,11 @@ def train_and_evaluate(args
                 params = flax.jax_utils.unreplicate(state.params)
                 params_bytes = msgpack_serialize(params)
                 save_checkpoint_in_background(params_bytes=params_bytes, postfix="last")
+
+
+                params = flax.jax_utils.unreplicate(state.ema_params)
+                params_bytes = msgpack_serialize(params)
+                save_checkpoint_in_background(params_bytes=params_bytes, postfix="last",name='deit-ema')
 
     return state
 
