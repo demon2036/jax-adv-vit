@@ -545,6 +545,8 @@ def train_and_evaluate(args
         rng, input_rng = jax.random.split(rng)
         data = next(train_dataloader_iter)
 
+        print(data[0].shape,jnp.max(data[0]))
+
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
 
