@@ -25,15 +25,9 @@ with wds.ShardWriter(
         maxsize=shard_size,
 ) as sink, tqdm(zip(part1['image'][seq], part1['label'][seq]),total=len(part1['label'])) as pbar:
     for i,(img,label) in enumerate(pbar):
-
-
-
-
-        """
         sink.write({
             "__key__": str(i),
             "jpg.pyd": img,
             "cls": label,
             # "json": label,
         })
-        """

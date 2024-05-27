@@ -372,12 +372,20 @@ def create_train_state(rng,
         #     tx = optax.chain(optax.clip_by_global_norm(clip_grad), tx)
         return tx
 
+    # learning_rate = optax.warmup_cosine_decay_schedule(
+    #     init_value=1e-6,
+    #     peak_value=LEARNING_RATE,
+    #     warmup_steps=50000 * 5 // TRAIN_BATCH_SIZE,
+    #     decay_steps=50000 * EPOCHS // TRAIN_BATCH_SIZE,
+    #     end_value=1e-5,
+    # )
+
     learning_rate = optax.warmup_cosine_decay_schedule(
-        init_value=1e-6,
+        init_value=1e-7,
         peak_value=LEARNING_RATE,
         warmup_steps=50000 * 5 // TRAIN_BATCH_SIZE,
         decay_steps=50000 * EPOCHS // TRAIN_BATCH_SIZE,
-        end_value=1e-5,
+        end_value=1e-6,
     )
 
     tx = create_optimizer_fn(learning_rate)
