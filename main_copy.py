@@ -268,9 +268,10 @@ def apply_model_trade(state, data, key):
 
     images = einops.rearrange(images, 'b c h w->b h w c')
 
-    # images = images.astype(jnp.float32) / 255
+    images = images.astype(jnp.float32) / 255
     labels = labels.astype(jnp.float32)
 
+    print(images.shape)
 
     """Computes gradients, loss and accuracy for a single batch."""
     adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
@@ -427,7 +428,26 @@ def accuracy(state, data):
     return metrics
 
 
+def dataset_stats(state, data_loader, iter_per_epoch, ):
+    """Computes accuracy on clean and adversarial images."""
+    adversarial_accuracy = 0.
+    clean_accuracy = 0.
 
+    pmap_pgd = jax.pmap(pgd_attack3)
+
+    for batch in data_loader.as_numpy_iterator():
+        images, labels = batch
+        images = images.astype(jnp.float32) / 255
+
+        images = shard(images)
+        labels = shard(labels)
+
+        clean_accuracy += jnp.mean(accuracy(state, (images, labels))) / iter_per_epoch
+        # adversarial_images = pgd_attack(images, labels, params, epsilon=EPSILON)
+        adversarial_images = pmap_pgd(images, labels, state, )
+
+        adversarial_accuracy += jnp.mean(accuracy(state, (adversarial_images, labels))) / iter_per_epoch
+    return {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
 
 
 def eval(test_dataloader, state, ):
@@ -525,7 +545,6 @@ def train_and_evaluate(args
         rng, input_rng = jax.random.split(rng)
         data = next(train_dataloader_iter)
 
-        print(data[0].shape,jnp.max(data[0]))
 
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
