@@ -59,6 +59,7 @@ def auto_augment_factory(args: argparse.Namespace) -> T.Transform:
 
 def create_transforms() -> tuple[nn.Module, nn.Module]:
     train_transforms = [
+        T.RandomCrop(32, padding=4, fill=128),
         T.RandomHorizontalFlip(),
         # T.Resize(224, interpolation=3),
         # T.CenterCrop(224),
@@ -108,7 +109,7 @@ def get_train_dataloader(batch_size=1024,
         wds.map_tuple(train_transform, torch.tensor),
     ]
 
-    dataset = wds.WebDataset(urls=shard_path, handler=wds.ignore_and_continue)
+    dataset = wds.WebDataset(urls=shard_path, handler=wds.ignore_and_continue).mcached()
 
     for op in ops:
         dataset = dataset.compose(op)
