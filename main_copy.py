@@ -296,7 +296,7 @@ def apply_model_trade(state, data, key):
 
     new_state = state.apply_gradients(grads=grads)
 
-    new_ema_params = jax.tree_map(lambda ema, normal: ema * new_state.ema_decay + (1 - new_state.ema_decay) * normal,
+    new_ema_params = jax.tree_util.tree_map(lambda ema, normal: ema * new_state.ema_decay + (1 - new_state.ema_decay) * normal,
                                   new_state.ema_params, new_state.params)
     new_state = new_state.replace(ema_params=new_ema_params)
 
