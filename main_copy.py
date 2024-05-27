@@ -265,6 +265,9 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 @partial(jax.pmap, axis_name="batch", )
 def apply_model_trade(state, data, key):
     images, labels = data
+
+    images = einops.rearrange(images, 'b c h w->b h w c')
+
     images = images.astype(jnp.float32) / 255
     labels = labels.astype(jnp.float32)
 
