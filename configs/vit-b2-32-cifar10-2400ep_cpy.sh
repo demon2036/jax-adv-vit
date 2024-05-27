@@ -1,7 +1,7 @@
 
 
 
-python main_copy.py \
+python -u main_copy.py \
     --layers 12  \
     --dim 768  \
     --heads 12  \
