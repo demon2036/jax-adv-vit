@@ -212,10 +212,10 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
     logits = jax.lax.stop_gradient(state.apply_fn({"params": state.params}, image))
 
-    x_adv = 0.001 * jax.random.normal(key, shape=image.shape) + image
+    # x_adv = 0.001 * jax.random.normal(key, shape=image.shape) + image
 
-    # x_adv = jax.random.uniform(key, shape=image.shape, minval=-epsilon, maxval=epsilon) + image
-    # x_adv = jnp.clip(x_adv, 0, 1)
+    x_adv = jax.random.uniform(key, shape=image.shape, minval=-epsilon, maxval=epsilon) + image
+    x_adv = jnp.clip(x_adv, 0, 1)
 
     # def adversarial_loss(adv_image, image):
     #     return loss_fun_trade(state, (image, adv_image, label))
@@ -301,8 +301,9 @@ def apply_model_trade(state, data, key):
 
     new_state = state.apply_gradients(grads=grads)
 
-    new_ema_params = jax.tree_util.tree_map(lambda ema, normal: ema * new_state.ema_decay + (1 - new_state.ema_decay) * normal,
-                                  new_state.ema_params, new_state.params)
+    new_ema_params = jax.tree_util.tree_map(
+        lambda ema, normal: ema * new_state.ema_decay + (1 - new_state.ema_decay) * normal,
+        new_state.ema_params, new_state.params)
     new_state = new_state.replace(ema_params=new_ema_params)
 
     # metrics.update(state.opt_state.hyperparams)
@@ -331,6 +332,10 @@ def create_train_state(rng,
                        dropout=0.0,
                        droppath=0.0,
                        clip_grad=1.0,
+                       warmup_steps=None,
+                       training_steps=None,
+                       learning_rate=None,weight_decay=None
+
                        ):
     """Creates initial `TrainState`."""
 
@@ -362,7 +367,7 @@ def create_train_state(rng,
         tx = optax.lion(
             learning_rate=learning_rate,
             # eps=args.adam_eps,
-            weight_decay=WEIGHT_DECAY,
+            weight_decay=weight_decay,
             # mask=partial(tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
         )
         # if args.lr_decay < 1.0:
@@ -377,21 +382,21 @@ def create_train_state(rng,
         #     tx = optax.chain(optax.clip_by_global_norm(clip_grad), tx)
         return tx
 
+    learning_rate = optax.warmup_cosine_decay_schedule(
+        init_value=1e-6,
+        peak_value=learning_rate,
+        warmup_steps=warmup_steps,
+        decay_steps=training_steps,
+        end_value=1e-5,
+    )
+
     # learning_rate = optax.warmup_cosine_decay_schedule(
-    #     init_value=1e-6,
+    #     init_value=1e-7,
     #     peak_value=LEARNING_RATE,
     #     warmup_steps=50000 * 5 // TRAIN_BATCH_SIZE,
     #     decay_steps=50000 * EPOCHS // TRAIN_BATCH_SIZE,
-    #     end_value=1e-5,
+    #     end_value=1e-6,
     # )
-
-    learning_rate = optax.warmup_cosine_decay_schedule(
-        init_value=1e-7,
-        peak_value=LEARNING_RATE,
-        warmup_steps=50000 * 5 // TRAIN_BATCH_SIZE,
-        decay_steps=50000 * EPOCHS // TRAIN_BATCH_SIZE,
-        end_value=1e-6,
-    )
 
     tx = create_optimizer_fn(learning_rate)
 
@@ -428,44 +433,7 @@ def accuracy(state, data):
     return metrics
 
 
-def dataset_stats(state, data_loader, iter_per_epoch, ):
-    """Computes accuracy on clean and adversarial images."""
-    adversarial_accuracy = 0.
-    clean_accuracy = 0.
 
-    pmap_pgd = jax.pmap(pgd_attack3)
-
-    for batch in data_loader.as_numpy_iterator():
-        images, labels = batch
-        images = images.astype(jnp.float32) / 255
-
-        images = shard(images)
-        labels = shard(labels)
-
-        clean_accuracy += jnp.mean(accuracy(state, (images, labels))) / iter_per_epoch
-        # adversarial_images = pgd_attack(images, labels, params, epsilon=EPSILON)
-        adversarial_images = pmap_pgd(images, labels, state, )
-
-        adversarial_accuracy += jnp.mean(accuracy(state, (adversarial_images, labels))) / iter_per_epoch
-    return {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy}
-
-
-def eval(test_dataloader, state, ):
-    average_meter = AverageMeter(use_latest=["learning_rate"])
-    for data in test_dataloader:
-        data = jax.tree_util.tree_map(np.asarray, data)
-        images, labels = data
-        images = images.astype(jnp.float32)
-        labels = labels.astype(jnp.int64)
-        images = einops.rearrange(images, 'b c h w->b h w c')
-        images = shard(images)
-        labels = shard(labels)
-        metrics = accuracy(state, (images, labels))
-
-        average_meter.update(**metrics)
-    if jax.process_index() == 0:
-        metrics = average_meter.summary('val/')
-        wandb.log(metrics, 1)
 
 
 def train_and_evaluate(args
@@ -484,13 +452,7 @@ def train_and_evaluate(args
         wandb.init(name=args.name, project=args.project)
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
-    transform_test = [ToTensor()]
-
-    # train_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=True, download=True,
-    #                                              transform=Compose(
-    #                                                  transform_train))  # 0.5, 0.5
-
-    train_dataloader, test_dataloader = get_train_dataloader(TRAIN_BATCH_SIZE)
+    train_dataloader, test_dataloader = get_train_dataloader(args.train_batch_size)
 
     rng = jax.random.key(0)
 
@@ -507,6 +469,10 @@ def train_and_evaluate(args
                                pooling=args.pooling,
                                dropout=args.dropout,
                                droppath=args.droppath,
+                               warmup_steps=args.warmup_steps,
+                               training_steps=args.training_steps,
+                               learning_rate=args.learning_rate,
+                               weight_decay=args.weight_decay
                                )
 
     state = flax.jax_utils.replicate(state)
@@ -545,7 +511,6 @@ def train_and_evaluate(args
         rng, input_rng = jax.random.split(rng)
         data = next(train_dataloader_iter)
 
-
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
 
@@ -572,11 +537,11 @@ def train_and_evaluate(args
 
                 params = flax.jax_utils.unreplicate(state.params)
                 params_bytes = msgpack_serialize(params)
-                save_checkpoint_in_background(params_bytes=params_bytes, postfix="last")
+                save_checkpoint_in_background(params_bytes=params_bytes, postfix="last",name=args.name)
 
                 params = flax.jax_utils.unreplicate(state.ema_params)
                 params_bytes = msgpack_serialize(params)
-                save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name='deit-ema')
+                save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name)
 
     return state
 
@@ -590,7 +555,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # parser.add_argument("--train-dataset-shards")
     # parser.add_argument("--valid-dataset-shards")
-    # parser.add_argument("--train-batch-size", type=int, default=2048)
+    parser.add_argument("--train-batch-size", type=int, default=2048)
     # parser.add_argument("--valid-batch-size", type=int, default=256)
     # parser.add_argument("--train-loader-workers", type=int, default=40)
     # parser.add_argument("--valid-loader-workers", type=int, default=5)
@@ -628,8 +593,8 @@ if __name__ == "__main__":
     # parser.add_argument("--label-mapping")
     #
     # parser.add_argument("--optimizer", default="adamw")
-    # parser.add_argument("--learning-rate", type=float, default=1e-3)
-    # parser.add_argument("--weight-decay", type=float, default=0.05)
+    parser.add_argument("--learning-rate", type=float, default=1e-3)
+    parser.add_argument("--weight-decay", type=float, default=0.05)
     # parser.add_argument("--adam-b1", type=float, default=0.9)
     # parser.add_argument("--adam-b2", type=float, default=0.999)
     # parser.add_argument("--adam-eps", type=float, default=1e-8)
@@ -637,8 +602,8 @@ if __name__ == "__main__":
     # parser.add_argument("--clip-grad", type=float, default=0.0)
     # parser.add_argument("--grad-accum", type=int, default=1)
     #
-    # parser.add_argument("--warmup-steps", type=int, default=10000)
-    # parser.add_argument("--training-steps", type=int, default=200000)
+    parser.add_argument("--warmup-steps", type=int, default=10000)
+    parser.add_argument("--training-steps", type=int, default=200000)
     # parser.add_argument("--log-interval", type=int, default=50)
     # parser.add_argument("--eval-interval", type=int, default=0)
     #

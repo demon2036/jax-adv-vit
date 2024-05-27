@@ -21,6 +21,7 @@ from collections.abc import Iterator
 from functools import partial
 from typing import Any
 
+import einops
 import jax
 import numpy as np
 import torch
@@ -58,13 +59,18 @@ def auto_augment_factory(args: argparse.Namespace) -> T.Transform:
 
 
 def create_transforms() -> tuple[nn.Module, nn.Module]:
+    def test(x):
+        print(x.shape)
+        return x
+
     train_transforms = [
-        T.ToPILImage(),
-        T.RandomCrop(32, padding=4, fill=128),
-        T.RandomHorizontalFlip(),
+        # T.ToPILImage(),
+        # T.RandomCrop(32, padding=4, fill=128),
+        T.RandomHorizontalFlip(p=0.0),
         # T.Resize(224, interpolation=3),
         # T.CenterCrop(224),
         T.PILToTensor(),
+        test,
     ]
 
     test_transforms = [
@@ -135,7 +141,6 @@ def get_train_dataloader(batch_size=1024,
     #     wds.map_tuple(test_transform, torch.tensor),
     # )
 
-
     ops = [
         # wds.detshuffle(),
         wds.slice(jax.process_index(), None, jax.process_count()),
@@ -173,14 +178,27 @@ def get_train_dataloader(batch_size=1024,
 
 
 if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+
     train_dataloader, test_dataloader = get_train_dataloader(
         test_shard_path='./cifar10-test-wds/shards-{00000..00078}.tar',
-        shard_path='./cifar10-test-wds/shards-{00000..00078}.tar')
+        shard_path='./cifar10-train-wds/shards-{00000..00078}.tar')
 
-    for data in test_dataloader:
+    for data in train_dataloader:
         img, _ = data
         print(img)
+
+        if img.shape[1] == 3:
+            img = einops.rearrange(img,'b c h w -> b h w c')
+
+        for i in range(100):
+            plt.imshow(img[i])
+            plt.show()
+
         break
+
+    while True:
+        pass
 
 # if __name__ == "__main__":
 #     model = MAE_ViT_2_T()
