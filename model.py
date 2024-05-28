@@ -74,7 +74,7 @@ class PatchEmbed(ViTBase, nn.Module):
             self.dim,
             kernel_size=(self.patch_size, self.patch_size),
             strides=(self.patch_size, self.patch_size),
-            padding="VALID",kernel_init=init.normal(1e-5)
+            padding="VALID",
         )
         if self.pooling == "cls":
             self.cls_token = self.param(
@@ -156,7 +156,7 @@ class ViT(ViTBase, nn.Module):
         self.head = Dense(self.labels) if self.labels is not None else None
 
     def __call__(self, x: Array, det: bool = True) -> Array:
-        # x = (x - IMAGENET_DEFAULT_MEAN) / IMAGENET_DEFAULT_STD
+        x = (x - IMAGENET_DEFAULT_MEAN) / IMAGENET_DEFAULT_STD
         x = self.drop(self.embed(x), det)
         for layer in self.layer:
             x = layer(x, det)
