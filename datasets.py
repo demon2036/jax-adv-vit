@@ -64,9 +64,9 @@ def create_transforms() -> tuple[nn.Module, nn.Module]:
         return x
 
     train_transforms = [
-        # T.ToPILImage(),
-        # T.RandomCrop(32, padding=4, fill=128),
-        T.RandomHorizontalFlip(p=0.0),
+        T.ToPILImage(),
+        T.RandomCrop(32, padding=4, fill=128),
+        T.RandomHorizontalFlip(),
         # T.Resize(224, interpolation=3),
         # T.CenterCrop(224),
         T.PILToTensor(),
