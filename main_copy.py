@@ -262,9 +262,8 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 #                                                    nn.softmax(logits, axis=1))).mean()
 
 
-@partial(jax.pmap, axis_name="batch",donate_argnums=0 )
+@partial(jax.pmap, axis_name="batch")
 def apply_model_trade(state, data, key):
-    return state, None
     images, labels = data
 
     images = einops.rearrange(images, 'b c h w->b h w c')
@@ -272,6 +271,7 @@ def apply_model_trade(state, data, key):
     images = images.astype(jnp.float32) / 255
     labels = labels.astype(jnp.float32)
 
+    print(images.shape)
 
     """Computes gradients, loss and accuracy for a single batch."""
     adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
@@ -301,30 +301,14 @@ def apply_model_trade(state, data, key):
 
     state = state.apply_gradients(grads=grads)
 
-    # new_ema_params = jax.tree_util.tree_map(
-    #     lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
-    #     state.ema_params, state.params)
-    # state = state.replace(ema_params=new_ema_params)
+    new_ema_params = jax.tree_util.tree_map(
+        lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
+        state.ema_params, state.params)
+    state = state.replace(ema_params=new_ema_params)
 
     # metrics.update(state.opt_state.hyperparams)
 
     return state, metrics | state.opt_state.hyperparams
-
-
-
-
-
-
-
-
-
-
-
-
-@partial(jax.pmap, axis_name="batch",donate_argnums=0 )
-def apply_model_trade2(state):
-    return state
-
 
 
 factor = 2
@@ -523,11 +507,6 @@ def train_and_evaluate(args
 
     train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
-
-
-
-
-
     for step in tqdm.tqdm(range(1, 50000 * EPOCHS // TRAIN_BATCH_SIZE)):
         rng, input_rng = jax.random.split(rng)
         data = next(train_dataloader_iter)
@@ -535,10 +514,8 @@ def train_and_evaluate(args
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
 
-        state = apply_model_trade2(state)
+        state, metrics = apply_model_trade(state, data, train_step_key)
 
-        # state, metrics = apply_model_trade(state, data, train_step_key)
-        """
         if jax.process_index() == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
@@ -565,7 +542,7 @@ def train_and_evaluate(args
                 params = flax.jax_utils.unreplicate(state.ema_params)
                 params_bytes = msgpack_serialize(params)
                 save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name)
-            """
+
     return state
 
 
