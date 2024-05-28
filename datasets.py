@@ -70,7 +70,7 @@ def create_transforms() -> tuple[nn.Module, nn.Module]:
         # T.Resize(224, interpolation=3),
         # T.CenterCrop(224),
         T.PILToTensor(),
-        test,
+        # test,
     ]
 
     test_transforms = [
