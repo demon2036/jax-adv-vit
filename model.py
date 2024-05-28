@@ -74,7 +74,7 @@ class PatchEmbed(ViTBase, nn.Module):
             self.dim,
             kernel_size=(self.patch_size, self.patch_size),
             strides=(self.patch_size, self.patch_size),
-            padding="VALID",
+            padding="VALID",kernel_init=init.normal(1e-5)
         )
         if self.pooling == "cls":
             self.cls_token = self.param(
