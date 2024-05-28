@@ -368,7 +368,7 @@ def create_train_state(rng,
             learning_rate=learning_rate,
             # eps=args.adam_eps,
             weight_decay=weight_decay,
-            # mask=partial(tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
+            mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
         )
         # if args.lr_decay < 1.0:
         #     layerwise_scales = {

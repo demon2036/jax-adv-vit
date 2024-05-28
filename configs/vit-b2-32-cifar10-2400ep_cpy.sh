@@ -14,9 +14,9 @@ python -u main_copy.py \
     --dropout 0.0  \
     --droppath 0.0  \
     --train-batch-size $TRAIN_BATCH_SIZE \
-    --learning-rate 3e-4 \
-    --weight-decay 0.2 \
-    --warmup-steps $((1281167 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
+    --learning-rate 1e-4 \
+    --weight-decay 0.5 \
+    --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
     --project cifar10-20m \
     --name $(basename $0 .sh) \
