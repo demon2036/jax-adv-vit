@@ -262,7 +262,7 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 #                                                    nn.softmax(logits, axis=1))).mean()
 
 
-@partial(jax.pmap, axis_name="batch", )
+@partial(jax.pmap, axis_name="batch",donate_argnums=(0,) )
 def apply_model_trade(state, data, key):
     images, labels = data
 
@@ -299,16 +299,16 @@ def apply_model_trade(state, data, key):
 
     grads = jax.lax.pmean(grads, axis_name="batch")
 
-    new_state = state.apply_gradients(grads=grads)
+    state = state.apply_gradients(grads=grads)
 
     new_ema_params = jax.tree_util.tree_map(
-        lambda ema, normal: ema * new_state.ema_decay + (1 - new_state.ema_decay) * normal,
-        new_state.ema_params, new_state.params)
-    new_state = new_state.replace(ema_params=new_ema_params)
+        lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
+        state.ema_params, state.params)
+    state = state.replace(ema_params=new_ema_params)
 
     # metrics.update(state.opt_state.hyperparams)
 
-    return new_state, metrics | state.opt_state.hyperparams
+    return state, metrics | state.opt_state.hyperparams
 
 
 factor = 2
