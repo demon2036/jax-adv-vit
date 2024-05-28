@@ -322,7 +322,7 @@ def apply_model_trade(state, data, key):
 
 
 @partial(jax.pmap, axis_name="batch",donate_argnums=0 )
-def apply_model_trade2(state, data, key):
+def apply_model_trade2(state):
     return state
 
 
@@ -535,7 +535,7 @@ def train_and_evaluate(args
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
 
-        state = apply_model_trade2(state, data, train_step_key)
+        state = apply_model_trade2(state)
 
         # state, metrics = apply_model_trade(state, data, train_step_key)
         """
