@@ -262,7 +262,7 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 #                                                    nn.softmax(logits, axis=1))).mean()
 
 
-@partial(jax.pmap, axis_name="batch",donate_argnums=(0,) )
+@partial(jax.pmap, axis_name="batch",donate_argnums=0 )
 def apply_model_trade(state, data, key):
     images, labels = data
 
