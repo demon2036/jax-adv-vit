@@ -541,7 +541,7 @@ def train_and_evaluate(args
 
                 params = flax.jax_utils.unreplicate(state.ema_params)
                 params_bytes = msgpack_serialize(params)
-                save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name)
+                save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name)
 
     return state
 
