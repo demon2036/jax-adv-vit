@@ -264,14 +264,14 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
 @partial(jax.pmap, axis_name="batch",donate_argnums=0 )
 def apply_model_trade(state, data, key):
+    return state, None
     images, labels = data
 
     images = einops.rearrange(images, 'b c h w->b h w c')
 
     images = images.astype(jnp.float32) / 255
     labels = labels.astype(jnp.float32)
-    return state, None
-    print(images.shape)
+
 
     """Computes gradients, loss and accuracy for a single batch."""
     adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
