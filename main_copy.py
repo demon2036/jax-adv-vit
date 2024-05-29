@@ -334,7 +334,9 @@ def create_train_state(rng,
                        clip_grad=1.0,
                        warmup_steps=None,
                        training_steps=None,
-                       learning_rate=None,weight_decay=None
+                       learning_rate=None,
+                       weight_decay=None,
+                       ema_decay=0.9999,
 
                        ):
     """Creates initial `TrainState`."""
@@ -400,7 +402,7 @@ def create_train_state(rng,
 
     tx = create_optimizer_fn(learning_rate)
 
-    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params)
+    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params,ema_decay=ema_decay)
 
 
 @partial(jax.pmap, axis_name="batch", )
