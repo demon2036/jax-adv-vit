@@ -22,3 +22,4 @@ python -u main_copy.py \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
     --project cifar10-20m \
     --name $(basename $0 .sh) \
+    --ema-decay 0.99996
