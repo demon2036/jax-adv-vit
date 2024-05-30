@@ -367,7 +367,8 @@ def create_train_state(rng,
             learning_rate: optax.Schedule,
     ) -> optax.GradientTransformation:
         tx = optax.lion(
-            learning_rate=learning_rate,b1=0.95,b2=0.98,
+            learning_rate=learning_rate,
+            # b1=0.95,b2=0.98,
             # eps=args.adam_eps,
             weight_decay=weight_decay,
             mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
@@ -380,8 +381,8 @@ def create_train_state(rng,
         #     label_fn = partial(get_layer_index_fn, num_layers=args.layers)
         #     label_fn = partial(tree_map_with_path, label_fn)
         #     tx = optax.chain(tx, optax.multi_transform(layerwise_scales, label_fn))
-        if clip_grad > 0:
-            tx = optax.chain(optax.clip_by_global_norm(clip_grad), tx)
+        # if clip_grad > 0:
+        #     tx = optax.chain(optax.clip_by_global_norm(clip_grad), tx)
         return tx
 
     learning_rate = optax.warmup_cosine_decay_schedule(
@@ -454,7 +455,7 @@ def train_and_evaluate(args
         wandb.init(name=args.name, project=args.project)
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
-    train_dataloader, test_dataloader = get_train_dataloader(args.train_batch_size)
+    train_dataloader, test_dataloader = get_train_dataloader(args.train_batch_size,shard_path=args.train_dataset_shards,test_shard_path=args.valid_dataset_shards)
 
     rng = jax.random.key(0)
 
@@ -555,8 +556,8 @@ if __name__ == "__main__":
     # for _ in range(100):
     #     data=next(train_dataloader_iter)
     parser = argparse.ArgumentParser()
-    # parser.add_argument("--train-dataset-shards")
-    # parser.add_argument("--valid-dataset-shards")
+    parser.add_argument("--train-dataset-shards")
+    parser.add_argument("--valid-dataset-shards")
     parser.add_argument("--train-batch-size", type=int, default=2048)
     # parser.add_argument("--valid-batch-size", type=int, default=256)
     # parser.add_argument("--train-loader-workers", type=int, default=40)
