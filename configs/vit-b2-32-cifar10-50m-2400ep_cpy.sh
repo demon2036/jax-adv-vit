@@ -2,8 +2,8 @@ export EPOCH=2400 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5  GCS_DATASET_DIR=gs://cas
 
 
 python -u main_copy.py \
-    --train-dataset-shards $GCS_DATASET_DIR/cifar10-20m-wds/shards-{00000..00806}.tar \
-    --valid-dataset-shards  gs://caster-us-central-2b/cifar10-test-wds/shards-{00000..00078}.tar \
+    --train-dataset-shards "$GCS_DATASET_DIR/cifar10-50m-wds/shards-{00000..00806}.tar" \
+    --valid-dataset-shards  "gs://caster-us-central-2b/cifar10-test-wds/shards-{00000..00078}.tar" \
     --layers 12  \
     --dim 768  \
     --heads 12  \
