@@ -475,7 +475,8 @@ def train_and_evaluate(args
                                warmup_steps=args.warmup_steps,
                                training_steps=args.training_steps,
                                learning_rate=args.learning_rate,
-                               weight_decay=args.weight_decay
+                               weight_decay=args.weight_decay,
+                               ema_decay=args.ema_decay
                                )
 
     state = flax.jax_utils.replicate(state)
@@ -604,6 +605,7 @@ if __name__ == "__main__":
     # parser.add_argument("--lr-decay", type=float, default=1.0)
     # parser.add_argument("--clip-grad", type=float, default=0.0)
     # parser.add_argument("--grad-accum", type=int, default=1)
+    parser.add_argument("--ema-decay", type=float, default=0.9999)
     #
     parser.add_argument("--warmup-steps", type=int, default=10000)
     parser.add_argument("--training-steps", type=int, default=200000)
