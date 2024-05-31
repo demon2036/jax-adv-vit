@@ -1,4 +1,4 @@
-export EPOCH=2400 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5  GCS_DATASET_DIR=gs://caster-us-central-2b
+export EPOCH=4800 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5  GCS_DATASET_DIR=gs://caster-us-central-2b
 
 
 python -u main_copy_fork.py \
