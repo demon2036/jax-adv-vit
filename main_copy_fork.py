@@ -283,16 +283,20 @@ def apply_model_trade(state, data, key):
         one_hot = optax.smooth_labels(one_hot, 0.1)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
 
-        mask = jnp.argmax(logits, -1) == labels
+        # mask = jnp.argmax(logits, -1) == labels
 
-        trade_loss = (optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)) * mask).mean()
+        # trade_loss = (optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)) * mask).mean()
+        trade_loss = (optax.l2_loss(logits_adv, logits) ).mean()
 
-        adv_loss = jnp.mean(optax.softmax_cross_entropy(logits=logits_adv, labels=one_hot) * (1 - mask))
+        # adv_loss = jnp.mean(optax.softmax_cross_entropy(logits=logits_adv, labels=one_hot) * (1 - mask))
 
-        metrics = {'loss': loss, 'trade_loss': trade_loss, 'adv_loss': adv_loss, 'logits': logits,
-                   'logits_adv': logits_adv}
-
-        return loss + 5 * trade_loss + 10*adv_loss, metrics
+        metrics = {'loss': loss, 'trade_loss': trade_loss,
+                   # 'adv_loss': adv_loss,
+                   'logits': logits,
+                   'logits_adv': logits_adv
+                   }
+        return loss + 4 * trade_loss , metrics
+        # return loss + 5 * trade_loss + 10*adv_loss, metrics
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, metrics), grads = grad_fn(state.params)
