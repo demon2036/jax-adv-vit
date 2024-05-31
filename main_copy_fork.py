@@ -285,7 +285,7 @@ def apply_model_trade(state, data, key):
 
         mask = jnp.argmax(logits, -1) == labels
 
-        trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)) * mask.mean()
+        trade_loss = (optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)) * mask).mean()
 
         adv_loss = jnp.mean(optax.softmax_cross_entropy(logits=logits_adv, labels=one_hot) * (1 - mask))
 
