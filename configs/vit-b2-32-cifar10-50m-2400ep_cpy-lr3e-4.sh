@@ -1,4 +1,4 @@
-export EPOCH=2400 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5  GCS_DATASET_DIR=gs://caster-us-central-2b
+export EPOCH=2400 TRAIN_BATCH_SIZE=4096 WARMUP_EPOCH=5  GCS_DATASET_DIR=gs://caster-us-central-2b
 
 
 python -u main_copy.py \
@@ -22,3 +22,4 @@ python -u main_copy.py \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
     --project cifar10-20m \
     --name $(basename $0 .sh) \
+    --ema-decay 0.999
