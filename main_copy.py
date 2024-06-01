@@ -381,8 +381,8 @@ def create_train_state(rng,
         #     label_fn = partial(get_layer_index_fn, num_layers=args.layers)
         #     label_fn = partial(tree_map_with_path, label_fn)
         #     tx = optax.chain(tx, optax.multi_transform(layerwise_scales, label_fn))
-        # if clip_grad > 0:
-        #     tx = optax.chain(optax.clip_by_global_norm(clip_grad), tx)
+        if clip_grad > 0:
+            tx = optax.chain(optax.clip_by_global_norm(clip_grad), tx)
         return tx
 
     learning_rate = optax.warmup_cosine_decay_schedule(
