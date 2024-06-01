@@ -59,14 +59,16 @@ def auto_augment_factory(args: argparse.Namespace) -> T.Transform:
 
 
 def create_transforms() -> tuple[nn.Module, nn.Module]:
-    def test(x):
-        print(x.shape)
-        return x
+    aa_hparams = {
+        "translate_const": int(32 * 0.45),
+        "img_mean": tuple((IMAGENET_DEFAULT_MEAN * 0xFF).astype(int)),
+    }
 
     train_transforms = [
         T.ToPILImage(),
-        T.RandomCrop(32, padding=4, fill=128),
+        # T.RandomCrop(32, padding=4, fill=128),
         T.RandomHorizontalFlip(),
+        auto_augment_transform('3a'),
         # T.Resize(224, interpolation=3),
         # T.CenterCrop(224),
         T.PILToTensor(),
