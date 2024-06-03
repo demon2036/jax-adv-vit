@@ -104,23 +104,19 @@ def get_train_dataloader(batch_size=1024,
     # shard_path = './shards_01/shards-00040.tar'
 
     train_transform, test_transform = create_transforms()
-    ops = [
+    dataset = wds.DataPipeline(
+        wds.SimpleShardList(shard_path, seed=2036),
         itertools.cycle,
         wds.detshuffle(),
         wds.slice(jax.process_index(), None, jax.process_count()),
         wds.split_by_worker,
-        # # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
+        wds.tarfile_to_samples(handler=wds.ignore_and_continue),
         wds.detshuffle(),
         wds.decode("pil", handler=wds.ignore_and_continue),
         wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
-        # partial(repeat_samples, repeats=3),
+        # partial(repeat_samples, repeats=args.augment_repeats),
         wds.map_tuple(train_transform, torch.tensor),
-    ]
-
-    dataset = wds.WebDataset(urls=shard_path, handler=wds.ignore_and_continue)
-
-    for op in ops:
-        dataset = dataset.compose(op)
+    )
 
     train_dataloader = DataLoader(
         dataset,
