@@ -133,7 +133,7 @@ def apply_model(state, images, labels):
 
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, adv_image)
-        one_hot = jax.nn.one_hot(labels, 10)
+        one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
         return loss, logits
 
@@ -279,7 +279,7 @@ def apply_model_trade(state, data, key):
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, images)
         logits_adv = state.apply_fn({'params': params}, adv_image)
-        one_hot = jax.nn.one_hot(labels, 10)
+        one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, 0.1)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
         trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
