@@ -485,29 +485,29 @@ def train_and_evaluate(args
 
     log_interval = 200
 
-    # def prepare_tf_data(xs):
-    #     """Convert a input batch from tf Tensors to numpy arrays."""
-    #     local_device_count = jax.local_device_count()
-    #
-    #     def _prepare(x):
-    #         # Use _numpy() for zero-copy conversion between TF and NumPy.
-    #         # x = {'img': x['img'], 'cls': x['cls']}
-    #         x = np.asarray(x)
-    #         # x = x._numpy()  # pylint: disable=protected-access
-    #
-    #         # reshape (host_batch_size, height, width, 3) to
-    #         # (local_devices, device_batch_size, height, width, 3)
-    #         return x.reshape((local_device_count, -1) + x.shape[1:])
-    #
-    #     return jax.tree_util.tree_map(_prepare, xs)
-    #
-    # train_dataloader_iter = map(prepare_tf_data, train_dataloader_iter)
-    #
-    # train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
+    def prepare_tf_data(xs):
+        """Convert a input batch from tf Tensors to numpy arrays."""
+        local_device_count = jax.local_device_count()
+
+        def _prepare(x):
+            # Use _numpy() for zero-copy conversion between TF and NumPy.
+            # x = {'img': x['img'], 'cls': x['cls']}
+            x = np.asarray(x)
+            # x = x._numpy()  # pylint: disable=protected-access
+
+            # reshape (host_batch_size, height, width, 3) to
+            # (local_devices, device_batch_size, height, width, 3)
+            return x.reshape((local_device_count, -1) + x.shape[1:])
+
+        return jax.tree_util.tree_map(_prepare, xs)
+
+    train_dataloader_iter = map(prepare_tf_data, train_dataloader_iter)
+
+    train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
     for step in tqdm.tqdm(range(1, args.training_steps)):
         rng, input_rng = jax.random.split(rng)
-        data = shard(next(train_dataloader_iter))
+        data = next(train_dataloader_iter)
 
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
