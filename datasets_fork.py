@@ -102,7 +102,7 @@ def mix_dataloader_iter(train_dataloader, train_origin_dataloader):
     train_origin_dataloader_iter = iter(train_origin_dataloader)
 
     while True:
-        yield [torch.cat([x, y], dim=0) for x, y in zip(next(train_dataloader_iter, train_origin_dataloader_iter))]
+        yield [torch.cat([x, y], dim=0) for x, y in zip(next(train_dataloader_iter), next(train_origin_dataloader_iter))]
 
 
 def get_train_dataloader(batch_size=1024,
