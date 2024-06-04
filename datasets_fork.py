@@ -97,34 +97,41 @@ def collate_and_pad(batch: list[Any], batch_size: int = 1) -> Any:
     return default_collate(batch + [pad] * (batch_size - len(batch)))
 
 
+def mix_dataloader_iter(train_dataloader, train_origin_dataloader):
+    train_dataloader_iter = iter(train_dataloader)
+    train_origin_dataloader_iter = iter(train_origin_dataloader)
+
+    while True:
+        yield [torch.cat([x, y], dim=0) for x, y in zip(next(train_dataloader_iter, train_origin_dataloader_iter))]
+
+
 def get_train_dataloader(batch_size=1024,
                          shard_path='gs://caster-us-central-2b/cifar10-20m-wds/shards-{00000..01290}.tar',
-                         test_shard_path='gs://caster-us-central-2b/cifar10-test-wds/shards-{00000..00078}.tar'
+                         test_shard_path='gs://caster-us-central-2b/cifar10-test-wds/shards-{00000..00078}.tar',
+                         origin_shard_path='gs://fbs0_dl_bucket/cifar100-train-wds/shards-{00000..00099}.tar',
                          ):
-    # shard_path = './shards_01/shards-00040.tar'
+    total_batch_size = batch_size // jax.process_count()
+    train_batch_size = int(total_batch_size * 0.8)
+    train_origin_batch_size = total_batch_size - train_batch_size
 
     train_transform, test_transform = create_transforms()
-    ops = [
+    dataset = wds.DataPipeline(
+        wds.SimpleShardList(shard_path, seed=2036),
         itertools.cycle,
         wds.detshuffle(),
         wds.slice(jax.process_index(), None, jax.process_count()),
         wds.split_by_worker,
-        # # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
+        wds.tarfile_to_samples(handler=wds.ignore_and_continue),
         wds.detshuffle(),
         wds.decode("pil", handler=wds.ignore_and_continue),
         wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
-        # partial(repeat_samples, repeats=3),
+        # partial(repeat_samples, repeats=args.augment_repeats),
         wds.map_tuple(train_transform, torch.tensor),
-    ]
-
-    dataset = wds.WebDataset(urls=shard_path, handler=wds.ignore_and_continue)
-
-    for op in ops:
-        dataset = dataset.compose(op)
+    )
 
     train_dataloader = DataLoader(
         dataset,
-        batch_size=batch_size // jax.process_count(),
+        batch_size=train_batch_size,
         num_workers=32,
         # collate_fn=partial(collate_and_shuffle, repeats=args.augment_repeats),
         drop_last=True,
@@ -132,15 +139,29 @@ def get_train_dataloader(batch_size=1024,
         persistent_workers=True,
     )
 
-    # test_dataset = wds.DataPipeline(
-    #     wds.SimpleShardList(test_shard_path),
-    #     # wds.slice(jax.process_index(), None, jax.process_count()),
-    #     # wds.split_by_worker,
-    #     wds.cached_tarfile_to_samples(),
-    #     wds.decode("pil"),
-    #     wds.to_tuple("jpg.pyd", "cls"),
-    #     wds.map_tuple(test_transform, torch.tensor),
-    # )
+    dataset = wds.DataPipeline(
+        wds.SimpleShardList(origin_shard_path, seed=2036),
+        itertools.cycle,
+        wds.detshuffle(),
+        wds.slice(jax.process_index(), None, jax.process_count()),
+        wds.split_by_worker,
+        wds.tarfile_to_samples(handler=wds.ignore_and_continue),
+        wds.detshuffle(),
+        wds.decode("pil", handler=wds.ignore_and_continue),
+        wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
+        # partial(repeat_samples, repeats=args.augment_repeats),
+        wds.map_tuple(train_transform, torch.tensor),
+    )
+
+    train_origin_dataloader = DataLoader(
+        dataset,
+        batch_size=train_origin_batch_size,
+        num_workers=4,
+        # collate_fn=partial(collate_and_shuffle, repeats=args.augment_repeats),
+        drop_last=True,
+        prefetch_factor=10,
+        persistent_workers=True,
+    )
 
     ops = [
         # wds.detshuffle(),
@@ -175,7 +196,7 @@ def get_train_dataloader(batch_size=1024,
         persistent_workers=True,
     )
 
-    return train_dataloader, test_dataloader
+    return mix_dataloader_iter(train_dataloader,train_origin_dataloader), test_dataloader
 
 
 if __name__ == '__main__':
@@ -190,7 +211,7 @@ if __name__ == '__main__':
         print(img)
 
         if img.shape[1] == 3:
-            img = einops.rearrange(img,'b c h w -> b h w c')
+            img = einops.rearrange(img, 'b c h w -> b h w c')
 
         for i in range(100):
             plt.imshow(img[i])

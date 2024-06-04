@@ -306,8 +306,6 @@ def apply_model_trade(state, data, key):
         state.ema_params, state.params)
     state = state.replace(ema_params=new_ema_params)
 
-    # metrics.update(state.opt_state.hyperparams)
-
     return state, metrics | state.opt_state.hyperparams
 
 
@@ -337,7 +335,6 @@ def create_train_state(rng,
                        learning_rate=None,
                        weight_decay=None,
                        ema_decay=0.9999,
-
                        ):
     """Creates initial `TrainState`."""
 
@@ -403,7 +400,7 @@ def create_train_state(rng,
 
     tx = create_optimizer_fn(learning_rate)
 
-    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params,ema_decay=ema_decay)
+    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay)
 
 
 @partial(jax.pmap, axis_name="batch", )
@@ -436,9 +433,6 @@ def accuracy(state, data):
     return metrics
 
 
-
-
-
 def train_and_evaluate(args
                        ) -> train_state.TrainState:
     """Execute model training and evaluation loop.
@@ -455,7 +449,9 @@ def train_and_evaluate(args
         wandb.init(name=args.name, project=args.project)
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
-    train_dataloader, test_dataloader = get_train_dataloader(args.train_batch_size,shard_path=args.train_dataset_shards,test_shard_path=args.valid_dataset_shards)
+    train_dataloader, test_dataloader = get_train_dataloader(args.train_batch_size,
+                                                             shard_path=args.train_dataset_shards,
+                                                             test_shard_path=args.valid_dataset_shards)
 
     rng = jax.random.key(0)
 
@@ -491,29 +487,29 @@ def train_and_evaluate(args
 
     log_interval = 200
 
-    def prepare_tf_data(xs):
-        """Convert a input batch from tf Tensors to numpy arrays."""
-        local_device_count = jax.local_device_count()
-
-        def _prepare(x):
-            # Use _numpy() for zero-copy conversion between TF and NumPy.
-            # x = {'img': x['img'], 'cls': x['cls']}
-            x = np.asarray(x)
-            # x = x._numpy()  # pylint: disable=protected-access
-
-            # reshape (host_batch_size, height, width, 3) to
-            # (local_devices, device_batch_size, height, width, 3)
-            return x.reshape((local_device_count, -1) + x.shape[1:])
-
-        return jax.tree_util.tree_map(_prepare, xs)
-
-    train_dataloader_iter = map(prepare_tf_data, train_dataloader_iter)
-
-    train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
+    # def prepare_tf_data(xs):
+    #     """Convert a input batch from tf Tensors to numpy arrays."""
+    #     local_device_count = jax.local_device_count()
+    #
+    #     def _prepare(x):
+    #         # Use _numpy() for zero-copy conversion between TF and NumPy.
+    #         # x = {'img': x['img'], 'cls': x['cls']}
+    #         x = np.asarray(x)
+    #         # x = x._numpy()  # pylint: disable=protected-access
+    #
+    #         # reshape (host_batch_size, height, width, 3) to
+    #         # (local_devices, device_batch_size, height, width, 3)
+    #         return x.reshape((local_device_count, -1) + x.shape[1:])
+    #
+    #     return jax.tree_util.tree_map(_prepare, xs)
+    #
+    # train_dataloader_iter = map(prepare_tf_data, train_dataloader_iter)
+    #
+    # train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
     for step in tqdm.tqdm(range(1, args.training_steps)):
         rng, input_rng = jax.random.split(rng)
-        data = next(train_dataloader_iter)
+        data = shard(next(train_dataloader_iter))
 
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
@@ -541,11 +537,13 @@ def train_and_evaluate(args
 
                 params = flax.jax_utils.unreplicate(state.params)
                 params_bytes = msgpack_serialize(params)
-                save_checkpoint_in_background(params_bytes=params_bytes, postfix="last",name=args.name,output_dir=os.getenv('GCS_DATASET_DIR'))
+                save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
+                                              output_dir=os.getenv('GCS_DATASET_DIR'))
 
                 params = flax.jax_utils.unreplicate(state.ema_params)
                 params_bytes = msgpack_serialize(params)
-                save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,output_dir=os.getenv('GCS_DATASET_DIR'))
+                save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
+                                              output_dir=os.getenv('GCS_DATASET_DIR'))
 
     return state
 

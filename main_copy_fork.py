@@ -25,11 +25,9 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 from optax.losses import softmax_cross_entropy_with_integer_labels
-from torchvision import transforms
-from torchvision.transforms import Compose, ToTensor
 
 # from auto_augment import AutoAugment, Cutout
-from datasets import get_train_dataloader
+from datasets_fork import get_train_dataloader
 from model import ViT
 import os
 import wandb
@@ -133,7 +131,7 @@ def apply_model(state, images, labels):
 
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, adv_image)
-        one_hot = jax.nn.one_hot(labels, 10)
+        one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
         return loss, logits
 
@@ -279,25 +277,13 @@ def apply_model_trade(state, data, key):
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, images)
         logits_adv = state.apply_fn({'params': params}, adv_image)
-        one_hot = jax.nn.one_hot(labels, 10)
+        one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, 0.1)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
+        trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
+        metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
 
-        mask = jnp.argmax(logits, -1) == labels
-
-        trade_loss = (optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)) * mask)
-        trade_loss=(trade_loss/(mask.sum()/mask.shape[0])).mean()
-        # trade_loss = (optax.l2_loss(logits_adv, logits) ).mean()
-
-        # adv_loss = jnp.mean(optax.softmax_cross_entropy(logits=logits_adv, labels=one_hot) * (1 - mask))
-
-        metrics = {'loss': loss, 'trade_loss': trade_loss,
-                   # 'adv_loss': adv_loss,
-                   'logits': logits,
-                   'logits_adv': logits_adv
-                   }
-        return loss + 5 * trade_loss , metrics
-        # return loss + 5 * trade_loss + 10*adv_loss, metrics
+        return loss + 5 * trade_loss, metrics
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, metrics), grads = grad_fn(state.params)
@@ -317,8 +303,6 @@ def apply_model_trade(state, data, key):
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
     state = state.replace(ema_params=new_ema_params)
-
-    # metrics.update(state.opt_state.hyperparams)
 
     return state, metrics | state.opt_state.hyperparams
 
@@ -349,7 +333,6 @@ def create_train_state(rng,
                        learning_rate=None,
                        weight_decay=None,
                        ema_decay=0.9999,
-
                        ):
     """Creates initial `TrainState`."""
 
@@ -393,8 +376,8 @@ def create_train_state(rng,
         #     label_fn = partial(get_layer_index_fn, num_layers=args.layers)
         #     label_fn = partial(tree_map_with_path, label_fn)
         #     tx = optax.chain(tx, optax.multi_transform(layerwise_scales, label_fn))
-        # if clip_grad > 0:
-        #     tx = optax.chain(optax.clip_by_global_norm(clip_grad), tx)
+        if clip_grad > 0:
+            tx = optax.chain(optax.clip_by_global_norm(clip_grad), tx)
         return tx
 
     learning_rate = optax.warmup_cosine_decay_schedule(
@@ -464,7 +447,7 @@ def train_and_evaluate(args
         wandb.init(name=args.name, project=args.project)
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
-    train_dataloader, test_dataloader = get_train_dataloader(args.train_batch_size,
+    train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                              shard_path=args.train_dataset_shards,
                                                              test_shard_path=args.valid_dataset_shards)
 
@@ -492,7 +475,7 @@ def train_and_evaluate(args
 
     state = flax.jax_utils.replicate(state)
 
-    train_dataloader_iter = iter(train_dataloader)
+    # train_dataloader_iter = iter(train_dataloader)
 
     # test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
     #                                             transform=Compose(
@@ -502,29 +485,29 @@ def train_and_evaluate(args
 
     log_interval = 200
 
-    def prepare_tf_data(xs):
-        """Convert a input batch from tf Tensors to numpy arrays."""
-        local_device_count = jax.local_device_count()
-
-        def _prepare(x):
-            # Use _numpy() for zero-copy conversion between TF and NumPy.
-            # x = {'img': x['img'], 'cls': x['cls']}
-            x = np.asarray(x)
-            # x = x._numpy()  # pylint: disable=protected-access
-
-            # reshape (host_batch_size, height, width, 3) to
-            # (local_devices, device_batch_size, height, width, 3)
-            return x.reshape((local_device_count, -1) + x.shape[1:])
-
-        return jax.tree_util.tree_map(_prepare, xs)
-
-    train_dataloader_iter = map(prepare_tf_data, train_dataloader_iter)
-
-    train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
+    # def prepare_tf_data(xs):
+    #     """Convert a input batch from tf Tensors to numpy arrays."""
+    #     local_device_count = jax.local_device_count()
+    #
+    #     def _prepare(x):
+    #         # Use _numpy() for zero-copy conversion between TF and NumPy.
+    #         # x = {'img': x['img'], 'cls': x['cls']}
+    #         x = np.asarray(x)
+    #         # x = x._numpy()  # pylint: disable=protected-access
+    #
+    #         # reshape (host_batch_size, height, width, 3) to
+    #         # (local_devices, device_batch_size, height, width, 3)
+    #         return x.reshape((local_device_count, -1) + x.shape[1:])
+    #
+    #     return jax.tree_util.tree_map(_prepare, xs)
+    #
+    # train_dataloader_iter = map(prepare_tf_data, train_dataloader_iter)
+    #
+    # train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
     for step in tqdm.tqdm(range(1, args.training_steps)):
         rng, input_rng = jax.random.split(rng)
-        data = next(train_dataloader_iter)
+        data = shard(next(train_dataloader_iter))
 
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
@@ -552,11 +535,13 @@ def train_and_evaluate(args
 
                 params = flax.jax_utils.unreplicate(state.params)
                 params_bytes = msgpack_serialize(params)
-                save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name)
+                save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
+                                              output_dir=os.getenv('GCS_DATASET_DIR'))
 
                 params = flax.jax_utils.unreplicate(state.ema_params)
                 params_bytes = msgpack_serialize(params)
-                save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name)
+                save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
+                                              output_dir=os.getenv('GCS_DATASET_DIR'))
 
     return state
 

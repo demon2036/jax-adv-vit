@@ -103,6 +103,7 @@ def get_train_dataloader(batch_size=1024,
                          ):
     # shard_path = './shards_01/shards-00040.tar'
 
+
     train_transform, test_transform = create_transforms()
     dataset = wds.DataPipeline(
         wds.SimpleShardList(shard_path, seed=2036),
