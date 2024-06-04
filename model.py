@@ -20,6 +20,7 @@ from typing import Any, Literal
 
 import flax.linen as nn
 import flax.linen.initializers as init
+import jax.experimental.pallas.ops.tpu.flash_attention
 import jax.numpy as jnp
 from chex import Array
 

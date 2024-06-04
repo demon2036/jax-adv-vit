@@ -116,7 +116,7 @@ def get_train_dataloader(batch_size=1024,
 
     train_transform, test_transform = create_transforms()
     dataset = wds.DataPipeline(
-        wds.SimpleShardList(shard_path, seed=2036),
+        wds.SimpleShardList(shard_path, seed=1),
         itertools.cycle,
         wds.detshuffle(),
         wds.slice(jax.process_index(), None, jax.process_count()),
@@ -140,7 +140,7 @@ def get_train_dataloader(batch_size=1024,
     )
 
     dataset = wds.DataPipeline(
-        wds.SimpleShardList(origin_shard_path, seed=2036),
+        wds.SimpleShardList(origin_shard_path, seed=1),
         itertools.cycle,
         wds.detshuffle(),
         wds.slice(jax.process_index(), None, jax.process_count()),
