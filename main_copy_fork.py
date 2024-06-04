@@ -28,7 +28,7 @@ from optax.losses import softmax_cross_entropy_with_integer_labels
 
 # from auto_augment import AutoAugment, Cutout
 from datasets_fork import get_train_dataloader
-from model import ViT
+from model_fork import ViT
 import os
 import wandb
 from utils2 import AverageMeter, save_checkpoint_in_background
