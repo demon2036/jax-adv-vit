@@ -2,6 +2,8 @@
 
 
 python main.py \
+    --train-dataset-shards "$GCS_DATASET_DIR/cifar10-50m-wds/shards-{00000..00999}.tar" \
+    --valid-dataset-shards  "$GCS_DATASET_DIR/cifar10-test-wds/shards-{00000..00099}.tar" \
     --layers 12  \
     --dim 768  \
     --heads 12  \

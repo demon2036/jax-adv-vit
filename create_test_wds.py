@@ -63,11 +63,11 @@ def get_dataset(dataset_name):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset-name", type=str)
-    parser.add_argument("--shard-path", type=str, default='./cifar100-test-wds')
+    parser.add_argument("--shard-path", type=str, default='./cifar10-test-wds')
 
     args = parser.parse_args()
     train_dataset, test_dataset = get_dataset(args.dataset_name)
 
-    write_shard(args.shard_path, train_dataset)
+    write_shard(args.shard_path, test_dataset)
 
     # test_dataloader = DataLoader(test_dataset, 1, shuffle=False, num_workers=16, drop_last=False)
