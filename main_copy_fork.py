@@ -554,6 +554,7 @@ if __name__ == "__main__":
     #     data=next(train_dataloader_iter)
     parser = argparse.ArgumentParser()
     parser.add_argument("--train-dataset-shards")
+    parser.add_argument("--train-origin-dataset-shards")
     parser.add_argument("--valid-dataset-shards")
     parser.add_argument("--train-batch-size", type=int, default=2048)
     # parser.add_argument("--valid-batch-size", type=int, default=256)
