@@ -334,7 +334,7 @@ def create_train_state(rng,
                        learning_rate=None,
                        weight_decay=None,
                        ema_decay=0.9999,
-                       trade_beta=5
+                       trade_beta=5.0
 
                        ):
     """Creates initial `TrainState`."""
@@ -538,15 +538,15 @@ def train_and_evaluate(args
                 metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
                 wandb.log(metrics, step)
 
-                params = flax.jax_utils.unreplicate(state.params)
-                params_bytes = msgpack_serialize(params)
-                save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
-                                              output_dir=os.getenv('GCS_DATASET_DIR'))
+                # params = flax.jax_utils.unreplicate(state.params)
+                # params_bytes = msgpack_serialize(params)
+                # save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
+                #                               output_dir=os.getenv('GCS_DATASET_DIR'))
 
                 params = flax.jax_utils.unreplicate(state.ema_params)
                 params_bytes = msgpack_serialize(params)
                 save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
-                                              output_dir=os.getenv('GCS_DATASET_DIR'))
+                                              output_dir=args.output_dir)
 
     return state
 
