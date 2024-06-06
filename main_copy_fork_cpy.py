@@ -283,7 +283,7 @@ def apply_model_trade(state, data, key):
         trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
         metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
 
-        return loss + state.trade_beta * trade_loss, metrics
+        return loss + 5 * trade_loss, metrics
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, metrics), grads = grad_fn(state.params)
@@ -311,7 +311,6 @@ factor = 2
 
 
 class EMATrainState(flax.training.train_state.TrainState):
-    trade_beta: int
     ema_decay: int = 0.995
     ema_params: Any = None
 
@@ -334,8 +333,6 @@ def create_train_state(rng,
                        learning_rate=None,
                        weight_decay=None,
                        ema_decay=0.9999,
-                       trade_beta=5
-
                        ):
     """Creates initial `TrainState`."""
 
@@ -401,7 +398,7 @@ def create_train_state(rng,
 
     tx = create_optimizer_fn(learning_rate)
 
-    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay,trade_beta=trade_beta)
+    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay)
 
 
 @partial(jax.pmap, axis_name="batch", )
@@ -451,8 +448,8 @@ def train_and_evaluate(args
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
-                                                                  shard_path=args.train_dataset_shards,
-                                                                  test_shard_path=args.valid_dataset_shards,
+                                                             shard_path=args.train_dataset_shards,
+                                                             test_shard_path=args.valid_dataset_shards,
                                                                   origin_shard_path=args.train_origin_dataset_shards)
 
     rng = jax.random.key(0)
@@ -474,8 +471,7 @@ def train_and_evaluate(args
                                training_steps=args.training_steps,
                                learning_rate=args.learning_rate,
                                weight_decay=args.weight_decay,
-                               ema_decay=args.ema_decay,
-                               trade_beta=args.beta
+                               ema_decay=args.ema_decay
                                )
 
     state = flax.jax_utils.replicate(state)
@@ -577,7 +573,6 @@ if __name__ == "__main__":
     # parser.add_argument("--cutmix", type=float, default=1.0)
     # parser.add_argument("--criterion", default="ce")
     # parser.add_argument("--label-smoothing", type=float, default=0.1)
-    parser.add_argument("--beta", type=float, default=5)
 
     parser.add_argument("--layers", type=int, default=12)
     parser.add_argument("--dim", type=int, default=768)
@@ -619,5 +614,5 @@ if __name__ == "__main__":
     parser.add_argument("--name")
     # parser.add_argument("--ipaddr")
     # parser.add_argument("--hostname")
-    parser.add_argument("--output-dir", default=".")
+    # parser.add_argument("--output-dir", default=".")
     train_and_evaluate(parser.parse_args())
