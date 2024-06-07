@@ -46,7 +46,7 @@ class ViTBase:
     image_size: int = 224
     posemb: Literal["learnable", "sincos2d"] = "learnable"
     pooling: Literal["cls", "gap"] = "cls"
-    qk_norm: bool = True
+    qk_norm: bool = False
 
     dropout: float = 0.0
     droppath: float = 0.0
