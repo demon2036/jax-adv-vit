@@ -82,10 +82,10 @@ class KANLinear(torch.nn.Module):
         Compute the B-spline bases for the given input tensor.
 
         Args:
-            x (torch.Tensor): Input tensor of shape (batch_size, in_features).
+            x (torch.Tensor): Input tensor of shape (batch, in_features).
 
         Returns:
-            torch.Tensor: B-spline bases tensor of shape (batch_size, in_features, grid_size + spline_order).
+            torch.Tensor: B-spline bases tensor of shape (batch, in_features, grid_size + spline_order).
         """
         assert x.dim() == 2 and x.size(1) == self.in_features
 
@@ -117,8 +117,8 @@ class KANLinear(torch.nn.Module):
         Compute the coefficients of the curve that interpolates the given points.
 
         Args:
-            x (torch.Tensor): Input tensor of shape (batch_size, in_features).
-            y (torch.Tensor): Output tensor of shape (batch_size, in_features, out_features).
+            x (torch.Tensor): Input tensor of shape (batch, in_features).
+            y (torch.Tensor): Output tensor of shape (batch, in_features, out_features).
 
         Returns:
             torch.Tensor: Coefficients tensor of shape (out_features, in_features, grid_size + spline_order).
@@ -128,8 +128,8 @@ class KANLinear(torch.nn.Module):
 
         A = self.b_splines(x).transpose(
             0, 1
-        )  # (in_features, batch_size, grid_size + spline_order)
-        B = y.transpose(0, 1)  # (in_features, batch_size, out_features)
+        )  # (in_features, batch, grid_size + spline_order)
+        B = y.transpose(0, 1)  # (in_features, batch, out_features)
         solution = torch.linalg.lstsq(
             A, B
         ).solution  # (in_features, grid_size + spline_order, out_features)

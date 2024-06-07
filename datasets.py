@@ -93,7 +93,7 @@ def collate_and_shuffle(batch: list[Any], repeats: int = 1) -> Any:
 
 def collate_and_pad(batch: list[Any], batch_size: int = 1) -> Any:
     pad = tuple(torch.full_like(x, fill_value=-1) for x in batch[0])
-    # print(batch_size, len(batch))
+    # print(batch, len(batch))
     return default_collate(batch + [pad] * (batch_size - len(batch)))
 
 
