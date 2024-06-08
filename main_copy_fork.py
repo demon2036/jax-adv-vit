@@ -278,7 +278,7 @@ def apply_model_trade(state, data, key):
         logits = state.apply_fn({'params': params}, images)
         logits_adv = state.apply_fn({'params': params}, adv_image)
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
-        one_hot = optax.smooth_labels(one_hot, 0.1)
+        one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
         trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
         metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
@@ -311,6 +311,7 @@ factor = 2
 
 
 class EMATrainState(flax.training.train_state.TrainState):
+    label_smoothing:int
     trade_beta: int
     ema_decay: int = 0.995
     ema_params: Any = None
@@ -334,7 +335,8 @@ def create_train_state(rng,
                        learning_rate=None,
                        weight_decay=None,
                        ema_decay=0.9999,
-                       trade_beta=5.0
+                       trade_beta=5.0,
+                       label_smoothing=0.1
 
                        ):
     """Creates initial `TrainState`."""
@@ -401,7 +403,7 @@ def create_train_state(rng,
 
     tx = create_optimizer_fn(learning_rate)
 
-    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay,trade_beta=trade_beta)
+    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay,trade_beta=trade_beta,label_smoothing=label_smoothing)
 
 
 @partial(jax.pmap, axis_name="batch", )
@@ -475,7 +477,8 @@ def train_and_evaluate(args
                                learning_rate=args.learning_rate,
                                weight_decay=args.weight_decay,
                                ema_decay=args.ema_decay,
-                               trade_beta=args.beta
+                               trade_beta=args.beta,
+                               label_smoothing=args.label_smoothing
                                )
 
     state = flax.jax_utils.replicate(state)
@@ -576,7 +579,7 @@ if __name__ == "__main__":
     # parser.add_argument("--mixup", type=float, default=0.8)
     # parser.add_argument("--cutmix", type=float, default=1.0)
     # parser.add_argument("--criterion", default="ce")
-    # parser.add_argument("--label-smoothing", type=float, default=0.1)
+    parser.add_argument("--label-smoothing", type=float, default=0.1)
     parser.add_argument("--beta", type=float, default=5)
 
     parser.add_argument("--layers", type=int, default=12)
