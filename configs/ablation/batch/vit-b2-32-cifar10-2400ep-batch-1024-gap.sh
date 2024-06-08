@@ -1,4 +1,4 @@
-export EPOCH=2400 TRAIN_BATCH_SIZE=2048 WARMUP_EPOCH=5
+export EPOCH=2000 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5
 
 
 python -u main_copy_fork.py \
@@ -13,7 +13,7 @@ python -u main_copy_fork.py \
     --patch-size 2  \
     --image-size 32  \
     --posemb "learnable"  \
-    --pooling 'cls'  \
+    --pooling 'gap'  \
     --dropout 0.0  \
     --droppath 0.0  \
     --train-batch-size $TRAIN_BATCH_SIZE \
@@ -25,4 +25,3 @@ python -u main_copy_fork.py \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/ablation/batch" \
     --beta 5.0
-    --ema-decay 0.999
