@@ -132,10 +132,7 @@ class FeedForward(ViTBase, nn.Module):
 class ViTLayer(ViTBase, nn.Module):
     def setup(self):
         self.attn = Attention(**self.kwargs)
-        if self.use_kan:
-            self.ff = KANLayer(self.polynomial_degree)
-        else:
-            self.ff = FeedForward(**self.kwargs)
+        self.ff = FeedForward(**self.kwargs)
 
         self.norm1 = nn.LayerNorm()
         self.norm2 = nn.LayerNorm()
