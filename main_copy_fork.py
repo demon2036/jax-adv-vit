@@ -4,6 +4,8 @@ from typing import Any
 import jax
 from flax.serialization import msgpack_serialize
 
+from attacks.pgd import pgd_attack3
+
 jax.distributed.initialize()
 
 from functools import partial
@@ -33,95 +35,9 @@ import os
 import wandb
 from utils2 import AverageMeter, save_checkpoint_in_background
 
-EPOCHS = 2400  # @param{type:"integer"}
-# @markdown Number of samples for each batch in the training set:
-TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
-# @markdown Number of samples for each batch in the test set:
-TEST_BATCH_SIZE = 64  # @param{type:"integer"}
-# @markdown Learning rate for the optimizer:
-LEARNING_RATE = 1e-4  # @param{type:"number"}
-WEIGHT_DECAY = 0.5
-# WEIGHT_DECAY = 1.0
-# LEARNING_RATE = 1e-3  # @param{type:"number"}
-# WEIGHT_DECAY = 0.05
-
-# @markdown The dataset to use.
-DATASET = "cifar10"  # @param{type:"string"}
-# @markdown The amount of L2 regularization to use:
-L2_REG = 0.0001  # @param{type:"number"}
-# @markdown Adversarial perturbations lie within the infinity-ball of radius epsilon.
 EPSILON = 8 / 255  # @param{type:"number"}
 
 os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
-
-
-class CNN(nn.Module):
-    """A simple CNN model."""
-
-    @nn.compact
-    def __call__(self, x):
-        x = nn.Conv(features=32, kernel_size=(3, 3))(x)
-        x = nn.relu(x)
-        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
-        x = nn.Conv(features=64, kernel_size=(3, 3))(x)
-        x = nn.relu(x)
-        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
-        x = x.reshape((x.shape[0], -1))  # flatten
-        x = nn.Dense(features=256)(x)
-        x = nn.relu(x)
-        x = nn.Dense(features=10)(x)
-        return x
-
-
-# @jax.jit
-# def loss_fun(params, l2reg, data):
-#     """Compute the loss of the network."""
-#     inputs, labels = data
-#     x = inputs.astype(jnp.float32)
-#     logits = net.apply({"params": params}, x)
-#     sqnorm = tree_l2_norm(params, squared=True)
-#     loss_value = jnp.mean(softmax_cross_entropy_with_integer_labels(logits, labels))
-#     return loss_value + 0.5 * l2reg * sqnorm
-
-
-def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter=10):
-    """PGD attack on the L-infinity ball with radius epsilon.
-
-  Args:
-    image: array-like, input data for the CNN
-    label: integer, class label corresponding to image
-    params: tree, parameters of the model to attack
-    epsilon: float, radius of the L-infinity ball.
-    maxiter: int, number of iterations of this algorithm.
-
-  Returns:
-    perturbed_image: Adversarial image on the boundary of the L-infinity ball
-      of radius epsilon and centered at image.
-
-  Notes:
-    PGD attack is described in (Madry et al. 2017),
-    https://arxiv.org/pdf/1706.06083.pdf
-    :param step_size:
-  """
-    image_perturbation = jnp.zeros_like(image)
-
-    def adversarial_loss(perturbation):
-        logits = state.apply_fn({"params": state.ema_params}, image + perturbation)
-        loss_value = jnp.mean(softmax_cross_entropy_with_integer_labels(logits, label))
-        return loss_value
-
-    grad_adversarial = jax.grad(adversarial_loss)
-    for _ in range(maxiter):
-        # compute gradient of the loss wrt to the image
-        sign_grad = jnp.sign(grad_adversarial(image_perturbation))
-
-        # heuristic step-size 2 eps / maxiter
-        image_perturbation += step_size * sign_grad
-        # projection step onto the L-infinity ball centered at image
-        image_perturbation = jnp.clip(image_perturbation, - epsilon, epsilon)
-
-    # clip the image to ensure pixels are between 0 and 1
-    return jnp.clip(image + image_perturbation, 0, 1)
 
 
 @partial(jax.pmap, axis_name="batch", )
@@ -311,7 +227,7 @@ factor = 2
 
 
 class EMATrainState(flax.training.train_state.TrainState):
-    label_smoothing:int
+    label_smoothing: int
     trade_beta: int
     ema_decay: int = 0.995
     ema_params: Any = None
@@ -403,7 +319,8 @@ def create_train_state(rng,
 
     tx = create_optimizer_fn(learning_rate)
 
-    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay,trade_beta=trade_beta,label_smoothing=label_smoothing)
+    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay,
+                                trade_beta=trade_beta, label_smoothing=label_smoothing)
 
 
 @partial(jax.pmap, axis_name="batch", )
@@ -449,7 +366,8 @@ def train_and_evaluate(args
   """
 
     if jax.process_index() == 0:
-        wandb.init(name=args.name, project=args.project,config=args.__dict__,config_exclude_keys=['train_dataset_shards','valid_dataset_shards','train_origin_dataset_shards'])
+        wandb.init(name=args.name, project=args.project, config=args.__dict__,
+                   config_exclude_keys=['train_dataset_shards', 'valid_dataset_shards', 'train_origin_dataset_shards'])
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
