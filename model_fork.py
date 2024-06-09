@@ -27,7 +27,6 @@ from chex import Array
 from datasets import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from utils2 import fixed_sincos2d_embeddings
 
-# from kan import KANLayer
 
 DenseGeneral = partial(nn.DenseGeneral, kernel_init=init.truncated_normal(0.02))
 Dense = partial(nn.Dense, kernel_init=init.truncated_normal(0.02))

@@ -26,7 +26,7 @@ from chex import Array
 
 from datasets import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from utils2 import fixed_sincos2d_embeddings
-# from kan import KANLayer
+
 
 DenseGeneral = partial(nn.DenseGeneral, kernel_init=init.truncated_normal(0.02))
 Dense = partial(nn.Dense, kernel_init=init.truncated_normal(0.02))
@@ -45,6 +45,7 @@ class ViTBase:
     image_size: int = 224
     posemb: Literal["learnable", "sincos2d"] = "learnable"
     pooling: Literal["cls", "gap"] = "cls"
+    qk_norm: bool = False
 
     dropout: float = 0.0
     droppath: float = 0.0
@@ -97,8 +98,15 @@ class PatchEmbed(ViTBase, nn.Module):
         return x
 
 
+class Identity(nn.Module):
+    def __call__(self, x):
+        return x
+
+
 class Attention(ViTBase, nn.Module):
     def setup(self):
+        self.q_norm = nn.LayerNorm() if self.qk_norm else Identity()
+        self.k_norm = nn.LayerNorm() if self.qk_norm else Identity()
         self.wq = DenseGeneral((self.heads, self.head_dim))
         self.wk = DenseGeneral((self.heads, self.head_dim))
         self.wv = DenseGeneral((self.heads, self.head_dim))
@@ -106,7 +114,7 @@ class Attention(ViTBase, nn.Module):
         self.drop = nn.Dropout(self.dropout)
 
     def __call__(self, x: Array, det: bool = True) -> Array:
-        z = jnp.einsum("bqhd,bkhd->bhqk", self.wq(x) / self.head_dim**0.5, self.wk(x))
+        z = jnp.einsum("bqhd,bkhd->bhqk", self.q_norm(self.wq(x)) / self.head_dim ** 0.5, self.k_norm(self.wk(x)))
         z = jnp.einsum("bhqk,bkhd->bqhd", self.drop(nn.softmax(z), det), self.wv(x))
         return self.drop(self.wo(z), det)
 
