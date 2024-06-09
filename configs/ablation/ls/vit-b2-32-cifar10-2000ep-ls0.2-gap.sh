@@ -25,4 +25,4 @@ python -u main_copy_fork.py \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/ablation/ls" \
     --beta 5.0 \
-    --label-smoothing 0.1
+    --label-smoothing 0.2
