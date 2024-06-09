@@ -449,7 +449,7 @@ def train_and_evaluate(args
   """
 
     if jax.process_index() == 0:
-        wandb.init(name=args.name, project=args.project)
+        wandb.init(name=args.name, project=args.project,config=args.__dict__,config_exclude_keys=['train_dataset_shards','valid_dataset_shards','train_origin_dataset_shards'])
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
