@@ -205,7 +205,6 @@ def apply_model_trade(state, data, key):
 
     grads = jax.lax.pmean(grads, axis_name="batch")
 
-
     def flatten(p, label=None):
         if isinstance(p, dict):
             for k, v in p.items():
@@ -214,17 +213,30 @@ def apply_model_trade(state, data, key):
             yield label, p
 
     grads_params = jax.tree_util.tree_map(jnp.linalg.norm, grads)
-    grads_params_dict=dict(flatten(grads_params))
+    grads_params_dict = dict(flatten(grads_params))
 
+    def update_ema_norm(ema_norm, current_norm, decay):
+        return decay * ema_norm + (1 - decay) * current_norm
+
+    wte_norm = jnp.linalg.norm(grads['embed']['wte']['kernel'])
+    state = state.replace(ema_norm=update_ema_norm(state.ema_norm, wte_norm, state.norm_ema))
+
+    def clip_grads(grads, ema_norm, current_norm, clip_factor=2.0):
+        clip_coef = jnp.minimum(1.0, clip_factor * ema_norm / current_norm)
+        return grads * clip_coef
+
+    grads['embed']['wte']['kernel'] = clip_grads(grads['embed']['wte']['kernel'], state.ema_norm, wte_norm)
 
     state = state.apply_gradients(grads=grads)
+
+    metrics['wte_ema_norm'] = state.ema_norm
 
     new_ema_params = jax.tree_util.tree_map(
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
     state = state.replace(ema_params=new_ema_params)
 
-    return state, metrics | state.opt_state.hyperparams |grads_params_dict
+    return state, metrics | state.opt_state.hyperparams | grads_params_dict
 
 
 factor = 2
@@ -235,6 +247,9 @@ class EMATrainState(flax.training.train_state.TrainState):
     trade_beta: int
     ema_decay: int = 0.995
     ema_params: Any = None
+
+    norm_ema: int = 0.999
+    ema_norm: jnp.array = jnp.array([5.0])
 
 
 def create_train_state(rng,
