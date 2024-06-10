@@ -22,7 +22,7 @@ import optax
 from optax.losses import softmax_cross_entropy_with_integer_labels
 
 from datasets_fork import get_train_dataloader
-from model_fork import ViT
+from model import ViT
 import os
 import wandb
 from utils2 import AverageMeter, save_checkpoint_in_background
@@ -205,6 +205,18 @@ def apply_model_trade(state, data, key):
 
     grads = jax.lax.pmean(grads, axis_name="batch")
 
+
+    def flatten(p, label=None):
+        if isinstance(p, dict):
+            for k, v in p.items():
+                yield from flatten(v, k if label is None else f"{label}.{k}")
+        else:
+            yield label, p
+
+    grads_params = jax.tree_util.tree_map(jnp.linalg.norm, grads)
+    grads_params_dict=dict(flatten(grads_params))
+
+
     state = state.apply_gradients(grads=grads)
 
     new_ema_params = jax.tree_util.tree_map(
@@ -212,7 +224,7 @@ def apply_model_trade(state, data, key):
         state.ema_params, state.params)
     state = state.replace(ema_params=new_ema_params)
 
-    return state, metrics | state.opt_state.hyperparams
+    return state, metrics | state.opt_state.hyperparams |grads_params_dict
 
 
 factor = 2
