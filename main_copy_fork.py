@@ -249,7 +249,7 @@ class EMATrainState(flax.training.train_state.TrainState):
     ema_params: Any = None
 
     norm_ema: int = 0.999
-    ema_norm: jnp.array = jnp.array([5.0])
+    ema_norm: jnp.array = jnp.array([1.0])
 
 
 def create_train_state(rng,
