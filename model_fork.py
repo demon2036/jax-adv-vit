@@ -80,7 +80,7 @@ class PatchEmbed(ViTBase, nn.Module):
             self.dim,
             kernel_size=(self.patch_size, self.patch_size),
             strides=(self.patch_size, self.patch_size),
-            padding="VALID", kernel_init=init.truncated_normal((2 / 5) ** 0.5)
+            padding="VALID",
         )
         if self.pooling == "cls":
             self.cls_token = self.param(
@@ -99,7 +99,7 @@ class PatchEmbed(ViTBase, nn.Module):
         if self.pooling == "cls":
             cls_token = jnp.repeat(self.cls_token, x.shape[0], axis=0)
             x = jnp.concatenate((cls_token, x), axis=1)
-        return x
+        return nn.LayerNorm()(x)
 
 
 class Identity(nn.Module):
