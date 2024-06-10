@@ -21,7 +21,7 @@ python -u main_copy_fork.py \
     --weight-decay 0.5 \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
-    --project cifar10-ablation-test \
+    --project cifar10-ablation-test2 \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/ablation/test" \
     --beta 5.0 \
