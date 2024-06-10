@@ -17,7 +17,7 @@ python -u main_copy_fork.py \
     --dropout 0.0  \
     --droppath 0.0  \
     --train-batch-size $TRAIN_BATCH_SIZE \
-    --learning-rate 1e-4 \
+    --learning-rate 3e-4 \
     --weight-decay 0.5 \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
@@ -25,5 +25,5 @@ python -u main_copy_fork.py \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/ablation/test" \
     --beta 5.0 \
-    --label-smoothing 0.4 \
+    --label-smoothing 0.3 \
 #    --ema-decay 0.9
