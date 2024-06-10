@@ -118,7 +118,7 @@ class Attention(ViTBase, nn.Module):
         self.wq = DenseGeneral((self.heads, self.head_dim), kernel_init=nn.initializers.truncated_normal(stddev=(2 / 5 / self.head_dim) ** 0.5))
         self.wk = DenseGeneral((self.heads, self.head_dim), kernel_init=nn.initializers.truncated_normal(stddev=(2 / 5 / self.head_dim) ** 0.5))
         self.wv = DenseGeneral((self.heads, self.head_dim), kernel_init=nn.initializers.truncated_normal(stddev=(2 / 5 / self.head_dim) ** 0.5))
-        self.wo = nn.DenseGeneral(self.dim, axis=(-2, -1),kernel_init=nn.initializers.truncated_normal(stddev=(1/(5*self.layers*self.layers*self.dim))**0.5))
+        self.wo = nn.DenseGeneral(self.dim, axis=(-2, -1),kernel_init=nn.initializers.truncated_normal(stddev=(1/(5*self.layers*self.dim))**0.5))
         self.drop = nn.Dropout(self.dropout)
 
     def __call__(self, x: Array, det: bool = True) -> Array:
@@ -130,7 +130,7 @@ class Attention(ViTBase, nn.Module):
 class FeedForward(ViTBase, nn.Module):
     def setup(self):
         self.w1 = Dense(self.hidden_dim, kernel_init=nn.initializers.truncated_normal(stddev=(2 / 5 / self.dim) ** 0.5))
-        self.w2 = nn.Dense(self.dim,kernel_init=nn.initializers.truncated_normal(stddev=(1/(5*self.layers*self.layers*self.dim))**0.5))
+        self.w2 = nn.Dense(self.dim,kernel_init=nn.initializers.truncated_normal(stddev=(1/(5*self.layers*self.dim))**0.5))
         self.drop = nn.Dropout(self.dropout)
 
     def __call__(self, x: Array, det: bool = True) -> Array:
