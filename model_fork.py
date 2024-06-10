@@ -18,7 +18,6 @@ from dataclasses import dataclass, fields
 from functools import partial
 from typing import Any, Literal
 
-import einops
 import flax.linen as nn
 import flax.linen.initializers as init
 import jax.experimental.pallas.ops.tpu.flash_attention
@@ -89,7 +88,7 @@ class PatchEmbed(ViTBase, nn.Module):
 
         if self.posemb == "learnable":
             self.wpe = self.param(
-                "wpe", init.truncated_normal(0.02), (*self.num_patches, self.dim)
+                "wpe", init.truncated_normal((2 / 5) ** 0.5), (*self.num_patches, self.dim)
             )
         elif self.posemb == "sincos2d":
             self.wpe = fixed_sincos2d_embeddings(*self.num_patches, self.dim)
@@ -99,7 +98,7 @@ class PatchEmbed(ViTBase, nn.Module):
         if self.pooling == "cls":
             cls_token = jnp.repeat(self.cls_token, x.shape[0], axis=0)
             x = jnp.concatenate((cls_token, x), axis=1)
-        return nn.LayerNorm()(x)
+        return x
 
 
 class Identity(nn.Module):
@@ -115,7 +114,7 @@ class Attention(ViTBase, nn.Module):
         self.wk = DenseGeneral((self.heads, self.head_dim))
         self.wv = DenseGeneral((self.heads, self.head_dim))
         self.wo = nn.DenseGeneral(self.dim, axis=(-2, -1), kernel_init=nn.initializers.truncated_normal(
-            stddev=(1 / (5 *  self.layers * self.dim)) ** 0.5))
+            stddev=(1 / (5 * self.layers * self.dim)) ** 0.5))
         self.drop = nn.Dropout(self.dropout)
 
     def __call__(self, x: Array, det: bool = True) -> Array:
@@ -124,30 +123,9 @@ class Attention(ViTBase, nn.Module):
         return self.drop(self.wo(z), det)
 
 
-# class Attention(ViTBase, nn.Module):
-#     def setup(self):
-#         self.qkv = nn.Dense(self.dim * 3, kernel_init=nn.initializers.truncated_normal((2 / 5 / self.dim) ** 0.5))
-#         self.wo = nn.Dense(self.dim, kernel_init=nn.initializers.truncated_normal(
-#             stddev=(1 / (5 * self.layers * self.dim)) ** 0.5))
-#         self.drop = nn.Dropout(self.dropout)
-#
-#     def __call__(self, x: Array, det: bool = True) -> Array:
-#         q, k, v = einops.rearrange(self.qkv(x), 'b n (d h k)->k b h n d',k=3,h=self.heads)
-#
-#         print(q.shape,k.shape)
-#
-#         z = jnp.einsum('bhni,bhnj->bhnn', q / self.head_dim ** 0.5,k)
-#         z = jnp.einsum('bhnn,bhnj->bhnj', nn.softmax(z), v)
-#
-#         # z = jnp.einsum("bqhd,bkhd->bhqk", self.wq(x) / self.head_dim ** 0.5, self.wk(x))
-#         # z = jnp.einsum("bhqk,bkhd->bqhd", self.drop(nn.softmax(z), det), self.wv(x))
-#         return self.drop(self.wo(z), det)
-
-
 class FeedForward(ViTBase, nn.Module):
     def setup(self):
-        self.w1 = Dense(self.hidden_dim, kernel_init=nn.initializers.truncated_normal(
-            stddev=(2 / (5 * self.dim)) ** 0.5))
+        self.w1 = Dense(self.hidden_dim)
         self.w2 = nn.Dense(self.dim, kernel_init=nn.initializers.truncated_normal(
             stddev=(1 / (5 * self.layers * self.dim)) ** 0.5))
         self.drop = nn.Dropout(self.dropout)
@@ -189,8 +167,7 @@ class ViT(ViTBase, nn.Module):
         self.layer = [layer_fn(**self.kwargs) for _ in range(self.layers)]
 
         self.norm = nn.LayerNorm()
-        self.head = Dense(self.labels, kernel_init=nn.initializers.truncated_normal(
-            stddev=(2 / (5 * self.dim)) ** 0.5)) if self.labels is not None else None
+        self.head = Dense(self.labels) if self.labels is not None else None
 
     def __call__(self, x: Array, det: bool = True) -> Array:
         # x = (x - IMAGENET_DEFAULT_MEAN) / IMAGENET_DEFAULT_STD
