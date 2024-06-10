@@ -18,6 +18,7 @@ from dataclasses import dataclass, fields
 from functools import partial
 from typing import Any, Literal
 
+import einops
 import flax.linen as nn
 import flax.linen.initializers as init
 import jax.experimental.pallas.ops.tpu.flash_attention
@@ -79,7 +80,7 @@ class PatchEmbed(ViTBase, nn.Module):
             self.dim,
             kernel_size=(self.patch_size, self.patch_size),
             strides=(self.patch_size, self.patch_size),
-            padding="VALID",
+            padding="VALID", kernel_init=init.truncated_normal((2 / 5) ** 0.5)
         )
         if self.pooling == "cls":
             self.cls_token = self.param(
@@ -106,26 +107,45 @@ class Identity(nn.Module):
         return x
 
 
+# class Attention(ViTBase, nn.Module):
+#     def setup(self):
+#         self.q_norm = nn.LayerNorm() if self.qk_norm else Identity()
+#         self.k_norm = nn.LayerNorm() if self.qk_norm else Identity()
+#         self.wq = DenseGeneral((self.heads, self.head_dim))
+#         self.wk = DenseGeneral((self.heads, self.head_dim))
+#         self.wv = DenseGeneral((self.heads, self.head_dim))
+#         self.wo = nn.DenseGeneral(self.dim, axis=(-2, -1), kernel_init=nn.initializers.truncated_normal(
+#             stddev=(1 / (5 *  self.layers * self.dim)) ** 0.5))
+#         self.drop = nn.Dropout(self.dropout)
+#
+#     def __call__(self, x: Array, det: bool = True) -> Array:
+#         z = jnp.einsum("bqhd,bkhd->bhqk", self.q_norm(self.wq(x)) / self.head_dim ** 0.5, self.k_norm(self.wk(x)))
+#         z = jnp.einsum("bhqk,bkhd->bqhd", self.drop(nn.softmax(z), det), self.wv(x))
+#         return self.drop(self.wo(z), det)
+
+
 class Attention(ViTBase, nn.Module):
     def setup(self):
-        self.q_norm = nn.LayerNorm() if self.qk_norm else Identity()
-        self.k_norm = nn.LayerNorm() if self.qk_norm else Identity()
-        self.wq = DenseGeneral((self.heads, self.head_dim))
-        self.wk = DenseGeneral((self.heads, self.head_dim))
-        self.wv = DenseGeneral((self.heads, self.head_dim))
-        self.wo = nn.DenseGeneral(self.dim, axis=(-2, -1), kernel_init=nn.initializers.truncated_normal(
-            stddev=(1 / (5 *  self.layers * self.dim)) ** 0.5))
+        self.qkv = nn.Dense(self.dim * 3, kernel_init=nn.initializers.truncated_normal((2 / 5 / self.dim) ** 0.5))
+        self.wo = nn.Dense(self.dim, kernel_init=nn.initializers.truncated_normal(
+            stddev=(1 / (5 * self.layers * self.dim)) ** 0.5))
         self.drop = nn.Dropout(self.dropout)
 
     def __call__(self, x: Array, det: bool = True) -> Array:
-        z = jnp.einsum("bqhd,bkhd->bhqk", self.q_norm(self.wq(x)) / self.head_dim ** 0.5, self.k_norm(self.wk(x)))
-        z = jnp.einsum("bhqk,bkhd->bqhd", self.drop(nn.softmax(z), det), self.wv(x))
+        q, k, v = einops.rearrange(self.qkv(x), 'b n (c h k)->k b h n d')
+
+        z = jnp.einsum('bhni,bhni->bhnn', q / self.head_dim ** 0.5)
+        z = jnp.einsum('bhnn,bhnj->bhnj', nn.softmax(z), v)
+
+        # z = jnp.einsum("bqhd,bkhd->bhqk", self.wq(x) / self.head_dim ** 0.5, self.wk(x))
+        # z = jnp.einsum("bhqk,bkhd->bqhd", self.drop(nn.softmax(z), det), self.wv(x))
         return self.drop(self.wo(z), det)
 
 
 class FeedForward(ViTBase, nn.Module):
     def setup(self):
-        self.w1 = Dense(self.hidden_dim)
+        self.w1 = Dense(self.hidden_dim, kernel_init=nn.initializers.truncated_normal(
+            stddev=(2 / (5 * self.dim)) ** 0.5))
         self.w2 = nn.Dense(self.dim, kernel_init=nn.initializers.truncated_normal(
             stddev=(1 / (5 * self.layers * self.dim)) ** 0.5))
         self.drop = nn.Dropout(self.dropout)
@@ -167,7 +187,8 @@ class ViT(ViTBase, nn.Module):
         self.layer = [layer_fn(**self.kwargs) for _ in range(self.layers)]
 
         self.norm = nn.LayerNorm()
-        self.head = Dense(self.labels) if self.labels is not None else None
+        self.head = Dense(self.labels, kernel_init=nn.initializers.truncated_normal(
+            stddev=(2 / (5 * self.dim)) ** 0.5)) if self.labels is not None else None
 
     def __call__(self, x: Array, det: bool = True) -> Array:
         # x = (x - IMAGENET_DEFAULT_MEAN) / IMAGENET_DEFAULT_STD
