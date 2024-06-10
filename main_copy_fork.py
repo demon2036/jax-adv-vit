@@ -215,15 +215,15 @@ def apply_model_trade(state, data, key):
     grads_norm_params = jax.tree_util.tree_map(jnp.linalg.norm, grads)
     grads_params_dict = dict(flatten(grads_norm_params))
 
-    new_ema_norm = jax.tree_util.tree_map(
-        lambda ema, normal: ema * state.norm_ema + (1 - state.norm_ema) * normal,
-        state.ema_norm, grads_norm_params)
-
     def clip_grads(grads, ema_norm, current_norm, clip_factor=2.0):
         clip_coef = jnp.minimum(1.0, clip_factor * ema_norm / current_norm)
         return grads * clip_coef
 
-    grads = jax.tree_util.tree_map(clip_grads, grads, new_ema_norm, grads_norm_params)
+    grads = jax.tree_util.tree_map(clip_grads, grads, state.ema_norm, grads_norm_params)
+
+    new_ema_norm = jax.tree_util.tree_map(
+        lambda ema, normal: ema * state.norm_ema + (1 - state.norm_ema) * normal,
+        state.ema_norm, grads_norm_params)
 
     state = state.apply_gradients(grads=grads)
 
