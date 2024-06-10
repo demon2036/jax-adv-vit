@@ -103,7 +103,7 @@ class PatchEmbed(ViTBase, nn.Module):
         if self.pooling == "cls":
             cls_token = jnp.repeat(self.cls_token, x.shape[0], axis=0)
             x = jnp.concatenate((cls_token, x), axis=1)
-        return x
+        return x*self.dim**0.5
 
 
 class Identity(nn.Module):
@@ -115,9 +115,9 @@ class Attention(ViTBase, nn.Module):
     def setup(self):
         self.q_norm = nn.LayerNorm() if self.qk_norm else Identity()
         self.k_norm = nn.LayerNorm() if self.qk_norm else Identity()
-        self.wq = DenseGeneral((self.heads, self.head_dim), kernel_init=nn.initializers.truncated_normal(stddev=(2 / 5 / self.head_dim) ** 0.5))
-        self.wk = DenseGeneral((self.heads, self.head_dim), kernel_init=nn.initializers.truncated_normal(stddev=(2 / 5 / self.head_dim) ** 0.5))
-        self.wv = DenseGeneral((self.heads, self.head_dim), kernel_init=nn.initializers.truncated_normal(stddev=(2 / 5 / self.head_dim) ** 0.5))
+        self.wq = DenseGeneral((self.heads, self.head_dim), kernel_init=nn.initializers.truncated_normal(stddev=(2 / 5 / self.dim) ** 0.5))
+        self.wk = DenseGeneral((self.heads, self.head_dim), kernel_init=nn.initializers.truncated_normal(stddev=(2 / 5 / self.dim) ** 0.5))
+        self.wv = DenseGeneral((self.heads, self.head_dim), kernel_init=nn.initializers.truncated_normal(stddev=(2 / 5 / self.dim) ** 0.5))
         self.wo = nn.DenseGeneral(self.dim, axis=(-2, -1),kernel_init=nn.initializers.truncated_normal(stddev=(1/(5*self.layers*self.dim))**0.5))
         self.drop = nn.Dropout(self.dropout)
 
