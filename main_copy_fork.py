@@ -212,24 +212,31 @@ def apply_model_trade(state, data, key):
         else:
             yield label, p
 
-    grads_params = jax.tree_util.tree_map(jnp.linalg.norm, grads)
-    grads_params_dict = dict(flatten(grads_params))
+    grads_norm_params = jax.tree_util.tree_map(jnp.linalg.norm, grads)
+    grads_params_dict = dict(flatten(grads_norm_params))
 
     def update_ema_norm(ema_norm, current_norm, decay):
         return decay * ema_norm + (1 - decay) * current_norm
 
-    wte_norm = jnp.linalg.norm(grads['embed']['wte']['kernel'])
-    state = state.replace(ema_norm=update_ema_norm(state.ema_norm, wte_norm, state.norm_ema))
+    new_ema_norm = jax.tree_util.tree_map(
+        lambda ema, normal: ema * state.norm_ema + (1 - state.ema_decay) * normal,
+        state.ema_norm, grads_norm_params)
+
+    state = state.replace(ema_norm=new_ema_norm)
+
+    # state = state.replace(ema_norm=update_ema_norm(state.ema_norm, wte_norm, state.norm_ema))
 
     def clip_grads(grads, ema_norm, current_norm, clip_factor=2.0):
         clip_coef = jnp.minimum(1.0, clip_factor * ema_norm / current_norm)
         return grads * clip_coef
 
-    grads['embed']['wte']['kernel'] = clip_grads(grads['embed']['wte']['kernel'], state.ema_norm, wte_norm)
+    grads = jax.tree_util.tree_map(clip_grads, grads, new_ema_norm, grads_norm_params)
+
+    # grads['embed']['wte']['kernel'] = clip_grads(grads['embed']['wte']['kernel'], state.ema_norm, wte_norm)
 
     state = state.apply_gradients(grads=grads)
-
-    metrics['wte_ema_norm'] = state.ema_norm
+    # wte_norm = jnp.linalg.norm(grads['embed']['wte']['kernel'])
+    # metrics['wte_ema_norm'] = state.ema_norm
 
     new_ema_params = jax.tree_util.tree_map(
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
@@ -249,7 +256,7 @@ class EMATrainState(flax.training.train_state.TrainState):
     ema_params: Any = None
 
     norm_ema: int = 0.999
-    ema_norm: jnp.array = jnp.array([1.0])
+    ema_norm: Any=None
 
 
 def create_train_state(rng,
@@ -339,7 +346,9 @@ def create_train_state(rng,
     tx = create_optimizer_fn(learning_rate)
 
     return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay,
-                                trade_beta=trade_beta, label_smoothing=label_smoothing)
+                                trade_beta=trade_beta, label_smoothing=label_smoothing,
+                                ema_norm=jax.tree_util.tree_map(lambda _: jnp.array(1), params)
+                                )
 
 
 @partial(jax.pmap, axis_name="batch", )
