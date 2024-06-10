@@ -134,7 +134,7 @@ class Attention(ViTBase, nn.Module):
     def __call__(self, x: Array, det: bool = True) -> Array:
         q, k, v = einops.rearrange(self.qkv(x), 'b n (d h k)->k b h n d',k=3,h=self.heads)
 
-        z = jnp.einsum('bhni,bhni->bhnn', q / self.head_dim ** 0.5)
+        z = jnp.einsum('bhni,bhni->bhnn', q / self.head_dim ** 0.5,k)
         z = jnp.einsum('bhnn,bhnj->bhnj', nn.softmax(z), v)
 
         # z = jnp.einsum("bqhd,bkhd->bhqk", self.wq(x) / self.head_dim ** 0.5, self.wk(x))
