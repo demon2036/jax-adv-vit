@@ -215,16 +215,9 @@ def apply_model_trade(state, data, key):
     grads_norm_params = jax.tree_util.tree_map(jnp.linalg.norm, grads)
     grads_params_dict = dict(flatten(grads_norm_params))
 
-    def update_ema_norm(ema_norm, current_norm, decay):
-        return decay * ema_norm + (1 - decay) * current_norm
-
     new_ema_norm = jax.tree_util.tree_map(
-        lambda ema, normal: ema * state.norm_ema + (1 - state.ema_decay) * normal,
+        lambda ema, normal: ema * state.norm_ema + (1 - state.norm_ema) * normal,
         state.ema_norm, grads_norm_params)
-
-    state = state.replace(ema_norm=new_ema_norm)
-
-    # state = state.replace(ema_norm=update_ema_norm(state.ema_norm, wte_norm, state.norm_ema))
 
     def clip_grads(grads, ema_norm, current_norm, clip_factor=2.0):
         clip_coef = jnp.minimum(1.0, clip_factor * ema_norm / current_norm)
@@ -232,16 +225,12 @@ def apply_model_trade(state, data, key):
 
     grads = jax.tree_util.tree_map(clip_grads, grads, new_ema_norm, grads_norm_params)
 
-    # grads['embed']['wte']['kernel'] = clip_grads(grads['embed']['wte']['kernel'], state.ema_norm, wte_norm)
-
     state = state.apply_gradients(grads=grads)
-    # wte_norm = jnp.linalg.norm(grads['embed']['wte']['kernel'])
-    # metrics['wte_ema_norm'] = state.ema_norm
 
     new_ema_params = jax.tree_util.tree_map(
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
-    state = state.replace(ema_params=new_ema_params)
+    state = state.replace(ema_params=new_ema_params, ema_norm=new_ema_norm)
 
     return state, metrics | state.opt_state.hyperparams | grads_params_dict
 
@@ -256,7 +245,7 @@ class EMATrainState(flax.training.train_state.TrainState):
     ema_params: Any = None
 
     norm_ema: int = 0.999
-    ema_norm: Any=None
+    ema_norm: Any = None
 
 
 def create_train_state(rng,
