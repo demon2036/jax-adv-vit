@@ -79,16 +79,16 @@ class PatchEmbed(ViTBase, nn.Module):
             self.dim,
             kernel_size=(self.patch_size, self.patch_size),
             strides=(self.patch_size, self.patch_size),
-            padding="VALID",kernel_init=nn.initializers.truncated_normal(stddev=(2/5) ** 0.5)
+            padding="VALID",
         )
         if self.pooling == "cls":
             self.cls_token = self.param(
-                "cls_token", nn.initializers.truncated_normal(stddev=(2/5) ** 0.5)
+                "cls_token", init.truncated_normal(0.02), (1, 1, self.dim)
             )
 
         if self.posemb == "learnable":
             self.wpe = self.param(
-                "wpe",nn.initializers.truncated_normal(stddev=(2/5) ** 0.5), (*self.num_patches, self.dim)
+                "wpe", init.truncated_normal(0.02), (*self.num_patches, self.dim)
             )
         elif self.posemb == "sincos2d":
             self.wpe = fixed_sincos2d_embeddings(*self.num_patches, self.dim)
