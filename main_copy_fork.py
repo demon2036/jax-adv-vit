@@ -219,18 +219,20 @@ def apply_model_trade(state, data, key):
         clip_coef = jnp.minimum(1.0, clip_factor * ema_norm / current_norm)
         return grads * clip_coef
 
-    grads = jax.tree_util.tree_map(clip_grads, grads, state.ema_norm, grads_norm_params)
+    # grads = jax.tree_util.tree_map(clip_grads, grads, state.ema_norm, grads_norm_params)
 
-    new_ema_norm = jax.tree_util.tree_map(
-        lambda ema, normal: ema * state.norm_ema + (1 - state.norm_ema) * normal,
-        state.ema_norm, grads_norm_params)
+    # new_ema_norm = jax.tree_util.tree_map(
+    #     lambda ema, normal: ema * state.norm_ema + (1 - state.norm_ema) * normal,
+    #     state.ema_norm, grads_norm_params)
+
+    del grads['embed']['wte']['kernel']
 
     state = state.apply_gradients(grads=grads)
 
     new_ema_params = jax.tree_util.tree_map(
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
-    state = state.replace(ema_params=new_ema_params, ema_norm=new_ema_norm)
+    state = state.replace(ema_params=new_ema_params, )
 
     return state, metrics | state.opt_state.hyperparams | grads_params_dict
 
