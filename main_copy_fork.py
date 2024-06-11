@@ -302,7 +302,8 @@ def create_train_state(rng,
             # b1=0.95,b2=0.98,
             # eps=args.adam_eps,
             weight_decay=weight_decay,
-            mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
+            mask=partial(jax.tree_util.tree_map_with_path,
+                         lambda kp, *_: kp[-1].key == "kernel" and kp[0].key != "embed"),
         )
         # if args.lr_decay < 1.0:
         #     layerwise_scales = {

@@ -1,4 +1,4 @@
-export EPOCH=2000 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=120
+export EPOCH=2000 TRAIN_BATCH_SIZE=4096 WARMUP_EPOCH=120
 
 
 python -u main_copy_fork.py \
@@ -18,7 +18,7 @@ python -u main_copy_fork.py \
     --droppath 0.0  \
     --train-batch-size $TRAIN_BATCH_SIZE \
     --learning-rate 1e-3 \
-    --weight-decay 0.05 \
+    --weight-decay 0.5 \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
     --project cifar10-ablation-test2 \
