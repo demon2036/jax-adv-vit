@@ -215,7 +215,7 @@ def apply_model_trade(state, data, key):
     grads_norm_params = jax.tree_util.tree_map(jnp.linalg.norm, grads)
     grads_params_dict = dict(flatten(grads_norm_params))
 
-    def clip_grads(grads, ema_norm, current_norm, clip_factor=2.0):
+    def clip_grads(grads, ema_norm, current_norm, clip_factor=1.1):
         clip_coef = jnp.minimum(1.0, clip_factor * ema_norm / current_norm)
         return grads * clip_coef
 
