@@ -24,4 +24,5 @@ python -u main_copy_fork.py \
     --project cifar10-ablation-batch \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/ablation/batch" \
-    --beta 5.0
+    --beta 5.0 \
+    -label-smoothing 0.4

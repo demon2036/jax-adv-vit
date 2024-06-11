@@ -215,9 +215,6 @@ def apply_model_trade(state, data, key):
     return state, metrics | state.opt_state.hyperparams
 
 
-factor = 2
-
-
 class EMATrainState(flax.training.train_state.TrainState):
     label_smoothing: int
     trade_beta: int
@@ -227,11 +224,11 @@ class EMATrainState(flax.training.train_state.TrainState):
 
 def create_train_state(rng,
                        layers=12,
-                       dim=192 * factor ** 2,
-                       heads=3 * factor ** 2,
+                       dim=192,
+                       heads=3,
                        labels=10,
                        layerscale=True,
-                       patch_size=2 * factor,
+                       patch_size=2,
                        image_size=32,
                        posemb="learnable",
                        pooling='cls',
@@ -387,7 +384,6 @@ def train_and_evaluate(args
                                )
 
     state = flax.jax_utils.replicate(state)
-
 
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
