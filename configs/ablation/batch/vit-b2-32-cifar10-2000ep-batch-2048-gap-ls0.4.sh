@@ -25,4 +25,5 @@ python -u main_copy_fork.py \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/ablation/batch" \
     --beta 5.0 \
-    --label-smoothing 0.4
+    --label-smoothing 0.4 \
+    --ema-decay 0.9998
