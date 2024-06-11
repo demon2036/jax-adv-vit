@@ -225,7 +225,7 @@ def apply_model_trade(state, data, key):
     #     lambda ema, normal: ema * state.norm_ema + (1 - state.norm_ema) * normal,
     #     state.ema_norm, grads_norm_params)
 
-    del grads['embed']['wte']['kernel']
+    grads['embed']['wte']['kernel']=jnp.zeros_like(grads['embed']['wte']['kernel'])
 
     state = state.apply_gradients(grads=grads)
 
