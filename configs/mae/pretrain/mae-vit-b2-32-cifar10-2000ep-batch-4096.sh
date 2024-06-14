@@ -39,7 +39,7 @@ python3 src/main_pretrain_mae.py \
     --training-steps $((1281167 * $epoch / $train_batch_size)) \
     --log-interval 100 \
     --eval-interval $((1281167 * 5 / $train_batch_size)) \
-    --project deit3-jax-mae \
+    --project deit3-jax-mae-cifar10 \
     --name $(basename $0 .sh) \
     --ipaddr $(curl -s ifconfig.me) \
     --hostname $(hostname)
