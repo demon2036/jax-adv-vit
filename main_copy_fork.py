@@ -384,7 +384,8 @@ def train_and_evaluate(args
                                weight_decay=args.weight_decay,
                                ema_decay=args.ema_decay,
                                trade_beta=args.beta,
-                               label_smoothing=args.label_smoothing
+                               label_smoothing=args.label_smoothing,
+                               pretrained_ckpt=args.pretrained_ckpt
                                )
 
     state = flax.jax_utils.replicate(state)
