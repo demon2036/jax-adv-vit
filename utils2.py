@@ -19,6 +19,7 @@ import json
 import os
 import re
 import threading
+import time
 from collections import defaultdict
 from typing import Any
 
@@ -52,9 +53,9 @@ class AverageMeter:
         }
 
 
-def save_checkpoint_in_background( params_bytes: bytes, postfix: str = "last",
-                                   output_dir='gs://caster-us-central-2b',name='deit-b4',
-):
+def save_checkpoint_in_background(params_bytes: bytes, postfix: str = "last",
+                                  output_dir='gs://caster-us-central-2b', name='deit-b4',
+                                  ):
     def thread_fn():
         filename = os.path.join(output_dir, f"{name}-{postfix}.msgpack")
         with wds.gopen(filename, "wb") as fp:
@@ -122,13 +123,13 @@ def fixed_sincos2d_embeddings(ncols: int, nrows: int, dim: int) -> Array:
 
 
 def modified_lamb(
-    learning_rate: optax.ScalarOrSchedule,
-    b1: float = 0.9,
-    b2: float = 0.999,
-    eps: float = 1e-6,
-    eps_root: float = 0.0,
-    weight_decay: float = 0.0,
-    mask: optax.MaskOrFn = None,
+        learning_rate: optax.ScalarOrSchedule,
+        b1: float = 0.9,
+        b2: float = 0.999,
+        eps: float = 1e-6,
+        eps_root: float = 0.0,
+        weight_decay: float = 0.0,
+        mask: optax.MaskOrFn = None,
 ) -> optax.GradientTransformation:
     return optax.chain(
         optax.scale_by_adam(b1=b1, b2=b2, eps=eps, eps_root=eps_root),
@@ -147,16 +148,63 @@ def get_layer_index_fn(path: tuple[DictKey, ...], _: Any, num_layers: int = 12) 
     return num_layers
 
 
-def load_pretrained_params(args: argparse.Namespace, params: ArrayTree) -> ArrayTree:
-    with wds.gopen(args.pretrained_ckpt) as fp:
+# def load_pretrained_params(args: argparse.Namespace, params: ArrayTree) -> ArrayTree:
+#     with wds.gopen(args.pretrained_ckpt) as fp:
+#         new_params = flax.serialization.msgpack_restore(fp.read())
+#
+#     # The positional embeddings will be resized when there is a difference in image
+#     # resolutions between pretraining and finetuning stage.
+#     if (
+#         args.posemb == "learnable"
+#         and new_params["model"]["embed"]["wpe"].shape
+#         != params["model"]["embed"]["wpe"].shape
+#     ):
+#         new_params["model"]["embed"]["wpe"] = jax.image.resize(
+#             new_params["model"]["embed"]["wpe"],
+#             params["model"]["embed"]["wpe"].shape,
+#             method="bicubic",
+#         )
+#
+#     # Reinitialize the classifier head if the model was pretrained on different dataset
+#     # and `args.label_mapping` is not specified.
+#     if (
+#         "head" not in new_params["model"]
+#         or args.label_mapping is None
+#         and new_params["model"]["head"]["kernel"].shape
+#         != params["model"]["head"]["kernel"].shape
+#     ):
+#         new_params["model"]["head"] = params["model"]["head"]
+#
+#     # If `args.label_mapping` is specified, then the same labels will automatically
+#     # replaced with the pretrained ones.
+#     if args.label_mapping:
+#         with wds.gopen(args.label_mapping) as fp:
+#             label_mapping = json.load(fp)
+#             src, dst = label_mapping["src"], label_mapping["dst"]
+#
+#         kernel = np.zeros_like(params["model"]["head"]["kernel"])
+#         kernel[:, dst] = new_params["model"]["head"]["kernel"][:, src]
+#
+#         bias = np.full_like(params["model"]["head"]["bias"], fill_value=-10.0)
+#         bias[dst] = new_params["model"]["head"]["bias"][src]
+#
+#         new_params["model"]["head"] = {"kernel": kernel, "bias": bias}
+#     return new_params
+
+
+def load_pretrained_params(pretrained_ckpt, params: ArrayTree, posemb: str) -> ArrayTree:
+    print(jax.process_index())
+    time.sleep(jax.process_index() * 1.5)
+
+    with wds.gopen(pretrained_ckpt, bufsize=8192 * 2 ** 5) as fp:
         new_params = flax.serialization.msgpack_restore(fp.read())
 
     # The positional embeddings will be resized when there is a difference in image
     # resolutions between pretraining and finetuning stage.
     if (
-        args.posemb == "learnable"
-        and new_params["model"]["embed"]["wpe"].shape
-        != params["model"]["embed"]["wpe"].shape
+            posemb == "learnable"
+            and new_params["model"]["embed"]["wpe"].shape
+            != params["model"]["embed"]["wpe"].shape
     ):
         new_params["model"]["embed"]["wpe"] = jax.image.resize(
             new_params["model"]["embed"]["wpe"],
@@ -167,25 +215,29 @@ def load_pretrained_params(args: argparse.Namespace, params: ArrayTree) -> Array
     # Reinitialize the classifier head if the model was pretrained on different dataset
     # and `args.label_mapping` is not specified.
     if (
-        "head" not in new_params["model"]
-        or args.label_mapping is None
-        and new_params["model"]["head"]["kernel"].shape
-        != params["model"]["head"]["kernel"].shape
+            "head" not in new_params["model"]
+            # or args.label_mapping is None
+            and new_params["model"]["head"]["kernel"].shape
+            != params["model"]["head"]["kernel"].shape
     ):
         new_params["model"]["head"] = params["model"]["head"]
 
+    keys_to_delete = [k for k in new_params['model'] if 'decoder' in k]
+    for k in keys_to_delete:
+        del new_params['model'][k]
+
     # If `args.label_mapping` is specified, then the same labels will automatically
     # replaced with the pretrained ones.
-    if args.label_mapping:
-        with wds.gopen(args.label_mapping) as fp:
-            label_mapping = json.load(fp)
-            src, dst = label_mapping["src"], label_mapping["dst"]
-
-        kernel = np.zeros_like(params["model"]["head"]["kernel"])
-        kernel[:, dst] = new_params["model"]["head"]["kernel"][:, src]
-
-        bias = np.full_like(params["model"]["head"]["bias"], fill_value=-10.0)
-        bias[dst] = new_params["model"]["head"]["bias"][src]
-
-        new_params["model"]["head"] = {"kernel": kernel, "bias": bias}
+    # if args.label_mapping:
+    #     with wds.gopen(args.label_mapping) as fp:
+    #         label_mapping = json.load(fp)
+    #         src, dst = label_mapping["src"], label_mapping["dst"]
+    #
+    #     kernel = np.zeros_like(params["model"]["head"]["kernel"])
+    #     kernel[:, dst] = new_params["model"]["head"]["kernel"][:, src]
+    #
+    #     bias = np.full_like(params["model"]["head"]["bias"], fill_value=-10.0)
+    #     bias[dst] = new_params["model"]["head"]["bias"][src]
+    #
+    #     new_params["model"]["head"] = {"kernel": kernel, "bias": bias}
     return new_params

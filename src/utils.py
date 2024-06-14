@@ -183,10 +183,6 @@ def load_pretrained_params(args: argparse.Namespace, params: ArrayTree) -> Array
     for k in keys_to_delete:
         del new_params['model'][k]
 
-    # print(new_params['model'].keys())
-    #
-    # while True:
-    #     pass
 
     # If `args.label_mapping` is specified, then the same labels will automatically
     # replaced with the pretrained ones.

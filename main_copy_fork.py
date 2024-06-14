@@ -25,7 +25,7 @@ from datasets_fork import get_train_dataloader
 from model_fork import ViT
 import os
 import wandb
-from utils2 import AverageMeter, save_checkpoint_in_background
+from utils2 import AverageMeter, save_checkpoint_in_background, load_pretrained_params
 
 EPSILON = 8 / 255  # @param{type:"number"}
 
@@ -241,7 +241,8 @@ def create_train_state(rng,
                        weight_decay=None,
                        ema_decay=0.9999,
                        trade_beta=5.0,
-                       label_smoothing=0.1
+                       label_smoothing=0.1,
+                       pretrained_ckpt=None
 
                        ):
     """Creates initial `TrainState`."""
@@ -266,6 +267,9 @@ def create_train_state(rng,
     image_shape = [1, 32, 32, 3]
 
     params = cnn.init(rng, jnp.ones(image_shape))['params']
+
+    if x is not None:
+        params=load_pretrained_params(pretrained_ckpt=pretrained_ckpt,params=params,posemb=posemb)
 
     @partial(optax.inject_hyperparams, hyperparam_dtype=jnp.float32)
     def create_optimizer_fn(
@@ -506,7 +510,7 @@ if __name__ == "__main__":
     # parser.add_argument("--mixup-seed", type=int, default=random.randint(0, 1000000))
     # parser.add_argument("--dropout-seed", type=int, default=random.randint(0, 1000000))
     # parser.add_argument("--shuffle-seed", type=int, default=random.randint(0, 1000000))
-    # parser.add_argument("--pretrained-ckpt")
+    parser.add_argument("--pretrained-ckpt")
     # parser.add_argument("--label-mapping")
     #
     # parser.add_argument("--optimizer", default="adamw")
