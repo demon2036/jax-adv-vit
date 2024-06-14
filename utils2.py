@@ -240,4 +240,4 @@ def load_pretrained_params(pretrained_ckpt, params: ArrayTree, posemb: str) -> A
     #     bias[dst] = new_params["model"]["head"]["bias"][src]
     #
     #     new_params["model"]["head"] = {"kernel": kernel, "bias": bias}
-    return new_params
+    return new_params['model']
