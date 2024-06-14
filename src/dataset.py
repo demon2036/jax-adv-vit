@@ -93,36 +93,60 @@ def collate_and_pad(batch: list[Any], batch_size: int = 1) -> Any:
     return default_collate(batch + [pad] * (batch_size - len(batch)))
 
 
-def get_train_dataloader(batch_size=1024,
+def create_dataloaders(batch_size=1024,
                          shard_path='gs://caster-us-central-2b/cifar10-20m-wds/shards-{00000..01290}.tar',
-                         test_shard_path='gs://caster-us-central-2b/cifar10-test-wds/shards-{00000..00078}.tar'
+                         test_shard_path='gs://caster-us-central-2b/cifar10-test-wds/shards-{00000..00078}.tar',args=None
                          ):
     # shard_path = './shards_01/shards-00040.tar'
 
     train_transform, test_transform = create_transforms()
+    # dataset = wds.DataPipeline(
+    #     wds.SimpleShardList(shard_path, seed=1),
+    #     itertools.cycle,
+    #     wds.detshuffle(),
+    #     wds.slice(jax.process_index(), None, jax.process_count()),
+    #     wds.split_by_worker,
+    #     wds.tarfile_to_samples(handler=wds.ignore_and_continue),
+    #     wds.detshuffle(),
+    #     wds.decode("pil", handler=wds.ignore_and_continue),
+    #     wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
+    #     # partial(repeat_samples, repeats=args.augment_repeats),
+    #     wds.map_tuple(train_transform, torch.tensor),
+    # )
+    #
+    # train_dataloader = DataLoader(
+    #     dataset,
+    #     batch_size=batch_size // jax.process_count(),
+    #     num_workers=32,
+    #     # collate_fn=partial(collate_and_shuffle, repeats=args.augment_repeats),
+    #     drop_last=True,
+    #     prefetch_factor=10,
+    #     persistent_workers=True,
+    # )
+
     dataset = wds.DataPipeline(
-        wds.SimpleShardList(shard_path, seed=1),
+        wds.SimpleShardList(args.train_dataset_shards, seed=args.shuffle_seed),
+        wds.slice(jax.process_index(), None, jax.process_count()),
         itertools.cycle,
         wds.detshuffle(),
-        wds.slice(jax.process_index(), None, jax.process_count()),
         wds.split_by_worker,
-        wds.tarfile_to_samples(handler=wds.ignore_and_continue),
+        wds.cached_tarfile_to_samples(handler=wds.ignore_and_continue, cache_dir='/root/test', ),
         wds.detshuffle(),
         wds.decode("pil", handler=wds.ignore_and_continue),
-        wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
-        # partial(repeat_samples, repeats=args.augment_repeats),
+        wds.to_tuple("jpg", "cls", handler=wds.ignore_and_continue),
         wds.map_tuple(train_transform, torch.tensor),
     )
 
     train_dataloader = DataLoader(
         dataset,
         batch_size=batch_size // jax.process_count(),
-        num_workers=32,
+        num_workers=40,
         # collate_fn=partial(collate_and_shuffle, repeats=args.augment_repeats),
         drop_last=True,
-        prefetch_factor=10,
+        prefetch_factor=20,
         persistent_workers=True,
     )
+
 
     # test_dataset = wds.DataPipeline(
     #     wds.SimpleShardList(test_shard_path),
@@ -134,40 +158,40 @@ def get_train_dataloader(batch_size=1024,
     #     wds.map_tuple(test_transform, torch.tensor),
     # )
 
-    ops = [
-        # wds.detshuffle(),
-        wds.slice(jax.process_index(), None, jax.process_count()),
-        # wds.split_by_worker,
-        # # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
-        # wds.detshuffle(),
-        wds.decode("pil", handler=wds.ignore_and_continue),
-        wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
-        wds.map_tuple(test_transform, torch.tensor),
-
-    ]
-
-    test_dataset = wds.WebDataset(urls=test_shard_path, handler=wds.ignore_and_continue).mcached()
-
-    for op in ops:
-        test_dataset = test_dataset.compose(op)
+    # ops = [
+    #     # wds.detshuffle(),
+    #     wds.slice(jax.process_index(), None, jax.process_count()),
+    #     # wds.split_by_worker,
+    #     # # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
+    #     # wds.detshuffle(),
+    #     wds.decode("pil", handler=wds.ignore_and_continue),
+    #     wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
+    #     wds.map_tuple(test_transform, torch.tensor),
     #
-    test_batch_size = 1024
-    num_workers = 32
+    # ]
+    #
+    # test_dataset = wds.WebDataset(urls=test_shard_path, handler=wds.ignore_and_continue).mcached()
+    #
+    # for op in ops:
+    #     test_dataset = test_dataset.compose(op)
+    # #
+    # test_batch_size = 1024
+    # num_workers = 32
+    #
+    # count = jax.process_count()
+    # # count=8
+    #
+    # test_dataloader = DataLoader(
+    #     test_dataset,
+    #     batch_size=test_batch_size // count,
+    #     num_workers=num_workers,
+    #     collate_fn=partial(collate_and_pad, batch_size=test_batch_size // count),
+    #     drop_last=False,
+    #     prefetch_factor=10,
+    #     persistent_workers=True,
+    # )
 
-    count = jax.process_count()
-    # count=8
-
-    test_dataloader = DataLoader(
-        test_dataset,
-        batch_size=test_batch_size // count,
-        num_workers=num_workers,
-        collate_fn=partial(collate_and_pad, batch_size=test_batch_size // count),
-        drop_last=False,
-        prefetch_factor=10,
-        persistent_workers=True,
-    )
-
-    return train_dataloader, test_dataloader
+    return train_dataloader, None
 
 
 if __name__ == '__main__':
