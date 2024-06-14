@@ -268,7 +268,7 @@ def create_train_state(rng,
 
     params = cnn.init(rng, jnp.ones(image_shape))['params']
 
-    if x is not None:
+    if pretrained_ckpt is not None:
         params=load_pretrained_params(pretrained_ckpt=pretrained_ckpt,params=params,posemb=posemb)
 
     @partial(optax.inject_hyperparams, hyperparam_dtype=jnp.float32)
