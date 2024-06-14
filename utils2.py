@@ -217,8 +217,8 @@ def load_pretrained_params(pretrained_ckpt, params: ArrayTree, posemb: str) -> A
     if (
             "head" not in new_params["model"]
             # or args.label_mapping is None
-            and new_params["model"]["head"]["kernel"].shape
-            != params["model"]["head"]["kernel"].shape
+            # and new_params["model"]["head"]["kernel"].shape
+            # != params["model"]["head"]["kernel"].shape
     ):
         new_params["model"]["head"] = params["model"]["head"]
 
