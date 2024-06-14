@@ -213,7 +213,7 @@ class MAE(ViTBase, MAEBase, nn.Module):
 
         kwargs = self.kwargs
         kwargs.update({'dim': self.decoder_dim, 'heads': self.decoder_heads, 'layers': self.decoder_layers})
-        print(kwargs)
+        # print(kwargs)
         self.decoder_layer = [layer_fn(**kwargs) for _ in range(self.decoder_layers)]
 
         self.decoder_norm = nn.LayerNorm()
@@ -235,7 +235,7 @@ class MAE(ViTBase, MAEBase, nn.Module):
         mask = jnp.take(mask, ids_restore)
 
         x = jnp.take_along_axis(x, ids_shuffle[:, :len_keep, None], axis=1)
-        print(x.shape)
+        # print(x.shape)
 
         return x, mask, ids_restore
 
