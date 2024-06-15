@@ -47,7 +47,7 @@ def evaluate(state: TrainState, dataloader: DataLoader) -> dict[str, float]:
 
 
 def main(args: argparse.Namespace):
-    train_dataloader, valid_dataloader = create_dataloaders(args=args)
+    train_dataloader, valid_dataloader = create_dataloaders(args=args,batch_size=args.batch_size)
     train_dataloader_iter = iter(train_dataloader)
     state = create_mae_train_state(args).replicate()
 
