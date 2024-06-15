@@ -26,11 +26,11 @@ python3 src/main_pretrain_mae.py \
     --mixup-seed 0 \
     --dropout-seed 0 \
     --shuffle-seed 0 \
-    --optimizer lamb \
-    --learning-rate 8e-3 \
-    --weight-decay 0.05 \
+    --optimizer lion \
+    --learning-rate 1e-3 \
+    --weight-decay 0.5 \
     --adam-b1 0.9 \
-    --adam-b2 0.999 \
+    --adam-b2 0.99 \
     --adam-eps 1e-8 \
     --lr-decay 1.0 \
     --clip-grad 0.0 \
