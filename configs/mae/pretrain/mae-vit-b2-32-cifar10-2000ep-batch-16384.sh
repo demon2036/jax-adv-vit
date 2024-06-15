@@ -1,4 +1,4 @@
-export train_batch_size=32768 warmup_epoch=80 epoch=1600
+export train_batch_size=16384 warmup_epoch=40 epoch=800
 
 python3 src/main_pretrain_mae.py \
     --output-dir $GCS_MODEL_DIR/mae \
@@ -27,7 +27,7 @@ python3 src/main_pretrain_mae.py \
     --dropout-seed 0 \
     --shuffle-seed 0 \
     --optimizer lamb \
-    --learning-rate 6.0e-3 \
+    --learning-rate 2.4e-3 \
     --weight-decay 0.05 \
     --adam-b1 0.9 \
     --adam-b2 0.95 \
