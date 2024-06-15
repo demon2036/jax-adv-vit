@@ -27,7 +27,7 @@ python3 src/main_pretrain_mae.py \
     --dropout-seed 0 \
     --shuffle-seed 0 \
     --optimizer lamb \
-    --learning-rate 4.8e-3 \
+    --learning-rate 8e-3 \
     --weight-decay 0.05 \
     --adam-b1 0.9 \
     --adam-b2 0.999 \
