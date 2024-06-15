@@ -28,7 +28,7 @@ python3 src/main_pretrain_mae.py \
     --shuffle-seed 0 \
     --optimizer lion \
     --learning-rate 2e-4 \
-    --weight-decay 0.5 \
+    --weight-decay 0.05 \
     --adam-b1 0.9 \
     --adam-b2 0.99 \
     --adam-eps 1e-8 \
