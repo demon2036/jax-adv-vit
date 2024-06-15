@@ -331,7 +331,6 @@ def create_train_state(rng,
         dropout=dropout,
         droppath=droppath,
     )
-
     # cnn = CNN()
 
     # image_shape = [1, 28, 28, 1]

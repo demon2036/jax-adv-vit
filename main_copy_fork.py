@@ -1,3 +1,5 @@
+import re
+
 import jax
 
 jax.distributed.initialize()
@@ -242,7 +244,8 @@ def create_train_state(rng,
                        ema_decay=0.9999,
                        trade_beta=5.0,
                        label_smoothing=0.1,
-                       pretrained_ckpt=None
+                       pretrained_ckpt=None,
+                       lr_decay=1.0
 
                        ):
     """Creates initial `TrainState`."""
@@ -282,14 +285,23 @@ def create_train_state(rng,
             weight_decay=weight_decay,
             mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
         )
-        # if args.lr_decay < 1.0:
-        #     layerwise_scales = {
-        #         i: optax.scale(args.lr_decay ** (args.layers - i))
-        #         for i in range(args.layers + 1)
-        #     }
-        #     label_fn = partial(get_layer_index_fn, num_layers=args.layers)
-        #     label_fn = partial(tree_map_with_path, label_fn)
-        #     tx = optax.chain(tx, optax.multi_transform(layerwise_scales, label_fn))
+
+        def get_layer_index_fn(path, _, num_layers: int = 12) -> int:
+            if path[0].key.startswith("layer_"):
+                return int(re.match(r"layer_(\d+)", path[0].key).group(1)) + 1
+            if path[0].key == "embed":
+                return 0
+
+            return num_layers
+
+        if lr_decay < 1.0:
+            layerwise_scales = {
+                i: optax.scale(lr_decay ** (layers - i))
+                for i in range(layers + 1)
+            }
+            label_fn = partial(get_layer_index_fn, num_layers=layers)
+            label_fn = partial(jax.tree_util.tree_map_with_path, label_fn)
+            tx = optax.chain(tx, optax.multi_transform(layerwise_scales, label_fn))
         if clip_grad > 0:
             tx = optax.chain(optax.clip_by_global_norm(clip_grad), tx)
         return tx
@@ -385,7 +397,8 @@ def train_and_evaluate(args
                                ema_decay=args.ema_decay,
                                trade_beta=args.beta,
                                label_smoothing=args.label_smoothing,
-                               pretrained_ckpt=args.pretrained_ckpt
+                               pretrained_ckpt=args.pretrained_ckpt,
+                               lr_decay=args.lr_decay
                                )
 
     state = flax.jax_utils.replicate(state)
@@ -520,7 +533,7 @@ if __name__ == "__main__":
     # parser.add_argument("--adam-b1", type=float, default=0.9)
     # parser.add_argument("--adam-b2", type=float, default=0.999)
     # parser.add_argument("--adam-eps", type=float, default=1e-8)
-    # parser.add_argument("--lr-decay", type=float, default=1.0)
+    parser.add_argument("--lr-decay", type=float, default=1.0)
     # parser.add_argument("--clip-grad", type=float, default=0.0)
     # parser.add_argument("--grad-accum", type=int, default=1)
     parser.add_argument("--ema-decay", type=float, default=0.9999)
