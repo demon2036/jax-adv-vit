@@ -288,11 +288,11 @@ def apply_model_freelb(state, data, key):
     x_adv = jnp.clip(x_adv, 0, 1)
 
     for i in range(k):
-        grad_adversarial = jax.grad(loss_fun_trade, argnums=(0, 1))(state.params, x_adv)
+        grad_adversarial_params, grad_adversarial_x_adv = jax.grad(loss_fun_trade, argnums=(0, 1))(state.params, x_adv)
 
-        grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 / k, grads, grad_adversarial)
+        grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 / k, grads, grad_adversarial_params)
 
-        sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial))
+        sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial_x_adv))
 
         x_adv = jax.lax.stop_gradient(x_adv) + step_size * sign_grad
         r1 = jnp.where(x_adv > images - epsilon, x_adv, images - epsilon)
