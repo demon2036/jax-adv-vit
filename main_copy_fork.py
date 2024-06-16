@@ -246,7 +246,7 @@ def create_train_state(rng,
                        learning_rate=None,
                        weight_decay=None,
                        ema_decay=0.9999,
-                       trade_beta=5.0,
+                       trade_beta=25.0,
                        label_smoothing=0.1,
                        pretrained_ckpt=None,
                        lr_decay=1.0
