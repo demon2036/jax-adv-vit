@@ -293,7 +293,7 @@ def apply_model_freelb(state, data, key):
 
     beta = 0.9
     powers_of_betas = jnp.array([beta ** i for i in range(k)])
-    denominator = jnp.cumprod(powers_of_betas, )
+    denominator = jnp.sum(powers_of_betas, )
 
     for i in range(k):
         grad_adversarial_params, grad_adversarial_x_adv = jax.grad(loss_fun_trade, argnums=(0, 1))(state.params, x_adv)
