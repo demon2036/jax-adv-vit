@@ -58,7 +58,7 @@ def auto_augment_factory(args: argparse.Namespace) -> T.Transform:
     return auto_augment_transform(args.auto_augment, aa_hparams)
 
 
-def create_transforms() -> tuple[nn.Module, nn.Module]:
+def create_transforms() :
     aa_hparams = {
         "translate_const": int(32 * 0.45),
         "img_mean": tuple((IMAGENET_DEFAULT_MEAN * 0xFF).astype(int)),
@@ -74,11 +74,20 @@ def create_transforms() -> tuple[nn.Module, nn.Module]:
         # test,
     ]
 
+    train_strong_transforms = [
+        T.ToPILImage(),
+        T.RandomCrop(32, padding=4, fill=128),
+        T.RandomHorizontalFlip(),
+        auto_augment_transform('3a'),
+        T.PILToTensor(),
+        # test,
+    ]
+
     test_transforms = [
         T.ToTensor()
     ]
 
-    return T.Compose(train_transforms), T.Compose(test_transforms)
+    return T.Compose(train_transforms),T.Compose(train_strong_transforms), T.Compose(test_transforms)
 
 
 def repeat_samples(samples: Iterator[Any], repeats: int = 1) -> Iterator[Any]:
@@ -114,7 +123,7 @@ def get_train_dataloader(batch_size=1024,
     train_batch_size = int(total_batch_size * 0.8)
     train_origin_batch_size = total_batch_size - train_batch_size
 
-    train_transform, test_transform = create_transforms()
+    train_transform,train_strong_transforms, test_transform = create_transforms()
     dataset = wds.DataPipeline(
         wds.SimpleShardList(shard_path, seed=1),
         itertools.cycle,
@@ -124,9 +133,14 @@ def get_train_dataloader(batch_size=1024,
         wds.tarfile_to_samples(handler=wds.ignore_and_continue),
         wds.detshuffle(),
         wds.decode("pil", handler=wds.ignore_and_continue),
-        wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
+        # wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
+        # # partial(repeat_samples, repeats=args.augment_repeats),
+        # wds.map_tuple(train_transform, torch.tensor),
+
+        wds.to_tuple("jpg.pyd","jpg.pyd", "cls", handler=wds.ignore_and_continue),
         # partial(repeat_samples, repeats=args.augment_repeats),
-        wds.map_tuple(train_transform, torch.tensor),
+        wds.map_tuple(train_transform,train_strong_transforms, torch.tensor),
+
     )
 
     train_dataloader = DataLoader(
@@ -148,9 +162,12 @@ def get_train_dataloader(batch_size=1024,
         wds.tarfile_to_samples(handler=wds.ignore_and_continue),
         wds.detshuffle(),
         wds.decode("pil", handler=wds.ignore_and_continue),
-        wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
+        # wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
+        # # partial(repeat_samples, repeats=args.augment_repeats),
+        # wds.map_tuple(train_transform, torch.tensor),
+        wds.to_tuple("jpg.pyd", "jpg.pyd", "cls", handler=wds.ignore_and_continue),
         # partial(repeat_samples, repeats=args.augment_repeats),
-        wds.map_tuple(train_transform, torch.tensor),
+        wds.map_tuple(train_transform, train_strong_transforms, torch.tensor),
     )
 
     train_origin_dataloader = DataLoader(

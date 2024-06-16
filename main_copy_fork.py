@@ -173,7 +173,7 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
 @partial(jax.pmap, axis_name="batch")
 def apply_model_trade(state, data, key):
-    images, labels = data
+    images,aug_image, labels = data
 
     images = einops.rearrange(images, 'b c h w->b h w c')
 
@@ -186,7 +186,7 @@ def apply_model_trade(state, data, key):
     adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
 
     def loss_fn(params):
-        logits = state.apply_fn({'params': params}, images)
+        logits = state.apply_fn({'params': params}, aug_image)
         logits_adv = state.apply_fn({'params': params}, adv_image)
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
