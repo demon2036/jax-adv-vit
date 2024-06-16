@@ -176,8 +176,11 @@ def apply_model_trade(state, data, key):
     images,aug_image, labels = data
 
     images = einops.rearrange(images, 'b c h w->b h w c')
-
     images = images.astype(jnp.float32) / 255
+
+    aug_image = einops.rearrange(aug_image, 'b c h w->b h w c')
+    aug_image = aug_image.astype(jnp.float32) / 255
+
     labels = labels.astype(jnp.float32)
 
     print(images.shape)
