@@ -291,7 +291,7 @@ def apply_model_freelb(state, data, key):
     x_adv = jax.random.uniform(key, shape=images.shape, minval=-epsilon, maxval=epsilon) + images
     x_adv = jnp.clip(x_adv, 0, 1)
 
-    beta = 0.9
+    beta = 0.95
     powers_of_betas = jnp.array([beta ** i for i in range(k)])
     denominator = jnp.sum(powers_of_betas, )
 
@@ -312,6 +312,20 @@ def apply_model_freelb(state, data, key):
         r1 = jnp.where(x_adv > images - epsilon, x_adv, images - epsilon)
         x_adv = jnp.where(r1 < images + epsilon, r1, images + epsilon)
         x_adv = jnp.clip(x_adv, min=0, max=1)
+
+    # def loss_fun_trade_last(params, inputs):
+    #     x_adv = inputs.astype(jnp.float32)
+    #     logits_adv = state.apply_fn({"params": params}, x_adv)
+    #     logits = state.apply_fn({"params": params}, images)
+    #     accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
+    #     metrics['logits_adv'] = logits
+    #     metrics['adversarial accuracy'] = accuracy_adv
+    #
+    #     return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
+    #
+    # (loss, metrics), grads = jax.value_and_grad(loss_fun_trade_last, has_aux=True)(state.params)
+
+
 
     metrics = jax.lax.pmean(metrics, axis_name="batch")
     grads = jax.lax.pmean(grads, axis_name="batch")
