@@ -43,26 +43,23 @@ IMAGENET_DEFAULT_MEAN = np.array([0.4914, 0.4822, 0.4465])
 IMAGENET_DEFAULT_STD = np.array([0.2471, 0.2435, 0.2616])
 
 
-def auto_augment_factory(args: argparse.Namespace) -> T.Transform:
-    aa_hparams = {
-        "translate_const": int(args.image_size * 0.45),
-        "img_mean": tuple((IMAGENET_DEFAULT_MEAN * 0xFF).astype(int)),
-    }
-    if args.auto_augment == "none":
-        return T.Identity()
-    if args.auto_augment.startswith("rand"):
-        return rand_augment_transform(args.auto_augment, aa_hparams)
-    if args.auto_augment.startswith("augmix"):
-        aa_hparams["translate_pct"] = 0.3
-        return augment_and_mix_transform(args.auto_augment, aa_hparams)
-    return auto_augment_transform(args.auto_augment, aa_hparams)
-
-
-def create_transforms() :
+def auto_augment_factory(auto_augment) -> T.Transform:
     aa_hparams = {
         "translate_const": int(32 * 0.45),
         "img_mean": tuple((IMAGENET_DEFAULT_MEAN * 0xFF).astype(int)),
     }
+
+    if auto_augment == "none":
+        return T.Identity()
+    if auto_augment.startswith("rand"):
+        return rand_augment_transform(auto_augment, aa_hparams)
+    if auto_augment.startswith("augmix"):
+        aa_hparams["translate_pct"] = 0.3
+        return augment_and_mix_transform(auto_augment, aa_hparams)
+    return auto_augment_transform(auto_augment, aa_hparams)
+
+
+def create_transforms() :
 
     train_transforms = [
         T.ToPILImage(),
@@ -78,7 +75,7 @@ def create_transforms() :
         T.ToPILImage(),
         T.RandomCrop(32, padding=4, fill=128),
         T.RandomHorizontalFlip(),
-        auto_augment_transform('rand-m9-mstd0.5-inc1'),
+        auto_augment_factory('rand-m9-mstd0.5-inc1'),
         T.PILToTensor(),
         # test,
     ]
