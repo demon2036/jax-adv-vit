@@ -221,7 +221,139 @@ def apply_model_trade(state, data, key):
     return state, metrics | state.opt_state.hyperparams
 
 
+@partial(jax.pmap, axis_name="batch")
+def apply_model_freelb(state, data, key):
+    images, aug_image, labels = data
 
+    images = einops.rearrange(images, 'b c h w->b h w c')
+    images = images.astype(jnp.float32) / 255
+
+    aug_image = einops.rearrange(aug_image, 'b c h w->b h w c')
+    aug_image = aug_image.astype(jnp.float32) / 255
+
+    labels = labels.astype(jnp.float32)
+
+    epsilon = 8 / 255
+    step_size = 2 / 255
+    k = 10
+
+    # def loss_fn(params):
+    #     logits = state.apply_fn({'params': params}, images)
+    #     one_hot = jax.nn.one_hot(labels, logits.shape[-1])
+    #     one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
+    #     loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
+    #
+    #     metrics = {'loss': loss, 'logits': logits, }
+    #     grads = jax.tree_util.tree_map(jnp.zeros_like, params)
+    #
+    #     def loss_fun_trade(params, inputs):
+    #         x_adv = inputs.astype(jnp.float32)
+    #         logits_adv = state.apply_fn({"params": params}, x_adv)
+    #         return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
+    #
+    #     for i in range(k):
+    #         grad_adversarial_params, grad_adversarial_x_adv = jax.grad(loss_fun_trade, argnums=(0, 1))(params, x_adv)
+    #
+    #         grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 / k, grads,
+    #                                        grad_adversarial_params)
+    #
+    #         sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial_x_adv))
+    #
+    #         x_adv = jax.lax.stop_gradient(x_adv) + step_size * sign_grad
+    #         r1 = jnp.where(x_adv > images - epsilon, x_adv, images - epsilon)
+    #         x_adv = jnp.where(r1 < images + epsilon, r1, images + epsilon)
+    #
+    #         x_adv = jnp.clip(x_adv, min=0, max=1)
+    #
+    #     return metrics['loss'], (metrics,grads)
+
+    def loss_fn_nature(params):
+        logits = state.apply_fn({'params': params}, images)
+        one_hot = jax.nn.one_hot(labels, logits.shape[-1])
+        one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
+        loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
+
+        metrics = {'loss': loss, 'logits': logits, }
+        return metrics['loss'], metrics
+
+    (loss, metrics), grads = jax.value_and_grad(loss_fn_nature, has_aux=True)(state.params)
+
+    def loss_fun_trade(params, inputs):
+        inputs, metrics['logits']
+        x_adv = inputs.astype(jnp.float32)
+        logits_adv = state.apply_fn({"params": params}, x_adv)
+        return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(metrics['logits'], axis=1)).mean()
+
+    x_adv = jax.random.uniform(key, shape=images.shape, minval=-epsilon, maxval=epsilon) + images
+    x_adv = jnp.clip(x_adv, 0, 1)
+
+    for i in range(k):
+        grad_adversarial = jax.grad(loss_fun_trade, argnums=(0, 1))(state.params, x_adv)
+
+        grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 / k, grads, grad_adversarial)
+
+        sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial))
+
+        x_adv = jax.lax.stop_gradient(x_adv) + step_size * sign_grad
+        r1 = jnp.where(x_adv > images - epsilon, x_adv, images - epsilon)
+        x_adv = jnp.where(r1 < images + epsilon, r1, images + epsilon)
+
+        x_adv = jnp.clip(x_adv, min=0, max=1)
+
+    metrics = jax.lax.pmean(metrics, axis_name="batch")
+
+    grads = jax.lax.pmean(grads, axis_name="batch")
+
+    state = state.apply_gradients(grads=grads)
+
+    new_ema_params = jax.tree_util.tree_map(
+        lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
+        state.ema_params, state.params)
+    state = state.replace(ema_params=new_ema_params)
+
+    return state, metrics | state.opt_state.hyperparams
+
+
+    """ """
+    """
+    print(images.shape)
+
+   
+    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
+
+    def loss_fn(params):
+        logits = state.apply_fn({'params': params}, aug_image)
+        logits_adv = state.apply_fn({'params': params}, adv_image)
+        one_hot = jax.nn.one_hot(labels, logits.shape[-1])
+        one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
+        loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
+        trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
+                                         nn.softmax(logits, axis=1)).mean()
+        metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
+
+        return loss + state.trade_beta * trade_loss, metrics
+
+    grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
+    (loss, metrics), grads = grad_fn(state.params)
+    accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
+    accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
+
+    metrics['accuracy'] = accuracy_std
+    metrics['adversarial accuracy'] = accuracy_adv
+
+    metrics = jax.lax.pmean(metrics, axis_name="batch")
+
+    grads = jax.lax.pmean(grads, axis_name="batch")
+
+    state = state.apply_gradients(grads=grads)
+
+    new_ema_params = jax.tree_util.tree_map(
+        lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
+        state.ema_params, state.params)
+    state = state.replace(ema_params=new_ema_params)
+
+    return state, metrics | state.opt_state.hyperparams
+    """
 
 
 class EMATrainState(flax.training.train_state.TrainState):
@@ -453,7 +585,7 @@ def train_and_evaluate(args
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
 
-        state, metrics = apply_model_trade(state, data, train_step_key)
+        state, metrics = apply_model_freelb(state, data, train_step_key)
 
         if jax.process_index() == 0 and step % 100 == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
