@@ -78,7 +78,7 @@ def create_transforms() :
         T.ToPILImage(),
         T.RandomCrop(32, padding=4, fill=128),
         T.RandomHorizontalFlip(),
-        auto_augment_transform('3a'),
+        auto_augment_transform('rand-m9-mstd0.5-inc1'),
         T.PILToTensor(),
         # test,
     ]

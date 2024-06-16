@@ -1,4 +1,4 @@
-export EPOCH=2000 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5
+export EPOCH=1000 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5
 
 
 python -u main_copy_fork.py \
@@ -26,4 +26,5 @@ python -u main_copy_fork.py \
     --output-dir "$GCS_DATASET_DIR/ablation/epoch" \
     --beta 5.0 \
     --label-smoothing 0.4 \
-    --pretrained-ckpt gs://fbs0_dl_bucket/cifar10_mae_test/mae/mae-vit-b2-32-cifar10-2000ep-batch-4096-adamw-last.msgpack
+    --pretrained-ckpt gs://fbs0_dl_bucket/cifar10_mae_test/mae/mae-vit-b2-32-cifar10-2000ep-batch-4096-adamw-last.msgpack \
+    --ema-decay 0.999
