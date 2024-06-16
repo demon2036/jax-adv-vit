@@ -279,10 +279,14 @@ def apply_model_freelb(state, data, key):
     (loss, metrics), grads = jax.value_and_grad(loss_fn_nature, has_aux=True)(state.params)
 
     def loss_fun_trade(params, inputs):
-        inputs, metrics['logits']
         x_adv = inputs.astype(jnp.float32)
         logits_adv = state.apply_fn({"params": params}, x_adv)
-        return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(metrics['logits'], axis=1)).mean()
+
+        one_hot = jax.nn.one_hot(labels, logits_adv.shape[-1])
+        one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
+
+        return jnp.mean(optax.softmax_cross_entropy(logits=logits_adv, labels=one_hot))
+        # return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(metrics['logits'], axis=1)).mean()
 
     x_adv = jax.random.uniform(key, shape=images.shape, minval=-epsilon, maxval=epsilon) + images
     x_adv = jnp.clip(x_adv, 0, 1)
@@ -290,7 +294,9 @@ def apply_model_freelb(state, data, key):
     for i in range(k):
         grad_adversarial_params, grad_adversarial_x_adv = jax.grad(loss_fun_trade, argnums=(0, 1))(state.params, x_adv)
 
-        grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 / k, grads, grad_adversarial_params)
+        # grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 / k, grads, grad_adversarial_params)
+
+        grads = jax.tree_util.tree_map(lambda x1, x2: x1 + x2 / k, grads, grad_adversarial_params)
 
         sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial_x_adv))
 
@@ -301,7 +307,6 @@ def apply_model_freelb(state, data, key):
         x_adv = jnp.clip(x_adv, min=0, max=1)
 
     metrics = jax.lax.pmean(metrics, axis_name="batch")
-
     grads = jax.lax.pmean(grads, axis_name="batch")
 
     state = state.apply_gradients(grads=grads)
