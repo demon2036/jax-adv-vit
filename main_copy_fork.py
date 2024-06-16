@@ -1,4 +1,3 @@
-
 import re
 
 import jax
@@ -173,7 +172,7 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
 @partial(jax.pmap, axis_name="batch")
 def apply_model_trade(state, data, key):
-    images,aug_image, labels = data
+    images, aug_image, labels = data
 
     images = einops.rearrange(images, 'b c h w->b h w c')
     images = images.astype(jnp.float32) / 255
@@ -194,7 +193,8 @@ def apply_model_trade(state, data, key):
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
-        trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(jax.lax.stop_gradient(logits), axis=1)).mean()
+        trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
+                                         nn.softmax(logits, axis=1)).mean()
         metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
 
         return loss + state.trade_beta * trade_loss, metrics
@@ -219,6 +219,9 @@ def apply_model_trade(state, data, key):
     state = state.replace(ema_params=new_ema_params)
 
     return state, metrics | state.opt_state.hyperparams
+
+
+
 
 
 class EMATrainState(flax.training.train_state.TrainState):
@@ -276,7 +279,7 @@ def create_train_state(rng,
     params = cnn.init(rng, jnp.ones(image_shape))['params']
 
     if pretrained_ckpt is not None:
-        params=load_pretrained_params(pretrained_ckpt=pretrained_ckpt,params=params,posemb=posemb)
+        params = load_pretrained_params(pretrained_ckpt=pretrained_ckpt, params=params, posemb=posemb)
 
     @partial(optax.inject_hyperparams, hyperparam_dtype=jnp.float32)
     def create_optimizer_fn(
@@ -375,7 +378,8 @@ def train_and_evaluate(args
   """
 
     if jax.process_index() == 0:
-        wandb.init(name=args.name, project=args.project, config=args.__dict__,settings=wandb.Settings(_disable_stats=True),
+        wandb.init(name=args.name, project=args.project, config=args.__dict__,
+                   settings=wandb.Settings(_disable_stats=True),
                    config_exclude_keys=['train_dataset_shards', 'valid_dataset_shards', 'train_origin_dataset_shards'])
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
@@ -451,7 +455,7 @@ def train_and_evaluate(args
 
         state, metrics = apply_model_trade(state, data, train_step_key)
 
-        if jax.process_index() == 0 and step%100==0:
+        if jax.process_index() == 0 and step % 100 == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
             # print(metrics)
