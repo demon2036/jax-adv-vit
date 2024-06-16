@@ -300,8 +300,9 @@ def apply_model_freelb(state, data, key):
 
         # grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 / k, grads, grad_adversarial_params)
 
-        grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 * powers_of_betas[k - i -1] / denominator,
-                                       grads, grad_adversarial_params)
+        grads = jax.tree_util.tree_map(
+            lambda x1, x2: x1 + state.trade_beta * x2 * powers_of_betas[k - i - 1] / denominator,
+            grads, grad_adversarial_params)
 
         # grads = jax.tree_util.tree_map(lambda x1, x2: x1 + x2 / k, grads, grad_adversarial_params)
 
