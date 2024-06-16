@@ -22,7 +22,7 @@ import einops
 import flax.linen as nn
 import flax.linen.initializers as init
 import jax.numpy as jnp
-from chex import Array, PRNGKey
+from chex import Array, PRNGKey, ArrayTree
 from flax.training import train_state
 from flax.training.common_utils import shard_prng_key
 from flax.training.train_state import TrainState
@@ -403,6 +403,20 @@ def create_train_state(rng,
         droppath=droppath,
     )
 
+    cnn = ViT(
+        layers=layers,
+        dim=dim,
+        heads=heads,
+        labels=labels,
+        layerscale=layerscale,
+        patch_size=patch_size,
+        image_size=image_size,
+        posemb=posemb,
+        pooling=pooling,
+        dropout=dropout,
+        droppath=droppath,
+    )
+
     # cnn=RNGModule()
 
     num_keys = len(aux_rng_keys)
@@ -477,122 +491,90 @@ def create_train_state(rng,
 if __name__ == "__main__":
     rng = jax.random.PRNGKey(1)
     state = create_train_state(rng, layers=1, warmup_steps=1000, training_steps=10000000, weight_decay=0.05,
-                               learning_rate=1e-3).replicate()
+                               learning_rate=1e-3, labels=10)  #.replicate()
     batch = 2
     image_shape = [batch, 32, 32, 3]
+    label_shape = [batch, ]
 
     k1 = 1
     k2 = 1
     x = jnp.ones(image_shape)
-    # x = jax.random.normal(rng, image_shape)
-    """
-    x = einops.rearrange(x, 'b (h k1) (w k2) c ->b (h w) (c k1 k2) ', k1=k1, k2=k2, )
 
-    b, n, d = x.shape
-    # print(rng)
-    noise = jax.random.uniform(rng, shape=(b, n))
-    # ids_shuffle = jnp.argsort(noise, axis=1)
-    ids_shuffle = jnp.arange(0, n)[None, :].repeat(b, 0)
-    ids_restore = jnp.argsort(noise, axis=1)
+    label = jnp.ones(label_shape)
 
-    mask_ratio = 0.998
-    len_keep = int(n * (1 - mask_ratio))
-    ids_shuffle_expand = ids_shuffle[:, :len_keep, None]  #.repeat(d, -1)
-
-    # print(x[ids_shuffle[:, :len_keep], ids_shuffle[:, :len_keep]])
-
-    # print(x[ids_shuffle[:, :len_keep], ids_shuffle[:, :len_keep]])
-    # print('\n'*5)
-    print(x[:, :len_keep])
-    print('\n' * 5)
-    print(jnp.take_along_axis(x, ids_shuffle_expand, axis=1))
-"""
+    step_size = 2 / 255
+    epsilon = 8 / 255
+    k = 1
 
 
-    @partial(jax.pmap, axis_name="batch", )
-    def test(state):
-        def loss(params):
-            # y = state.apply_fn({'params': params, }, x, rngs={'random_masking': rng})
-            # return optax.losses.l2_loss(y, jnp.zeros_like(y)).mean()
+    def loss_fn(params):
+        logits = state.apply_fn({'params': params}, x)
+        one_hot = jax.nn.one_hot(label, logits.shape[-1])
+        one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
+        loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
 
-            loss, pred, mask = state.apply_fn({'params': params, }, x, rngs={'random_masking': rng})
-            return loss
+        metrics = {'loss': loss, 'logits': logits, }
+        grads = jax.tree_util.tree_map(jnp.zeros_like, params)
 
-        grad = jax.grad(loss)(state.params)
-        state = state.apply_gradients(grads=grad)
+        x_adv = x + 1
 
-        return state
+        def loss_fun_trade(params, inputs):
+            x_adv = inputs.astype(jnp.float32)
+            logits_adv = state.apply_fn({"params": params}, x_adv)
+            return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
+
+        for i in range(k):
+            grad_adversarial_params, grad_adversarial_x_adv = jax.grad(loss_fun_trade, argnums=(0, 1))(params, x_adv)
+
+            grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 / k, grads,
+                                           grad_adversarial_params)
+
+            sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial_x_adv))
+
+            x_adv = jax.lax.stop_gradient(x_adv) + step_size * sign_grad
+            r1 = jnp.where(x_adv > x - epsilon, x_adv, x - epsilon)
+            x_adv = jnp.where(r1 < x + epsilon, r1, x + epsilon)
+
+            x_adv = jnp.clip(x_adv, min=0, max=1)
+
+        return metrics['loss'], (metrics, grads)
 
 
-    # print(state.opt_state)
+    @jax.jit
+    def loss_fn2(params):
+        x_adv = x + 1
+        logits_adv = state.apply_fn({"params": params}, x_adv)
 
-    new_tx = create_optimizer(1e-5, 1, 1, 100, decay=True)
+        # 计算原始输入 images 对应的损失
+        logits = state.apply_fn({"params": params}, x)
 
-    new_state = create_train_state(rng, layers=1, warmup_steps=1000, training_steps=10000000, weight_decay=0.05,
-                                   learning_rate=1e-3, decay=False).replicate()
+        # 计算 KL 散度的损失
+        kl_loss = optax.kl_divergence(jax.nn.log_softmax(logits_adv, axis=1),
+                                      jax.nn.softmax(logits, axis=1)).mean()
 
-    # print('\n'*5)
-    # print(new_state.opt_state)
+        return kl_loss
 
-    # loss(state.params)
-    # state.opt_state
 
-    # state.replace()
+    @jax.jit
+    def loss_fn3(params):
+        x_adv = x + 1
 
-    old_opt_state = state.opt_state
-    state = test(state)
-    # grad = jax.grad(loss)(state.params)
-    # state = state.apply_gradients(grads=grad)
+        # 计算原始输入 images 对应的损失
+        logits = state.apply_fn({"params": params}, x)
 
-    # state.replace(opt_state=old_opt_state)
+        def loss_inner(params):
+            logits = state.apply_fn({"params": params}, x)
+            logits_adv = state.apply_fn({"params": params}, x_adv)
+            # 计算 KL 散度的损失
+            kl_loss = optax.kl_divergence(jax.nn.log_softmax(logits_adv, axis=1),
+                                          jax.nn.softmax(logits, axis=1)).mean()
+            return kl_loss
 
-    print(state.opt_state.hyperparams)
+        grad = jax.grad(loss_inner, )(params)
 
-    state = new_state.replace(opt_state=state.opt_state)
-    # print(state.opt_state)
-    state = test(state)
-    # state.replace(opt_state=old_opt_state)
+        return grad
 
-    print(state.opt_state)
 
-    # state=state.replace(step=100)
-    # print(state.opt_state)
+    print(jax.grad(loss_fn2)(state.params)['head']['bias'])
 
-    """
-    x, mask, ids_restore = loss(state.params)
-   
-    mask_tokens = jnp.zeros((x.shape[0], ids_restore.shape[1] - x.shape[1], x.shape[2]))
-
-    x = jnp.concatenate([x, mask_tokens], axis=1)
-    print(ids_restore[0])
-
-    # ids_restore=jnp.arange(0,256)[None,:].repeat(x.shape[0],0)
-    # print(ids_restore[0])
-    # ids_restore = ids_restore[:, :, None].repeat(x.shape[-1], -1)
-    print(x[0, :, 0])
-    print(ids_restore)
-    x = jnp.take_along_axis(x, ids_restore[..., None], axis=1)
-
-    # x = jnp.take(x, ids_restore[:, :, None].repeat(x.shape[-1], -1))
-
-    print(x.shape, ids_restore.shape)
-    # print(x[0]-y[0])
-    print(x[0, :, 0])
-    print(jnp.take_along_axis(mask, ids_restore, axis=1)[0, :])
-
-    while True:
-        pass
-
-    x = einops.rearrange(x, 'b (h w) (c k1 k2) ->b (h k1) (w k2) c', k1=2, k2=2, h=16)
-
-    
-    import matplotlib.pyplot as plt
-
-    print(x.shape, mask_tokens.shape)
-    plt.imshow(x[0])
-    plt.show()
-
-    plt.imshow(x[1])
-    plt.show()
-
-    """
+    print(loss_fn3(state.params)['head']['bias'])

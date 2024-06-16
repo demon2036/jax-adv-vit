@@ -1,4 +1,4 @@
-export EPOCH=1000 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5
+export EPOCH=500 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5
 
 
 python -u main_copy_fork.py \

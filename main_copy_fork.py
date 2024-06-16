@@ -235,7 +235,7 @@ def apply_model_freelb(state, data, key):
 
     epsilon = 8 / 255
     step_size = 2 / 255
-    k = 10
+    k = 20
 
     # def loss_fn(params):
     #     logits = state.apply_fn({'params': params}, images)
@@ -291,10 +291,17 @@ def apply_model_freelb(state, data, key):
     x_adv = jax.random.uniform(key, shape=images.shape, minval=-epsilon, maxval=epsilon) + images
     x_adv = jnp.clip(x_adv, 0, 1)
 
+    beta = 0.9
+    powers_of_betas = jnp.array([beta ** i for i in range(k)])
+    denominator = jnp.cumprod(powers_of_betas, )
+
     for i in range(k):
         grad_adversarial_params, grad_adversarial_x_adv = jax.grad(loss_fun_trade, argnums=(0, 1))(state.params, x_adv)
 
-        grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 / k, grads, grad_adversarial_params)
+        # grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 / k, grads, grad_adversarial_params)
+
+        grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 * powers_of_betas[k - i -1] / denominator,
+                                       grads, grad_adversarial_params)
 
         # grads = jax.tree_util.tree_map(lambda x1, x2: x1 + x2 / k, grads, grad_adversarial_params)
 
@@ -316,7 +323,6 @@ def apply_model_freelb(state, data, key):
     state = state.replace(ema_params=new_ema_params)
 
     return state, metrics | state.opt_state.hyperparams
-
 
     """ """
     """
