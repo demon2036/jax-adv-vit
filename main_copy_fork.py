@@ -76,7 +76,8 @@ def loss_fun_trade(state, data):
     logits_adv = state.apply_fn({"params": state.params}, x_adv)
     return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
 
-@partial(jax.jit,static_argnames=("maxiter",))
+
+@partial(jax.jit, static_argnames=("maxiter",))
 def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=None):
     """PGD attack on the L-infinity ball with radius epsilon.
 
@@ -132,13 +133,26 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
         return loss_fun_trade(state, (adv_image, logits))
 
     grad_adversarial = jax.grad(adversarial_loss)
-    for _ in range(maxiter):
-        # compute gradient of the loss wrt to the image
-        sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial(x_adv, logits)))
-        # heuristic step-size 2 eps / maxiter
-        # image_perturbation += step_size * sign_grad
 
-        # delta = jnp.clip(image_perturbation - image, min=-epsilon, max=epsilon)
+    # for _ in range(maxiter):
+    #     # compute gradient of the loss wrt to the image
+    #     sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial(x_adv, logits)))
+    #     # heuristic step-size 2 eps / maxiter
+    #     # image_perturbation += step_size * sign_grad
+    #
+    #     # delta = jnp.clip(image_perturbation - image, min=-epsilon, max=epsilon)
+    #
+    #     x_adv = jax.lax.stop_gradient(x_adv) + step_size * sign_grad
+    #     r1 = jnp.where(x_adv > image - epsilon, x_adv, image - epsilon)
+    #     x_adv = jnp.where(r1 < image + epsilon, r1, image + epsilon)
+    #
+    #     x_adv = jnp.clip(x_adv, min=0, max=1)
+    #
+    #     # projection step onto the L-infinity ball centered at image
+    #     # image_perturbation = jnp.clip(image_perturbation, - epsilon, epsilon)
+
+    def loop_body(x_adv):
+        sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial(x_adv, logits)))
 
         x_adv = jax.lax.stop_gradient(x_adv) + step_size * sign_grad
         r1 = jnp.where(x_adv > image - epsilon, x_adv, image - epsilon)
@@ -146,8 +160,9 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
         x_adv = jnp.clip(x_adv, min=0, max=1)
 
-        # projection step onto the L-infinity ball centered at image
-        # image_perturbation = jnp.clip(image_perturbation, - epsilon, epsilon)
+        return x_adv
+
+    x_adv = jax.lax.fori_loop(0, iter, body_fun=loop_body, init_val=x_adv)
 
     # clip the image to ensure pixels are between 0 and 1
     return x_adv
@@ -185,7 +200,7 @@ def apply_model_trade(state, data, key):
     print(images.shape)
 
     """Computes gradients, loss and accuracy for a single batch."""
-    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255,maxiter=state.trade_iters)
+    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255, maxiter=state.trade_iters)
 
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, aug_image)
@@ -297,8 +312,8 @@ def apply_model_freelb(state, data, key):
 
     for i in range(k):
 
-        if (i+1)%4==0:
-            step_size/=2
+        if (i + 1) % 4 == 0:
+            step_size /= 2
 
         grad_adversarial_params, grad_adversarial_x_adv = jax.grad(loss_fun_trade, argnums=(0, 1))(state.params, x_adv)
 
@@ -328,8 +343,6 @@ def apply_model_freelb(state, data, key):
     #     return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
     #
     # (loss, metrics), grads = jax.value_and_grad(loss_fun_trade_last, has_aux=True)(state.params)
-
-
 
     metrics = jax.lax.pmean(metrics, axis_name="batch")
     grads = jax.lax.pmean(grads, axis_name="batch")
@@ -390,8 +403,8 @@ class EMATrainState(flax.training.train_state.TrainState):
     trade_beta: int
     ema_decay: int = 0.995
     ema_params: Any = None
-    trade_step_size:int =2/255
-    trade_iters:int =5
+    trade_step_size: int = 2 / 255
+    trade_iters: int = 5
 
 
 def create_train_state(rng,
