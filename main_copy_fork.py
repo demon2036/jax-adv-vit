@@ -162,7 +162,7 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
         return x_adv
 
-    x_adv = jax.lax.fori_loop(0, iter, body_fun=loop_body, init_val=x_adv)
+    x_adv = jax.lax.fori_loop(0, maxiter, body_fun=loop_body, init_val=x_adv)
 
     # clip the image to ensure pixels are between 0 and 1
     return x_adv

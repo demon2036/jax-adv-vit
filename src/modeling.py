@@ -297,6 +297,7 @@ class TrainState(train_state.TrainState):
     mixup_rng: PRNGKey
     dropout_rng: PRNGKey
     random_masking_rng: PRNGKey
+    iter: int = 10
 
     micro_step: int = 0
     micro_in_mini: int = 1
@@ -495,6 +496,22 @@ if __name__ == "__main__":
     batch = 2
     image_shape = [batch, 32, 32, 3]
     label_shape = [batch, ]
+    iter = 10
+
+
+    @partial(jax.pmap, axis_name='batch' )
+    def test(iter):
+
+
+        def body(*args):
+            print(1)
+
+        jax.lax.fori_loop(0, iter, body_fun=body,init_val=None)
+
+    # test(0)
+    test(flax.jax_utils.replicate(jnp.array(10)))
+
+    """
 
     k1 = 1
     k2 = 1
@@ -578,3 +595,4 @@ if __name__ == "__main__":
     print(jax.grad(loss_fn2)(state.params)['head']['bias'])
 
     print(loss_fn3(state.params)['head']['bias'])
+    """
