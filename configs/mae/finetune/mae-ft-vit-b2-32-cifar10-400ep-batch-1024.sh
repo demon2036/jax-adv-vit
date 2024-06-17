@@ -26,5 +26,5 @@ python -u main_copy_fork.py \
     --output-dir "$GCS_DATASET_DIR/ablation/epoch" \
     --beta 5.0 \
     --label-smoothing 0.4 \
-    --pretrained-ckpt gs://fbs0_dl_bucket/ablation/epoch/mae-ft-vit-b2-16-cifar10-2000ep-batch-1024-ema.msgpack \
+    --pretrained-ckpt gs://fbs0_dl_bucket/ablation/epoch/mae-vit-b2-32-cifar10-2000ep-batch-4096-adamw-last.msgpack \
     --ema-decay 0.9995
