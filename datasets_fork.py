@@ -59,11 +59,12 @@ def auto_augment_factory(auto_augment) -> T.Transform:
     return auto_augment_transform(auto_augment, aa_hparams)
 
 
-def create_transforms() :
+def create_transforms(image_size) :
 
     train_transforms = [
         T.ToPILImage(),
-        T.RandomCrop(32, padding=4, fill=128),
+        # T.RandomCrop(32, padding=4, fill=128),
+        T.RandomResizedCrop(image_size,scale=(0.3,1)),
         T.RandomHorizontalFlip(),
         # T.Resize(224, interpolation=3),
         # T.CenterCrop(224),
@@ -73,7 +74,8 @@ def create_transforms() :
 
     train_strong_transforms = [
         T.ToPILImage(),
-        T.RandomCrop(32, padding=4, fill=128),
+        # T.RandomCrop(32, padding=4, fill=128),
+        T.RandomResizedCrop(image_size, scale=(0.3, 1)),
         T.RandomHorizontalFlip(),
         auto_augment_factory('rand-m9-mstd0.5-inc1'),
         T.PILToTensor(),
@@ -81,6 +83,7 @@ def create_transforms() :
     ]
 
     test_transforms = [
+        T.Resize(image_size),
         T.ToTensor()
     ]
 
@@ -115,12 +118,13 @@ def get_train_dataloader(batch_size=1024,
                          shard_path='gs://caster-us-central-2b/cifar10-20m-wds/shards-{00000..01290}.tar',
                          test_shard_path='gs://caster-us-central-2b/cifar10-test-wds/shards-{00000..00078}.tar',
                          origin_shard_path='gs://fbs0_dl_bucket/cifar100-train-wds/shards-{00000..00099}.tar',
+                         image_size=32,
                          ):
     total_batch_size = batch_size // jax.process_count()
     train_batch_size = int(total_batch_size * 0.8)
     train_origin_batch_size = total_batch_size - train_batch_size
 
-    train_transform,train_strong_transforms, test_transform = create_transforms()
+    train_transform,train_strong_transforms, test_transform = create_transforms(image_size)
     dataset = wds.DataPipeline(
         wds.SimpleShardList(shard_path, seed=1),
         itertools.cycle,

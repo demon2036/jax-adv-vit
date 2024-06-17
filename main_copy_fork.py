@@ -185,7 +185,7 @@ def apply_model_trade(state, data, key):
     print(images.shape)
 
     """Computes gradients, loss and accuracy for a single batch."""
-    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
+    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255,maxiter=state.trade_iters)
 
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, aug_image)
@@ -390,6 +390,8 @@ class EMATrainState(flax.training.train_state.TrainState):
     trade_beta: int
     ema_decay: int = 0.995
     ema_params: Any = None
+    trade_step_size:int =2/255
+    trade_iters:int =5
 
 
 def create_train_state(rng,
@@ -446,21 +448,21 @@ def create_train_state(rng,
     def create_optimizer_fn(
             learning_rate: optax.Schedule,
     ) -> optax.GradientTransformation:
-        # tx = optax.lion(
-        #     learning_rate=learning_rate,
-        #     # b1=0.95,b2=0.98,
-        #     # eps=args.adam_eps,
-        #     weight_decay=weight_decay,
-        #     mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
-        # )
-
-        tx = optax.lamb(
+        tx = optax.lion(
             learning_rate=learning_rate,
             # b1=0.95,b2=0.98,
             # eps=args.adam_eps,
             weight_decay=weight_decay,
             mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
         )
+
+        # tx = optax.lamb(
+        #     learning_rate=learning_rate,
+        #     # b1=0.95,b2=0.98,
+        #     # eps=args.adam_eps,
+        #     weight_decay=weight_decay,
+        #     mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
+        # )
 
         def get_layer_index_fn(path, _, num_layers: int = 12) -> int:
             if path[0].key.startswith("layer_"):
@@ -583,7 +585,8 @@ def train_and_evaluate(args
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
                                                                   test_shard_path=args.valid_dataset_shards,
-                                                                  origin_shard_path=args.train_origin_dataset_shards)
+                                                                  origin_shard_path=args.train_origin_dataset_shards,
+                                                                  image_size=args.image_size)
 
     # train_dataloader_iter = iter(train_dataloader)
 
@@ -622,7 +625,7 @@ def train_and_evaluate(args
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
 
-        state, metrics = apply_model_freelb(state, data, train_step_key)
+        state, metrics = apply_model_trade(state, data, train_step_key)
 
         if jax.process_index() == 0 and step % 100 == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
