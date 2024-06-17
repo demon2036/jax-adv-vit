@@ -234,7 +234,7 @@ def apply_model_freelb(state, data, key):
     labels = labels.astype(jnp.float32)
 
     epsilon = 8 / 255
-    step_size = 2 / 255
+    step_size = 4 / 255
     k = 20
 
     # def loss_fn(params):
@@ -296,6 +296,10 @@ def apply_model_freelb(state, data, key):
     denominator = jnp.sum(powers_of_betas, )
 
     for i in range(k):
+
+        if (i+1)%4==0:
+            step_size/=2
+
         grad_adversarial_params, grad_adversarial_x_adv = jax.grad(loss_fun_trade, argnums=(0, 1))(state.params, x_adv)
 
         # grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 / k, grads, grad_adversarial_params)
