@@ -641,7 +641,7 @@ def train_and_evaluate(args
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
 
-        state, metrics = apply_model_trade(state, data, train_step_key)
+        state, metrics = apply_model_freelb(state, data, train_step_key)
 
         if jax.process_index() == 0 and step % 100 == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
