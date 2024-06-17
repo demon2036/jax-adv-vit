@@ -570,6 +570,13 @@ def train_and_evaluate(args
     rng = jax.random.key(0)
 
     rng, init_rng = jax.random.split(rng)
+
+    train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
+                                                                  shard_path=args.train_dataset_shards,
+                                                                  test_shard_path=args.valid_dataset_shards,
+                                                                  origin_shard_path=args.train_origin_dataset_shards,
+                                                                  image_size=args.image_size)
+
     state = create_train_state(init_rng,
                                layers=args.layers,
                                dim=args.dim,
@@ -595,11 +602,7 @@ def train_and_evaluate(args
 
     state = flax.jax_utils.replicate(state)
 
-    train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
-                                                                  shard_path=args.train_dataset_shards,
-                                                                  test_shard_path=args.valid_dataset_shards,
-                                                                  origin_shard_path=args.train_origin_dataset_shards,
-                                                                  image_size=args.image_size)
+
 
     # train_dataloader_iter = iter(train_dataloader)
 
