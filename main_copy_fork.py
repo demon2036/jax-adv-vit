@@ -243,7 +243,7 @@ def apply_model_trade(state, data, key):
         metrics = {'loss': loss_nature, 'trade_loss': loss_adv, 'logits': logits, 'logits_adv': logits_adv,
                    'numerator': numerator, 'denominator': denominator}
 
-        return loss_nature + jax.lax.stop_gradient(factor) * 5 * loss_adv, metrics
+        return loss_nature + jax.lax.stop_gradient(factor) * loss_adv, metrics
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, metrics), grads = grad_fn(state.params)
