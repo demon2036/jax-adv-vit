@@ -205,16 +205,38 @@ def apply_model_trade(state, data, key):
     adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255, maxiter=state.trade_iters)
 
     def loss_fn(params):
-        logits = state.apply_fn({'params': params}, aug_image)
-        logits_adv = state.apply_fn({'params': params}, adv_image)
-        one_hot = jax.nn.one_hot(labels, logits.shape[-1])
-        one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
-        loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
-        trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
-                                         nn.softmax(logits, axis=1)).mean()
-        metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
+        # logits = state.apply_fn({'params': params}, aug_image)
+        # logits_adv = state.apply_fn({'params': params}, adv_image)
+        # one_hot = jax.nn.one_hot(labels, logits.shape[-1])
+        # one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
+        # loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
+        # trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
+        #                                  nn.softmax(logits, axis=1)).mean()
 
-        return loss + state.trade_beta * trade_loss, metrics
+        def loss_nat_fn(params):
+            logits = state.apply_fn({'params': params}, aug_image)
+            one_hot = jax.nn.one_hot(labels, logits.shape[-1])
+            # one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
+            loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
+            return loss, logits
+
+        def loss_adv_fn(params):
+            logits = state.apply_fn({'params': params}, aug_image)
+            logits_adv = state.apply_fn({'params': params}, adv_image)
+            trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
+                                             nn.softmax(logits, axis=1)).mean()
+
+            return trade_loss, logits_adv
+
+        (loss_nature, logits), grads_nature = jax.value_and_grad(loss_nat_fn, has_aux=True)(params)
+        (loss_adv, logits_adv), grads_adv = jax.value_and_grad(loss_adv_fn, has_aux=True)(params)
+
+        # metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
+        metrics = {'loss': loss_nature, 'trade_loss': loss_adv, 'logits': logits, 'logits_adv': logits_adv}
+
+        factor = jnp.clip(optax.global_norm(grads_nature) / (optax.global_norm(grads_adv) + 1e-4), 0, 1e4)
+
+        return loss_nature + jax.lax.stop_gradient(factor) * 5 * loss_adv, metrics
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, metrics), grads = grad_fn(state.params)
@@ -641,7 +663,7 @@ def train_and_evaluate(args
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
 
-        state, metrics = apply_model_freelb(state, data, train_step_key)
+        state, metrics = apply_model_trade(state, data, train_step_key)
 
         if jax.process_index() == 0 and step % 100 == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
