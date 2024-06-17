@@ -86,6 +86,7 @@ def create_transforms(image_size) :
         T.Resize(image_size),
         T.ToTensor()
     ]
+    print(image_size,test_transforms)
 
     return T.Compose(train_transforms),T.Compose(train_strong_transforms), T.Compose(test_transforms)
 
