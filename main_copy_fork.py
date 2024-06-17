@@ -234,13 +234,14 @@ def apply_model_trade(state, data, key):
         # numerator = optax.global_norm(grads_nature)
         # denominator = optax.global_norm(grads_adv)
 
-        numerator =   jnp.linalg.norm(grads_nature['head']['kernel'])#optax.global_norm(grads_nature)
-        denominator =   jnp.linalg.norm(grads_adv['head']['kernel'])#optax.global_norm(grads_adv)
+        numerator = jnp.linalg.norm(grads_nature['head']['kernel'])  #optax.global_norm(grads_nature)
+        denominator = jnp.linalg.norm(grads_adv['head']['kernel'])  #optax.global_norm(grads_adv)
 
-        factor = jnp.clip(numerator / (denominator + 1e-4), 0, 1e4)
+        factor = jnp.clip(numerator / (denominator + 1e-4), 0, 10)
 
         # metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
-        metrics = {'loss': loss_nature, 'trade_loss': loss_adv, 'logits': logits, 'logits_adv': logits_adv,'numerator':numerator,'denominator':denominator}
+        metrics = {'loss': loss_nature, 'trade_loss': loss_adv, 'logits': logits, 'logits_adv': logits_adv,
+                   'numerator': numerator, 'denominator': denominator}
 
         return loss_nature + jax.lax.stop_gradient(factor) * 5 * loss_adv, metrics
 
