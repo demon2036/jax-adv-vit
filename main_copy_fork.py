@@ -76,7 +76,7 @@ def loss_fun_trade(state, data):
     logits_adv = state.apply_fn({"params": state.params}, x_adv)
     return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
 
-
+@partial(jax.jit,static_argnames=("maxiter",))
 def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=None):
     """PGD attack on the L-infinity ball with radius epsilon.
 
