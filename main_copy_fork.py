@@ -197,6 +197,8 @@ def apply_model_trade(state, data, key):
 
     labels = labels.astype(jnp.float32)
 
+    aug_image = images
+
     print(images.shape)
 
     """Computes gradients, loss and accuracy for a single batch."""
@@ -404,7 +406,7 @@ class EMATrainState(flax.training.train_state.TrainState):
     ema_decay: int = 0.995
     ema_params: Any = None
     trade_step_size: int = 2 / 255
-    trade_iters: int = 5
+    trade_iters: int = 10
 
 
 def create_train_state(rng,
@@ -602,8 +604,6 @@ def train_and_evaluate(args
 
     state = flax.jax_utils.replicate(state)
 
-
-
     # train_dataloader_iter = iter(train_dataloader)
 
     # test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
@@ -633,8 +633,6 @@ def train_and_evaluate(args
     train_dataloader_iter = map(prepare_tf_data, train_dataloader_iter)
 
     train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
-
-
 
     for step in tqdm.tqdm(range(1, args.training_steps)):
         rng, input_rng = jax.random.split(rng)
