@@ -62,8 +62,9 @@ def auto_augment_factory(auto_augment) -> T.Transform:
 def create_transforms(image_size):
     train_transforms = [
         T.ToPILImage(),
-        # T.RandomCrop(32, padding=4, fill=128),
-        T.RandomResizedCrop(image_size, scale=(0.3, 1)),
+        T.Resize(image_size, interpolation=3),
+        T.RandomCrop(image_size, padding=4, fill=128),
+        # T.RandomResizedCrop(image_size, scale=(0.6, 1)),
         T.RandomHorizontalFlip(),
         # T.Resize(224, interpolation=3),
         # T.CenterCrop(224),
@@ -73,8 +74,8 @@ def create_transforms(image_size):
 
     train_strong_transforms = [
         T.ToPILImage(),
-        # T.RandomCrop(32, padding=4, fill=128),
-        T.RandomResizedCrop(image_size, scale=(0.3, 1)),
+        T.Resize(image_size, interpolation=3),
+        T.RandomCrop(image_size, padding=4, fill=128),
         T.RandomHorizontalFlip(),
         auto_augment_factory('rand-m9-mstd0.5-inc1'),
         T.PILToTensor(),
@@ -83,7 +84,7 @@ def create_transforms(image_size):
 
     test_transforms = [
         T.ToPILImage(),
-        T.Resize(image_size),
+        T.Resize(image_size, interpolation=3),
         T.ToTensor()
     ]
 
@@ -226,20 +227,22 @@ if __name__ == '__main__':
 
     train_dataloader, test_dataloader = get_train_dataloader(
         test_shard_path='./cifar10-test-wds/shards-{00000..00078}.tar',
-        shard_path='./cifar10-train-wds/shards-{00000..00078}.tar',origin_shard_path='./cifar10-train-wds/shards-{00000..00078}.tar',image_size=16)
+        shard_path='./cifar10-train-wds/shards-{00000..00078}.tar',origin_shard_path='./cifar10-train-wds/shards-{00000..00078}.tar',image_size=16,batch_size=16)
 
     for data in train_dataloader:
-        img, _ = data
+        img, *_ = data
         print(img)
 
         if img.shape[1] == 3:
-            img = einops.rearrange(img, 'b c h w -> b h w c')
+            img = einops.rearrange(img, '(b k) c h w -> (b h) (k w) c',k=4)
 
         for i in range(100):
-            plt.imshow(img[i])
+            # plt.imshow(img[i])
+            plt.imshow(img)
             plt.show()
 
-        break
+
+            break
 
     while True:
         pass
