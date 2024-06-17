@@ -671,7 +671,7 @@ def train_and_evaluate(args
 
         state, metrics = apply_model_trade(state, data, train_step_key)
 
-        if jax.process_index() == 0 and step % 100 == 0:
+        if jax.process_index() == 0 and step % 2 == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
             # print(metrics)
