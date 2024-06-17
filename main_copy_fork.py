@@ -436,7 +436,7 @@ class EMATrainState(flax.training.train_state.TrainState):
     ema_decay: int = 0.995
     ema_params: Any = None
     trade_step_size: int = 2 / 255
-    trade_iters: int = 5
+    trade_iters: int = 10
 
 
 def create_train_state(rng,
