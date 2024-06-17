@@ -195,10 +195,12 @@ def get_layer_index_fn(path: tuple[DictKey, ...], _: Any, num_layers: int = 12) 
 def load_pretrained_params(pretrained_ckpt, params: ArrayTree, posemb: str) -> ArrayTree:
     print(jax.process_index())
     time.sleep(jax.process_index() * 1.5)
-    params = {'model': params}
+    params = {'model': params} if 'model' not in params
+
+
     with wds.gopen(pretrained_ckpt, bufsize=8192 * 2 ** 5) as fp:
         new_params = flax.serialization.msgpack_restore(fp.read())
-
+        new_params = {'model': new_params} if 'model' not in new_params
     # The positional embeddings will be resized when there is a difference in image
     # resolutions between pretraining and finetuning stage.
     if (
