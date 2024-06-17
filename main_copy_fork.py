@@ -437,7 +437,7 @@ def create_train_state(rng,
     # cnn = CNN()
 
     # image_shape = [1, 28, 28, 1]
-    image_shape = [1, 32, 32, 3]
+    image_shape = [1, image_size, image_size, 3]
 
     params = cnn.init(rng, jnp.ones(image_shape))['params']
 
