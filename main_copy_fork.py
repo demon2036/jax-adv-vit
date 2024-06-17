@@ -242,7 +242,7 @@ def apply_model_trade(state, data, key):
         #            'numerator': numerator, 'denominator': denominator}
         # return loss_nature + loss_adv, metrics
 
-        # metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
+        metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
 
         return loss + state.trade_beta * trade_loss, metrics
 
