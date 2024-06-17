@@ -69,7 +69,6 @@ def create_transforms(image_size):
         # T.Resize(224, interpolation=3),
         # T.CenterCrop(224),
         T.PILToTensor(),
-        # test,
     ]
 
     train_strong_transforms = [
