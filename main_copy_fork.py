@@ -151,7 +151,7 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
     #     # projection step onto the L-infinity ball centered at image
     #     # image_perturbation = jnp.clip(image_perturbation, - epsilon, epsilon)
 
-    def loop_body(i,x_adv):
+    def loop_body(i, x_adv):
         sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial(x_adv, logits)))
 
         x_adv = jax.lax.stop_gradient(x_adv) + step_size * sign_grad
@@ -630,6 +630,8 @@ def train_and_evaluate(args
     train_dataloader_iter = map(prepare_tf_data, train_dataloader_iter)
 
     train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
+
+
 
     for step in tqdm.tqdm(range(1, args.training_steps)):
         rng, input_rng = jax.random.split(rng)

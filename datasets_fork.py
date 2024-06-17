@@ -214,6 +214,11 @@ def get_train_dataloader(batch_size=1024,
         persistent_workers=True,
     )
 
+
+    for data in test_dataloader:
+        print(data[0].shape)
+
+
     return mix_dataloader_iter(train_dataloader,train_origin_dataloader), test_dataloader
 
 
