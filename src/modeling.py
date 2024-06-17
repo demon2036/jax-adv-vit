@@ -633,9 +633,10 @@ if __name__ == "__main__":
             def loss_adv_fn(params):
                 logits = state.apply_fn({'params': params}, aug_image)
                 logits_adv = state.apply_fn({'params': params}, adv_image)
-                trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
-                                                 nn.softmax(logits, axis=1)).mean()
+                # trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
+                #                                  nn.softmax(logits, axis=1)).mean()
 
+                trade_loss = optax.sigmoid_binary_cross_entropy(logits, logits_adv).mean()
                 return trade_loss, logits_adv
 
             (loss_nature, logits), grads_nature = jax.value_and_grad(loss_nat_fn, has_aux=True)(params)
@@ -646,12 +647,11 @@ if __name__ == "__main__":
 
             factor = jnp.clip(optax.global_norm(grads_nature) / (optax.global_norm(grads_adv) + 1e-4), 0, 1e4)
 
-            return loss_nature +jax.lax.stop_gradient(factor)* 5 * loss_adv, metrics
+            return loss_nature + jax.lax.stop_gradient(factor) * 5 * loss_adv, metrics
 
             # return loss_nature + factor * 5 * loss_adv, metrics
 
         def loss_fn2(params):
-
             logits = state.apply_fn({'params': params}, aug_image)
             logits_adv = state.apply_fn({'params': params}, adv_image)
             one_hot = jax.nn.one_hot(labels, logits.shape[-1])
@@ -659,15 +659,14 @@ if __name__ == "__main__":
             loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
             trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
                                              nn.softmax(logits, axis=1)).mean()
-            return loss+5*trade_loss,None
-
+            return loss + 5 * trade_loss, None
 
         grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
         (loss, metrics), grads = grad_fn(state.params)
 
         (loss, metrics), grads2 = jax.value_and_grad(loss_fn2, has_aux=True)(state.params)
 
-        return grads,grads2
+        return grads, grads2
 
         accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
         accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
@@ -689,6 +688,6 @@ if __name__ == "__main__":
         return state, metrics | state.opt_state.hyperparams
 
 
-    grad,grad2 = apply_model_trade(state, (x, label), rng)
+    grad, grad2 = apply_model_trade(state, (x, label), rng)
     print(grad['head'])
     print(grad2['head'])
