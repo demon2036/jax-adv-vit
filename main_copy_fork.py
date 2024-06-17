@@ -225,7 +225,7 @@ def apply_model_trade(state, data, key):
             logits_adv = state.apply_fn({'params': params}, adv_image)
             # trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
             #                                  nn.softmax(logits, axis=1)).mean()
-            trade_loss=optax.sigmoid_binary_cross_entropy(logits, logits_adv).mean()
+            trade_loss=optax.softmax_cross_entropy(logits, logits_adv).mean()
             return trade_loss, logits_adv
 
         (loss_nature, logits), grads_nature = jax.value_and_grad(loss_nat_fn, has_aux=True)(params)
