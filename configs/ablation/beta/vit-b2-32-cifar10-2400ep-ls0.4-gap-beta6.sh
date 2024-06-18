@@ -13,7 +13,7 @@ python -u main_copy_fork.py \
     --patch-size 2  \
     --image-size 32  \
     --posemb "learnable"  \
-    --pooling 'cls'  \
+    --pooling gap  \
     --dropout 0.0  \
     --droppath 0.0  \
     --train-batch-size $TRAIN_BATCH_SIZE \
@@ -24,4 +24,5 @@ python -u main_copy_fork.py \
     --project cifar10-ablation-beta \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/ablation/beta" \
-    --beta 6.0
+    --beta 6.0 \
+    -label-smoothing 0.4
