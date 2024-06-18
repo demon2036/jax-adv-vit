@@ -21,9 +21,11 @@ from collections.abc import Iterator
 from functools import partial
 from typing import Any
 
+import PIL
 import einops
 import jax
 import numpy as np
+import timm
 import torch
 import torch.nn as nn
 import torchvision
@@ -66,6 +68,7 @@ def create_transforms(image_size):
         T.RandomCrop(image_size, padding=4, fill=128),
         # T.RandomResizedCrop(image_size, scale=(0.6, 1)),
         T.RandomHorizontalFlip(),
+        # T.RandomErasing(0.25, value="random"),
         # T.Resize(224, interpolation=3),
         # T.CenterCrop(224),
         T.PILToTensor(),
@@ -126,6 +129,11 @@ def get_train_dataloader(batch_size=1024,
     train_origin_batch_size = total_batch_size - train_batch_size
 
     train_transform, train_strong_transforms, test_transform = create_transforms(image_size)
+
+
+
+    train_transform = T.Compose(train_transform)
+
     dataset = wds.DataPipeline(
         wds.SimpleShardList(shard_path, seed=1),
         itertools.cycle,
@@ -226,20 +234,23 @@ if __name__ == '__main__':
 
     train_dataloader, test_dataloader = get_train_dataloader(
         test_shard_path='./cifar10-test-wds/shards-{00000..00078}.tar',
-        shard_path='./cifar10-train-wds/shards-{00000..00078}.tar',origin_shard_path='./cifar10-train-wds/shards-{00000..00078}.tar',image_size=16,batch_size=16)
+        shard_path='./cifar10-train-wds/shards-{00000..00078}.tar',
+        origin_shard_path='./cifar10-train-wds/shards-{00000..00078}.tar', image_size=16, batch_size=16)
 
     for data in train_dataloader:
         img, *_ = data
         print(img)
+        print(img.shape)
 
         if img.shape[1] == 3:
-            img = einops.rearrange(img, '(b k) c h w -> (b h) (k w) c',k=4)
+            img = einops.rearrange(img, '(b k) c h w -> (b h) (k w) c', k=4)
+        else:
+            img = einops.rearrange(img, '(b k)  h w c -> (b h) (k w) c', k=4)
 
         for i in range(100):
             # plt.imshow(img[i])
             plt.imshow(img)
             plt.show()
-
 
             break
 

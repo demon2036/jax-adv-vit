@@ -11,7 +11,7 @@ python -u main_copy_fork.py \
     --labels 10  \
     --layerscale   \
     --patch-size 2  \
-    --image-size 48  \
+    --image-size 32  \
     --posemb "learnable"  \
     --pooling 'gap'  \
     --dropout 0.0  \
