@@ -25,12 +25,14 @@ import PIL
 import einops
 import jax
 import numpy as np
+import optax.losses
 import timm
 import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms.v2 as T
 import webdataset as wds
+from timm.data import create_transform
 from timm.data.auto_augment import (
     augment_and_mix_transform,
     auto_augment_transform,
@@ -130,9 +132,41 @@ def get_train_dataloader(batch_size=1024,
 
     train_transform, train_strong_transforms, test_transform = create_transforms(image_size)
 
+    train_transform = [
+        T.ToPILImage(),
+        create_transform(
+            input_size=image_size,
+            is_training=True,
+            color_jitter=0,
+            # auto_augment=args.auto_augment,
+            interpolation='bicubic',
+            re_prob=0.25,
+            re_mode='pixel',
+            re_count=1, mean=(0, 0, 0), std=(1, 1, 1))
 
+    ]
+    test_transform = [
+        T.ToPILImage(),
+        T.Resize(256, interpolation=PIL.Image.BICUBIC),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        T.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)
+    ]
+
+    def test(x):
+        print(type(x))
+        return x
+
+    test_transform2 = [
+        T.Resize(256, interpolation=PIL.Image.BICUBIC, antialias=False),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        T.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)
+    ]
 
     train_transform = T.Compose(train_transform)
+    test_transform = T.Compose(test_transform)
+    test_transform2 = T.Compose(test_transform2)
 
     dataset = wds.DataPipeline(
         wds.SimpleShardList(shard_path, seed=1),
@@ -197,8 +231,8 @@ def get_train_dataloader(batch_size=1024,
         # # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
         # wds.detshuffle(),
         wds.decode("pil", handler=wds.ignore_and_continue),
-        wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
-        wds.map_tuple(test_transform, torch.tensor),
+        wds.to_tuple("jpg", "jpg", "cls", handler=wds.ignore_and_continue),
+        wds.map_tuple(test_transform, test_transform2, torch.tensor),
 
     ]
 
@@ -207,7 +241,7 @@ def get_train_dataloader(batch_size=1024,
     for op in ops:
         test_dataset = test_dataset.compose(op)
     #
-    test_batch_size = 1024
+    test_batch_size = 16
     num_workers = 32
 
     count = jax.process_count()
@@ -217,7 +251,7 @@ def get_train_dataloader(batch_size=1024,
         test_dataset,
         batch_size=test_batch_size // count,
         num_workers=num_workers,
-        collate_fn=partial(collate_and_pad, batch_size=test_batch_size // count),
+        # collate_fn=partial(collate_and_pad, batch_size=test_batch_size // count),
         drop_last=False,
         prefetch_factor=10,
         persistent_workers=True,
@@ -233,26 +267,77 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     train_dataloader, test_dataloader = get_train_dataloader(
-        test_shard_path='./cifar10-test-wds/shards-{00000..00078}.tar',
-        shard_path='./cifar10-train-wds/shards-{00000..00078}.tar',
-        origin_shard_path='./cifar10-train-wds/shards-{00000..00078}.tar', image_size=16, batch_size=16)
+        test_shard_path='imagenet1k-validation-00.tar',
+        shard_path='imagenet1k-validation-00.tar',
+        origin_shard_path='imagenet1k-validation-00.tar', image_size=16, batch_size=16)
 
-    for data in train_dataloader:
+
+    # def patchify(imgs):
+    #     """
+    #     imgs: (N, H, W, 3)
+    #     x: (N, L, patch_size**2 *3)
+    #     """
+    #     p = 4
+    #     assert imgs.shape[1] == imgs.shape[2] and imgs.shape[1] % p == 0
+    #     h = w = imgs.shape[2] // p
+    #     x = imgs.reshape((imgs.shape[0], h, p, w, p, 3))
+    #     x = torch.einsum('nhpwqc->nhwpqc', x)
+    #     x = x.reshape((imgs.shape[0], h * w, p ** 2 * 3))
+    #     return x
+
+    def patchify(imgs):
+        """
+        imgs: (N, 3, H, W)
+        x: (N, L, patch_size**2 *3)
+        """
+        p = 4
+        assert imgs.shape[2] == imgs.shape[3] and imgs.shape[2] % p == 0
+
+        h = w = imgs.shape[2] // p
+        x = imgs.reshape(shape=(imgs.shape[0], 3, h, p, w, p))
+        x = torch.einsum('nchpwq->nhwpqc', x)
+        x = x.reshape(shape=(imgs.shape[0], h * w, p**2 * 3))
+        return x
+
+
+    for data in test_dataloader:
         img, *_ = data
-        print(img)
-        print(img.shape)
+        img, img2, _ = data
 
-        if img.shape[1] == 3:
-            img = einops.rearrange(img, '(b k) c h w -> (b h) (k w) c', k=4)
-        else:
-            img = einops.rearrange(img, '(b k)  h w c -> (b h) (k w) c', k=4)
+        # print(img - img2)
+        # print(img.shape)
 
-        for i in range(100):
-            # plt.imshow(img[i])
-            plt.imshow(img)
-            plt.show()
+        # x=einops.rearrange(img,'b c h w->b h w c')
+        #
+        # x1=x.reshape(x.shape[0], -1, x.shape[-1])
+        # x2=einops.rearrange(x,'b h w c->b (h w) c')
+        # print(x1-x2)
 
-            break
+        # x = einops.rearrange(img, 'b c h w->b h w c')
+        x=img
+        x1 = patchify(x)
+        # x2 = einops.rearrange(x, 'b (h k1) (w k2) c->b (h w) (k1 k2 c)', k1=4, k2=4)
+        x2 = einops.rearrange(x, 'b c (h k1) (w k2) ->b (h w) (c k1 k2 )', k1=4, k2=4)
+        x3= x.flatten(2).transpose(1, 2)
+        print(x3.shape)
+
+        # temp=
+
+
+        # if img.shape[1] == 3:
+        #     img = einops.rearrange(img, '(b k) c h w -> (b h) (k w) c', k=4)
+        # else:
+        #     img = einops.rearrange(img, '(b k)  h w c -> (b h) (k w) c', k=4)
+        #
+        # for i in range(100):
+        #     # plt.imshow(img[i])
+        #     plt.imshow(x1[0])
+        #     plt.show()
+        #
+        #     break
+
+
+        break
 
     while True:
         pass
