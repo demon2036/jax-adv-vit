@@ -155,4 +155,5 @@ if __name__ == "__main__":
     parser.add_argument("--ipaddr")
     parser.add_argument("--hostname")
     parser.add_argument("--output-dir", default=".")
+    # print(parser.parse_args())
     main(parser.parse_args())
