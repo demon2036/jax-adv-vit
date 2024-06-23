@@ -155,20 +155,20 @@ def get_train_dataloader(batch_size=1024,
     #     T.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)
     # ]
 
-    def test(x):
-        print(type(x))
-        return x
-
-    test_transform2 = [
-        T.Resize(256, interpolation=PIL.Image.BICUBIC, antialias=False),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        T.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)
-    ]
-
-    train_transform = T.Compose(train_transform)
-    test_transform = T.Compose(test_transform)
-    test_transform2 = T.Compose(test_transform2)
+    # def test(x):
+    #     print(type(x))
+    #     return x
+    #
+    # test_transform2 = [
+    #     T.Resize(256, interpolation=PIL.Image.BICUBIC, antialias=False),
+    #     T.CenterCrop(224),
+    #     T.ToTensor(),
+    #     T.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)
+    # ]
+    #
+    # train_transform = T.Compose(train_transform)
+    # test_transform = T.Compose(test_transform)
+    # test_transform2 = T.Compose(test_transform2)
 
     dataset = wds.DataPipeline(
         wds.SimpleShardList(shard_path, seed=1),
@@ -234,7 +234,7 @@ def get_train_dataloader(batch_size=1024,
         # wds.detshuffle(),
         wds.decode("pil", handler=wds.ignore_and_continue),
         wds.to_tuple("jpg", "jpg", "cls", handler=wds.ignore_and_continue),
-        wds.map_tuple(test_transform, test_transform2, torch.tensor),
+        wds.map_tuple(test_transform, torch.tensor),
 
     ]
 
