@@ -79,7 +79,6 @@ def create_transforms(args: argparse.Namespace) -> tuple[nn.Module, nn.Module]:
         T.PILToTensor(),
     ]
     valid_transforms = [
-        T.ToPILImage(),
         T.Resize(int(args.image_size / args.test_crop_ratio), interpolation=3),
         T.CenterCrop(args.image_size),
         T.PILToTensor(),
@@ -157,11 +156,10 @@ def create_dataloaders(
             itertools.cycle,
             wds.detshuffle(),
             wds.split_by_worker,
-            wds.cached_tarfile_to_samples(handler=wds.warn_and_stop, cache_dir='/root/test', ),
-            # wds.detshuffle(bufsize=30000, initial=1000),
+            wds.cached_tarfile_to_samples(handler=wds.ignore_and_continue, cache_dir='/root/test', ),
             wds.detshuffle(),
-            wds.decode("pil", handler=wds.warn_and_stop),
-            wds.to_tuple("jpg.pyd", "cls", handler=wds.warn_and_stop),
+            wds.decode("pil", handler=wds.ignore_and_continue),
+            wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
             partial(repeat_samples, repeats=args.augment_repeats),
             wds.map_tuple(train_transform, torch.tensor),
         )
@@ -182,7 +180,7 @@ def create_dataloaders(
             wds.split_by_worker,
             wds.cached_tarfile_to_samples(cache_dir='/root/test', ),
             wds.decode("pil"),
-            wds.to_tuple("jpg.pyd", "cls"),
+            wds.to_tuple("jpg", "cls"),
             wds.map_tuple(valid_transform, torch.tensor),
         )
         valid_dataloader = DataLoader(
