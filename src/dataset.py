@@ -56,22 +56,22 @@ def auto_augment_factory(args: argparse.Namespace) -> T.Transform:
 
 
 def create_transforms(args: argparse.Namespace) -> tuple[nn.Module, nn.Module]:
+    train_transforms=[T.PILToTensor()]
     if args.random_crop == "rrc":
         #scale=(0.2, 1),
-        train_transforms = [T.RandomResizedCrop(args.image_size,scale=(0.2, 1),  interpolation=3)]
+        train_transforms += [T.RandomResizedCrop(args.image_size,scale=(0.2, 1),  interpolation=3)]
     elif args.random_crop == "src":
-        train_transforms = [
+        train_transforms += [
             T.Resize(args.image_size, interpolation=3),
             T.RandomCrop(args.image_size, padding=4, padding_mode="reflect"),
         ]
     elif args.random_crop == "none":
-        train_transforms = [
+        train_transforms += [
             T.Resize(args.image_size, interpolation=3),
             T.CenterCrop(args.image_size),
         ]
 
     train_transforms += [
-        T.ToPILImage(),
         T.RandomHorizontalFlip(),
         auto_augment_factory(args),
         T.ColorJitter(args.color_jitter, args.color_jitter, args.color_jitter),
@@ -156,10 +156,11 @@ def create_dataloaders(
             itertools.cycle,
             wds.detshuffle(),
             wds.split_by_worker,
-            wds.cached_tarfile_to_samples(handler=wds.ignore_and_continue, cache_dir='/root/test', ),
+            wds.cached_tarfile_to_samples(handler=wds.warn_and_stop, cache_dir='/root/test', ),
+            # wds.detshuffle(bufsize=30000, initial=1000),
             wds.detshuffle(),
-            wds.decode("pil", handler=wds.ignore_and_continue),
-            wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
+            wds.decode("pil", handler=wds.warn_and_stop),
+            wds.to_tuple("jpg.pyd", "cls", handler=wds.warn_and_stop),
             partial(repeat_samples, repeats=args.augment_repeats),
             wds.map_tuple(train_transform, torch.tensor),
         )
@@ -180,7 +181,7 @@ def create_dataloaders(
             wds.split_by_worker,
             wds.cached_tarfile_to_samples(cache_dir='/root/test', ),
             wds.decode("pil"),
-            wds.to_tuple("jpg", "cls"),
+            wds.to_tuple("jpg.pyd", "cls"),
             wds.map_tuple(valid_transform, torch.tensor),
         )
         valid_dataloader = DataLoader(
