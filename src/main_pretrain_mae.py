@@ -46,8 +46,9 @@ def evaluate(state: TrainState, dataloader: DataLoader) -> dict[str, float]:
 
 
 def main(args: argparse.Namespace):
-    state = create_mae_train_state(args).replicate()
     train_dataloader, valid_dataloader = create_dataloaders(args)
+    state = create_mae_train_state(args).replicate()
+
     train_dataloader_iter = iter(train_dataloader)
 
     if jax.process_index() == 0:

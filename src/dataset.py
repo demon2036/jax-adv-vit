@@ -56,9 +56,8 @@ def auto_augment_factory(args: argparse.Namespace) -> T.Transform:
 
 
 def create_transforms(args: argparse.Namespace) -> tuple[nn.Module, nn.Module]:
-    train_transforms=[T.PILToTensor()]
+    train_transforms=[T.ToPILImage()]
     if args.random_crop == "rrc":
-        #scale=(0.2, 1),
         train_transforms += [T.RandomResizedCrop(args.image_size,scale=(0.2, 1),  interpolation=3)]
     elif args.random_crop == "src":
         train_transforms += [
@@ -84,7 +83,7 @@ def create_transforms(args: argparse.Namespace) -> tuple[nn.Module, nn.Module]:
         T.PILToTensor(),
     ]
 
-
+    print(train_transforms)
     # train_transforms = [
     #     T.RandomResizedCrop(args.image_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
     #     T.RandomHorizontalFlip(),
@@ -174,6 +173,8 @@ def create_dataloaders(
             prefetch_factor=20,
             persistent_workers=True,
         )
+
+
     if args.valid_dataset_shards is not None:
         dataset = wds.DataPipeline(
             wds.SimpleShardList(args.valid_dataset_shards),
