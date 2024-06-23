@@ -71,6 +71,7 @@ def create_transforms(args: argparse.Namespace) -> tuple[nn.Module, nn.Module]:
         ]
 
     train_transforms += [
+        T.ToPILImage(),
         T.RandomHorizontalFlip(),
         auto_augment_factory(args),
         T.ColorJitter(args.color_jitter, args.color_jitter, args.color_jitter),
@@ -78,6 +79,7 @@ def create_transforms(args: argparse.Namespace) -> tuple[nn.Module, nn.Module]:
         T.PILToTensor(),
     ]
     valid_transforms = [
+        T.ToPILImage(),
         T.Resize(int(args.image_size / args.test_crop_ratio), interpolation=3),
         T.CenterCrop(args.image_size),
         T.PILToTensor(),
@@ -180,7 +182,7 @@ def create_dataloaders(
             wds.split_by_worker,
             wds.cached_tarfile_to_samples(cache_dir='/root/test', ),
             wds.decode("pil"),
-            wds.to_tuple("jpg", "cls"),
+            wds.to_tuple("jpg.pyd", "cls"),
             wds.map_tuple(valid_transform, torch.tensor),
         )
         valid_dataloader = DataLoader(
