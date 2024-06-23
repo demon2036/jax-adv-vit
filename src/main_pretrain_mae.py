@@ -28,7 +28,7 @@ from flax.training.common_utils import shard
 from torch.utils.data import DataLoader
 
 from dataset import create_dataloaders
-from training import TrainState,  validation_step, create_mae_train_state,training_mae_step
+from training import TrainState, validation_step, create_mae_train_state, training_mae_step
 from utils import AverageMeter, save_checkpoint_in_background
 
 warnings.filterwarnings("ignore")
@@ -46,13 +46,12 @@ def evaluate(state: TrainState, dataloader: DataLoader) -> dict[str, float]:
 
 
 def main(args: argparse.Namespace):
-    print(args)
     state = create_mae_train_state(args).replicate()
     train_dataloader, valid_dataloader = create_dataloaders(args)
     train_dataloader_iter = iter(train_dataloader)
 
-
     if jax.process_index() == 0:
+        print(args)
         wandb.init(name=args.name, project=args.project, config=args, settings=wandb.Settings(_disable_stats=True))
     average_meter, max_val_acc1 = AverageMeter(use_latest=["learning_rate"]), 0.0
 
@@ -63,16 +62,16 @@ def main(args: argparse.Namespace):
             average_meter.update(**unreplicate(metrics))
 
         if (
-            jax.process_index() == 0
-            and args.log_interval > 0
-            and step % args.log_interval == 0
+                jax.process_index() == 0
+                and args.log_interval > 0
+                and step % args.log_interval == 0
         ):
             metrics = average_meter.summary(prefix="train/")
             metrics["processed_samples"] = step * args.train_batch_size
             wandb.log(metrics, step)
 
         if args.eval_interval > 0 and (
-            step % args.eval_interval == 0 or step == args.training_steps
+                step % args.eval_interval == 0 or step == args.training_steps
         ):
             if jax.process_index() == 0:
                 params_bytes = msgpack_serialize(unreplicate(state.params))
