@@ -83,7 +83,6 @@ def create_transforms(args: argparse.Namespace) -> tuple[nn.Module, nn.Module]:
         T.PILToTensor(),
     ]
 
-    print(train_transforms)
     # train_transforms = [
     #     T.RandomResizedCrop(args.image_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
     #     T.RandomHorizontalFlip(),
