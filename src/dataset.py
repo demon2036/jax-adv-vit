@@ -161,7 +161,7 @@ def create_dataloaders(
             # wds.detshuffle(bufsize=30000, initial=1000),
             wds.detshuffle(),
             wds.decode("pil", handler=wds.warn_and_stop),
-            wds.to_tuple("jpg", "cls", handler=wds.warn_and_stop),
+            wds.to_tuple("jpg.pyd", "cls", handler=wds.warn_and_stop),
             partial(repeat_samples, repeats=args.augment_repeats),
             wds.map_tuple(train_transform, torch.tensor),
         )
