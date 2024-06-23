@@ -126,32 +126,34 @@ def get_train_dataloader(batch_size=1024,
                          origin_shard_path='gs://fbs0_dl_bucket/cifar100-train-wds/shards-{00000..00099}.tar',
                          image_size=32,
                          ):
+    print(batch_size)
+
     total_batch_size = batch_size // jax.process_count()
     train_batch_size = int(total_batch_size * 0.8)
     train_origin_batch_size = total_batch_size - train_batch_size
 
     train_transform, train_strong_transforms, test_transform = create_transforms(image_size)
 
-    train_transform = [
-        T.ToPILImage(),
-        create_transform(
-            input_size=image_size,
-            is_training=True,
-            color_jitter=0,
-            # auto_augment=args.auto_augment,
-            interpolation='bicubic',
-            re_prob=0.25,
-            re_mode='pixel',
-            re_count=1, mean=(0, 0, 0), std=(1, 1, 1))
-
-    ]
-    test_transform = [
-        T.ToPILImage(),
-        T.Resize(256, interpolation=PIL.Image.BICUBIC),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        T.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)
-    ]
+    # train_transform = [
+    #     T.ToPILImage(),
+    #     create_transform(
+    #         input_size=image_size,
+    #         is_training=True,
+    #         color_jitter=0,
+    #         # auto_augment=args.auto_augment,
+    #         interpolation='bicubic',
+    #         re_prob=0.25,
+    #         re_mode='pixel',
+    #         re_count=1, mean=(0, 0, 0), std=(1, 1, 1))
+    #
+    # ]
+    # test_transform = [
+    #     T.ToPILImage(),
+    #     T.Resize(256, interpolation=PIL.Image.BICUBIC),
+    #     T.CenterCrop(224),
+    #     T.ToTensor(),
+    #     T.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)
+    # ]
 
     def test(x):
         print(type(x))
