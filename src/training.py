@@ -85,6 +85,8 @@ class TrainModule(nn.Module):
         images = jnp.moveaxis(images, 1, 3).astype(jnp.float32) / 0xFF
         images = (images - IMAGENET_DEFAULT_MEAN) / IMAGENET_DEFAULT_STD
 
+        # images = jnp.moveaxis(images, 1, 3).astype(jnp.float32)
+
         labels = nn.one_hot(labels, self.model.labels) if labels.ndim == 1 else labels
         labels = labels.astype(jnp.float32)
 
@@ -154,47 +156,47 @@ def validation_step(state: TrainState, batch: ArrayTree) -> ArrayTree:
     return jax.lax.psum(metrics, axis_name="batch")
 
 
-def create_optimizer(args, lr_decay=None):
-    if lr_decay is None:
-        lr_decay=args.lr_decay
-    # lr_decay = lr_decay
-
-    @partial(optax.inject_hyperparams, hyperparam_dtype=jnp.float32)
-    def create_optimizer_fn(
-            learning_rate: optax.Schedule,
-    ) -> optax.GradientTransformation:
-        tx = OPTIMIZER_COLLECTION[args.optimizer](
-            learning_rate=learning_rate,
-            b1=args.adam_b1,
-            b2=args.adam_b2,
-            # eps=args.adam_eps,
-            weight_decay=args.weight_decay,
-            mask=partial(tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
-        )
-        if args.lr_decay < 1.0:
-            # if  lr_decay is None:
-            #     lr_decay=args.lr_decay
-
-            layerwise_scales = {
-                i: optax.scale(lr_decay ** (args.layers - i))
-                for i in range(args.layers + 1)
-            }
-            label_fn = partial(get_layer_index_fn, num_layers=args.layers)
-            label_fn = partial(tree_map_with_path, label_fn)
-            tx = optax.chain(tx, optax.multi_transform(layerwise_scales, label_fn))
-        if args.clip_grad > 0:
-            tx = optax.chain(optax.clip_by_global_norm(args.clip_grad), tx)
-        return tx
-
-    learning_rate = optax.warmup_cosine_decay_schedule(
-        init_value=1e-6,
-        peak_value=args.learning_rate,
-        warmup_steps=args.warmup_steps,
-        decay_steps=args.training_steps,
-        end_value=1e-5,
-    )
-
-    return create_optimizer_fn(learning_rate)
+# def create_optimizer(args, lr_decay=None):
+#     if lr_decay is None:
+#         lr_decay=args.lr_decay
+#     # lr_decay = lr_decay
+#
+#     @partial(optax.inject_hyperparams, hyperparam_dtype=jnp.float32)
+#     def create_optimizer_fn(
+#             learning_rate: optax.Schedule,
+#     ) -> optax.GradientTransformation:
+#         tx = OPTIMIZER_COLLECTION[args.optimizer](
+#             learning_rate=learning_rate,
+#             b1=args.adam_b1,
+#             b2=args.adam_b2,
+#             # eps=args.adam_eps,
+#             weight_decay=args.weight_decay,
+#             mask=partial(tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
+#         )
+#         if args.lr_decay < 1.0:
+#             # if  lr_decay is None:
+#             #     lr_decay=args.lr_decay
+#
+#             layerwise_scales = {
+#                 i: optax.scale(lr_decay ** (args.layers - i))
+#                 for i in range(args.layers + 1)
+#             }
+#             label_fn = partial(get_layer_index_fn, num_layers=args.layers)
+#             label_fn = partial(tree_map_with_path, label_fn)
+#             tx = optax.chain(tx, optax.multi_transform(layerwise_scales, label_fn))
+#         if args.clip_grad > 0:
+#             tx = optax.chain(optax.clip_by_global_norm(args.clip_grad), tx)
+#         return tx
+#
+#     learning_rate = optax.warmup_cosine_decay_schedule(
+#         init_value=1e-6,
+#         peak_value=args.learning_rate,
+#         warmup_steps=args.warmup_steps,
+#         decay_steps=args.training_steps,
+#         end_value=1e-5,
+#     )
+#
+#     return create_optimizer_fn(learning_rate)
 
 
 def create_train_state(args: argparse.Namespace) -> TrainState:
@@ -225,7 +227,7 @@ def create_train_state(args: argparse.Namespace) -> TrainState:
     # will tabulate the summary of model and its parameters. Furthermore, empty gradient
     # accumulation arrays will be prepared if the gradient accumulation is enabled.
     example_inputs = {
-        "images": jnp.zeros((1, 3, args.image_size, args.image_size), dtype=jnp.uint8),
+        "images": jnp.zeros((1, 3, args.image_size, args.image_size), dtype=jnp.float32),
         "labels": jnp.zeros((1,), dtype=jnp.int32),
     }
     init_rngs = {"params": jax.random.PRNGKey(args.init_seed)}
@@ -251,12 +253,15 @@ def create_train_state(args: argparse.Namespace) -> TrainState:
             weight_decay=args.weight_decay,
             mask=partial(tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
         )
+
+        num_layers = args.layers + 1
+
         if args.lr_decay < 1.0:
             layerwise_scales = {
-                i: optax.scale(args.lr_decay ** (args.layers - i))
-                for i in range(args.layers + 1)
+                i: optax.scale(args.lr_decay ** (num_layers - i))
+                for i in range(num_layers + 1)
             }
-            label_fn = partial(get_layer_index_fn, num_layers=args.layers)
+            label_fn = partial(get_layer_index_fn, num_layers=num_layers)
             label_fn = partial(tree_map_with_path, label_fn)
             tx = optax.chain(tx, optax.multi_transform(layerwise_scales, label_fn))
         if args.clip_grad > 0:
@@ -292,6 +297,7 @@ class TrainMAEModule(nn.Module):
         # float values from CPU. This may reduce both memory usage and latency.
         images = jnp.moveaxis(images, 1, 3).astype(jnp.float32) / 0xFF
         images = (images - IMAGENET_DEFAULT_MEAN) / IMAGENET_DEFAULT_STD
+        # images=jnp.moveaxis(images, 1, 3).astype(jnp.float32)
 
         loss, pred, mask = self.model(images, det=det)
 
@@ -350,6 +356,7 @@ def create_mae_train_state(args: argparse.Namespace) -> TrainState:
         grad_ckpt=args.grad_ckpt,
         use_kan=args.use_kan,
         polynomial_degree=args.polynomial_degree,
+        decoder_layers=args.decoder_layers
     )
 
     module = TrainMAEModule(
@@ -367,8 +374,16 @@ def create_mae_train_state(args: argparse.Namespace) -> TrainState:
     # print(module.tabulate(init_rngs, **example_inputs))
 
     params = module.init(init_rngs, **example_inputs)["params"]
-    if args.pretrained_ckpt is not None:
-        params = load_pretrained_params(args, params)
+    # if args.pretrained_ckpt is not None:
+    #     params = load_pretrained_params(args, params)
+    import webdataset as wds
+    #"gs://fbs0_dl_bucket/mae/mae_base.msgpack"
+    # with wds.gopen(args.pretrained_ckpt) as fp:
+    #     params = flax.serialization.msgpack_restore(fp.read())
+
+    # with wds.gopen("gs://fbs0_dl_bucket/mae/mae_base.msgpack") as fp:
+    #     params = flax.serialization.msgpack_restore(fp.read())
+
     if args.grad_accum > 1:
         grad_accum = jax.tree_map(jnp.zeros_like, params)
 

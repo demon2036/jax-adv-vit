@@ -22,12 +22,13 @@ import einops
 import flax.linen as nn
 import flax.linen.initializers as init
 import jax.numpy as jnp
+import numpy as np
 from chex import Array, PRNGKey, ArrayTree
 from flax.training import train_state
 from flax.training.common_utils import shard_prng_key
 from flax.training.train_state import TrainState
 
-from utils import fixed_sincos2d_embeddings, get_layer_index_fn
+from utils import  get_layer_index_fn
 from kan import KANLayer
 
 import optax
@@ -39,6 +40,65 @@ Dense = partial(nn.Dense, kernel_init=init.truncated_normal(0.02))
 Conv = partial(nn.Conv, kernel_init=init.truncated_normal(0.02))
 
 
+def sincos_pos_embed_init(key, shape, cls_token=True):
+    grid_size, embed_dim = shape
+
+    pos_embed = jnp.array(get_2d_sincos_pos_embed(embed_dim, grid_size,
+                                                  cls_token=cls_token))
+
+    return jnp.expand_dims(pos_embed, 0)
+
+
+def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False):
+    """
+    grid_size: int of the grid height and width
+    return:
+    pos_embed: [grid_size*grid_size, embed_dim] or [1+grid_size*grid_size, embed_dim] (w/ or w/o cls_token)
+    """
+    grid_h = np.arange(grid_size, dtype=np.float32)
+    grid_w = np.arange(grid_size, dtype=np.float32)
+    grid = np.meshgrid(grid_w, grid_h)  # here w goes first
+    grid = np.stack(grid, axis=0)
+
+    grid = grid.reshape([2, 1, grid_size, grid_size])
+    pos_embed = get_2d_sincos_pos_embed_from_grid(embed_dim, grid)
+    if cls_token:
+        pos_embed = np.concatenate([np.zeros([1, embed_dim]), pos_embed], axis=0)
+    return pos_embed
+
+
+def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):
+    assert embed_dim % 2 == 0
+
+    # use half of dimensions to encode grid_h
+    emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0])  # (H*W, D/2)
+    emb_w = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[1])  # (H*W, D/2)
+
+    emb = np.concatenate([emb_h, emb_w], axis=1)  # (H*W, D)
+    return emb
+
+
+def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
+    """
+    embed_dim: output dimension for each position
+    pos: a list of positions to be encoded: size (M,)
+    out: (M, D)
+    """
+    assert embed_dim % 2 == 0
+    omega = np.arange(embed_dim // 2, dtype=np.float64)
+    omega /= embed_dim / 2.
+    omega = 1. / 10000 ** omega  # (D/2,)
+
+    pos = pos.reshape(-1)  # (M,)
+    out = np.einsum('m,d->md', pos, omega)  # (M, D/2), outer product
+
+    emb_sin = np.sin(out)  # (M, D/2)
+    emb_cos = np.cos(out)  # (M, D/2)
+
+    emb = np.concatenate([emb_sin, emb_cos], axis=1)  # (M, D)
+    return emb
+
+
 @dataclass
 class ViTBase:
     layers: int = 12
@@ -46,6 +106,8 @@ class ViTBase:
     heads: int = 12
     labels: int | None = 1000
     layerscale: bool = False
+
+    use_cls_token: bool = True
 
     patch_size: int = 16
     image_size: int = 224
@@ -57,7 +119,9 @@ class ViTBase:
     grad_ckpt: bool = False
     use_kan: bool = False
     polynomial_degree: int = 8
-    dtype: Any = jnp.bfloat16
+    dtype: Any = jnp.float32
+    precision: Any = jax.lax.Precision.DEFAULT
+    use_fast_variance: bool = True
 
     @property
     def kwargs(self) -> dict[str, Any]:
@@ -77,58 +141,94 @@ class ViTBase:
 
 
 class PatchEmbed(ViTBase, nn.Module):
+    stop_gradient_wpe: bool = True
+
     def setup(self):
         self.wte = Conv(
             self.dim,
             kernel_size=(self.patch_size, self.patch_size),
             strides=(self.patch_size, self.patch_size),
-            padding="VALID",
+            padding="VALID", dtype=self.dtype, precision=self.precision
         )
-        if self.pooling == "cls":
+        # if self.pooling == "cls":
+        #     self.cls_token = self.param(
+        #         "cls_token", init.truncated_normal(0.02), (1, 1, self.dim)
+        #     )
+
+        if self.use_cls_token:
             self.cls_token = self.param(
-                "cls_token", init.truncated_normal(0.02), (1, 1, self.dim)
+                "cls_token", init.truncated_normal(0.02), (1, 1, self.dim), dtype=self.dtype
             )
 
         if self.posemb == "learnable":
+            # self.wpe = self.param(
+            #     "wpe", init.truncated_normal(0.02), (*self.num_patches, self.dim)
+            # )
+
+            # self.wpe = self.param(
+            #     "wpe", init.truncated_normal(0.02), (1,self.num_patches[0]*self.num_patches[1]+1, self.dim),dtype=self.dtype
+            # )
+
             self.wpe = self.param(
-                "wpe", init.truncated_normal(0.02), (*self.num_patches, self.dim)
+                "wpe", init.truncated_normal(0.02), (1, self.num_patches[0] * self.num_patches[1] + 1, self.dim),
+                dtype=self.dtype
             )
+
+
         elif self.posemb == "sincos2d":
-            self.wpe = fixed_sincos2d_embeddings(*self.num_patches, self.dim)
+            self.wpe = self.param("wpe", sincos_pos_embed_init,
+                                  (self.num_patches[0], self.dim))
+            # self.wpe = get_2d_sincos_pos_embed(self.dim, self.num_patches[0], cls_token=True)
 
     def __call__(self, x: Array) -> Array:
-        x = (self.wte(x) + self.wpe).reshape(x.shape[0], -1, self.dim)
-        if self.pooling == "cls":
+        # x = (self.wte(x) + self.wpe).reshape(x.shape[0], -1, self.dim)
+        x = (self.wte(x)).reshape(x.shape[0], -1, self.dim)
+        # if self.pooling == "cls":
+        #     cls_token = jnp.repeat(self.cls_token, x.shape[0], axis=0)
+        #     x = jnp.concatenate((cls_token, x), axis=1)
+
+        if self.use_cls_token:
             cls_token = jnp.repeat(self.cls_token, x.shape[0], axis=0)
             x = jnp.concatenate((cls_token, x), axis=1)
+
+        if self.stop_gradient_wpe:
+            x = x + jax.lax.stop_gradient(self.wpe)
+        else:
+            x = x + self.wpe
+
         return x
 
 
 class Attention(ViTBase, nn.Module):
     def setup(self):
-        self.wq = DenseGeneral((self.heads, self.head_dim), dtype=self.dtype)
-        self.wk = DenseGeneral((self.heads, self.head_dim), dtype=self.dtype)
-        self.wv = DenseGeneral((self.heads, self.head_dim), dtype=self.dtype)
+        self.wq = DenseGeneral((self.heads, self.head_dim), dtype=self.dtype, precision=self.precision)
+        self.wk = DenseGeneral((self.heads, self.head_dim), dtype=self.dtype, precision=self.precision)
+        self.wv = DenseGeneral((self.heads, self.head_dim), dtype=self.dtype, precision=self.precision)
         self.wo = DenseGeneral(self.dim, axis=(-2, -1))
         self.drop = nn.Dropout(self.dropout)
 
     def __call__(self, x: Array, det: bool = True) -> Array:
-        z = jnp.einsum("bqhd,bkhd->bhqk", self.wq(x) / self.head_dim ** 0.5, self.wk(x))
-        z = jnp.einsum("bhqk,bkhd->bqhd", self.drop(nn.softmax(z), det), self.wv(x))
+        # z = jnp.einsum("bqhd,bkhd->bhqk", self.wq(x) / self.head_dim ** 0.5, self.wk(x), precision=self.precision)
+        # z = jnp.einsum("bhqk,bkhd->bqhd", self.drop(nn.softmax(z), det), self.wv(x), precision=self.precision)
+
+        z = nn.dot_product_attention(self.wq(x), self.wk(x), self.wv(x), precision=self.precision)
+
         return self.drop(self.wo(z), det)
 
 
 class FeedForward(ViTBase, nn.Module):
     def setup(self):
-        self.w1 = Dense(self.hidden_dim, dtype=self.dtype)
-        self.w2 = Dense(self.dim, dtype=self.dtype)
+        self.w1 = Dense(self.hidden_dim, dtype=self.dtype, precision=self.precision)
+        self.w2 = Dense(self.dim, dtype=self.dtype, precision=self.precision)
         self.drop = nn.Dropout(self.dropout)
 
     def __call__(self, x: Array, det: bool = True) -> Array:
-        return self.drop(self.w2(self.drop(nn.gelu(self.w1(x)), det)), det)
+        return self.drop(self.w2(self.drop(nn.gelu(self.w1(x), approximate=True), det)), det)
 
 
 class ViTLayer(ViTBase, nn.Module):
+    drop_path_prob: float = 0.0
+
     def setup(self):
         self.attn = Attention(**self.kwargs)
         if self.use_kan:
@@ -136,9 +236,10 @@ class ViTLayer(ViTBase, nn.Module):
         else:
             self.ff = FeedForward(**self.kwargs)
 
-        self.norm1 = nn.LayerNorm()
-        self.norm2 = nn.LayerNorm()
-        self.drop = nn.Dropout(self.droppath, broadcast_dims=(1, 2))
+        self.norm1 = nn.LayerNorm(dtype=self.dtype, use_fast_variance=self.use_fast_variance)
+        self.norm2 = nn.LayerNorm(dtype=self.dtype, use_fast_variance=self.use_fast_variance)
+        self.drop1 = nn.Dropout(self.drop_path_prob, broadcast_dims=(1, 2))
+        self.drop2 = nn.Dropout(self.drop_path_prob, broadcast_dims=(1, 2))
 
         self.scale1 = self.scale2 = 1.0
         if self.layerscale:
@@ -146,28 +247,31 @@ class ViTLayer(ViTBase, nn.Module):
             self.scale2 = self.param("scale2", init.constant(1e-4), (self.dim,))
 
     def __call__(self, x: Array, det: bool = True) -> Array:
-        x = x + self.drop(self.scale1 * self.attn(self.norm1(x), det), det)
-        x = x + self.drop(self.scale2 * self.ff(self.norm2(x), det), det)
+        x = x + self.drop1(self.scale1 * self.attn(self.norm1(x), det), det)
+        x = x + self.drop2(self.scale2 * self.ff(self.norm2(x), det), det)
         return x
 
 
 class ViT(ViTBase, nn.Module):
     def setup(self):
-        self.embed = PatchEmbed(**self.kwargs)
+        self.embed = PatchEmbed(stop_gradient_wpe=False, **self.kwargs, )
         self.drop = nn.Dropout(self.dropout)
 
         # The layer class should be wrapped with `nn.remat` if `grad_ckpt` is enabled.
         layer_fn = nn.remat(ViTLayer) if self.grad_ckpt else ViTLayer
-        self.layer = [layer_fn(**self.kwargs) for _ in range(self.layers)]
 
-        self.norm = nn.LayerNorm()
-        self.head = Dense(self.labels) if self.labels is not None else None
+        dpr = [x.item() for x in np.linspace(0, self.droppath, self.layers)]
+        self.layer = [layer_fn(**self.kwargs, drop_path_prob=dpr[i]) for i in range(self.layers)]
+        # self.layer = [layer_fn(**self.kwargs, drop_path_prob=self.droppath) for i in range(self.layers)]
+
+        self.norm = nn.LayerNorm(dtype=self.dtype, use_fast_variance=self.use_fast_variance)
+        self.head = Dense(self.labels, dtype=self.dtype, precision=self.precision) if self.labels is not None else None
 
     def __call__(self, x: Array, det: bool = True) -> Array:
         x = self.drop(self.embed(x), det)
         for layer in self.layer:
             x = layer(x, det)
-        x = self.norm(x)
+        # x = self.norm(x)
 
         # If the classification head is not defined, then return the output of all
         # tokens instead of pooling to a single vector and then calculate class logits.
@@ -175,17 +279,22 @@ class ViT(ViTBase, nn.Module):
             return x
 
         if self.pooling == "cls":
-            x = x[:, 0, :]
+            x = self.norm(x)
+            x = x[:, 0]
         elif self.pooling == "gap":
-            x = x.mean(1)
-        return self.head(x)
+            # x = x.mean(1)
+            x = x[:, 1:, :].mean(1)
+            x = self.norm(x)
+        x = self.head(x)
+        print(x.dtype)
+        return x
 
 
 @dataclass
 class MAEBase:
     mask_ratio: int = 0.75
     decoder_dim: int = 512
-    decoder_layers: int = 1
+    decoder_layers: int = 8
     decoder_heads: int = 16
     decoder_posemb: Literal["learnable", "sincos2d"] = "learnable"
 
@@ -199,7 +308,7 @@ class MAE(ViTBase, MAEBase, nn.Module):
         layer_fn = nn.remat(ViTLayer) if self.grad_ckpt else ViTLayer
         self.layer = [layer_fn(**self.kwargs) for _ in range(self.layers)]
 
-        self.norm = nn.LayerNorm()
+        self.norm = nn.LayerNorm(dtype=self.dtype, use_fast_variance=self.use_fast_variance)
 
         self.decoder_embed = Dense(self.decoder_dim)
 
@@ -207,16 +316,26 @@ class MAE(ViTBase, MAEBase, nn.Module):
             "mask_token", init.truncated_normal(0.02), (1, 1, self.decoder_dim)
         )
 
-        self.decoder_pos_embed = self.param(
-            "decoder_pos_embed", init.truncated_normal(0.02), (1, self.num_patches[0] ** 2, self.decoder_dim)
-        )
+        # self.decoder_pos_embed = self.param(
+        #     "decoder_pos_embed", init.truncated_normal(0.02), (1, self.num_patches[0] ** 2 + 1, self.decoder_dim)
+        # )
+
+        self.decoder_pos_embed = self.param("decoder_pos_embed", sincos_pos_embed_init,
+                                            (self.num_patches[0], self.decoder_dim))
+
+        # self.decoder_pos_embed = self.param(
+        #     "decoder_pos_embed", init.truncated_normal(0.02), (1, self.num_patches[0] ** 2, self.decoder_dim)
+        # )
+
+        # self.decoder_pos_embed = fixed_sincos2d_embeddings(*self.num_patches, self.decoder_dim).reshape(1, -1,
+        #                                                                                                 self.decoder_dim)
 
         kwargs = self.kwargs
         kwargs.update({'dim': self.decoder_dim, 'heads': self.decoder_heads, 'layers': self.decoder_layers})
-        # print(kwargs)
+        print(kwargs)
         self.decoder_layer = [layer_fn(**kwargs) for _ in range(self.decoder_layers)]
 
-        self.decoder_norm = nn.LayerNorm()
+        self.decoder_norm = nn.LayerNorm(dtype=self.dtype, use_fast_variance=self.use_fast_variance)
         self.decoder_pred = Dense(self.patch_size ** 2 * 3)
 
     def random_masking(self, x):
@@ -235,19 +354,37 @@ class MAE(ViTBase, MAEBase, nn.Module):
         mask = jnp.take(mask, ids_restore)
 
         x = jnp.take_along_axis(x, ids_shuffle[:, :len_keep, None], axis=1)
-        # print(x.shape)
+        print(x.shape)
 
         return x, mask, ids_restore
 
     def forward_encoder(self, x, det: bool = True):
+        # x = self.drop(self.embed(x), det)
+        #
+        # if self.pooling == "cls":
+        #     cls_token, x = x[:, :1, :], x[:, 1:]
+        #
+        # x, mask, ids_restore = self.random_masking(x)
+        #
+        # if self.pooling == "cls":
+        #     x = jnp.concatenate((cls_token, x), axis=1)
+        #
+        # for layer in self.layer:
+        #     x = layer(x, det)
+        # x = self.norm(x)
+        #
+        # return x, mask, ids_restore
+
         x = self.drop(self.embed(x), det)
+
+        cls_token, x = x[:, :1, :], x[:, 1:]
 
         x, mask, ids_restore = self.random_masking(x)
 
+        x = jnp.concatenate((cls_token, x), axis=1)
         for layer in self.layer:
             x = layer(x, det)
         x = self.norm(x)
-
         return x, mask, ids_restore
 
     def forward_decoder(self, x, ids_restore):
@@ -256,13 +393,20 @@ class MAE(ViTBase, MAEBase, nn.Module):
         x = self.decoder_embed(x)
         # print(x.shape)
 
+        cls_token, x = x[:, :1, :], x[:, 1:]
+
         mask_tokens = jnp.tile(self.mask_token, (x.shape[0], ids_restore.shape[1] - x.shape[1], 1))
 
         # print(mask_tokens.shape,x.shape[0])
 
         x = jnp.concatenate([x, mask_tokens], axis=1)
         x = jnp.take_along_axis(x, ids_restore[..., None], axis=1)
-        x = x + self.decoder_pos_embed
+
+        x = jnp.concatenate([cls_token, x], axis=1)
+
+        print(x.shape, self.decoder_pos_embed.shape)
+
+        x = x + jax.lax.stop_gradient(self.decoder_pos_embed)
 
         for layer in self.decoder_layer:
             x = layer(x)
@@ -270,14 +414,29 @@ class MAE(ViTBase, MAEBase, nn.Module):
         x = self.decoder_norm(x)
         x = self.decoder_pred(x)
 
+        cls_token, x = x[:, :1, :], x[:, 1:]
         # print(mask_tokens.shape, x.shape)
         return x
 
+    def patchify(self, imgs):
+        """
+        imgs: (N, H, W, 3)
+        x: (N, L, patch_size**2 *3)
+        """
+        p = self.patch_size
+        assert imgs.shape[1] == imgs.shape[2] and imgs.shape[1] % p == 0
+        h = w = imgs.shape[2] // p
+        x = imgs.reshape((imgs.shape[0], h, p, w, p, 3))
+        x = jnp.einsum('nhpwqc->nhwpqc', x)
+        x = x.reshape((imgs.shape[0], h * w, p ** 2 * 3))
+        return x
+
     def forward_loss(self, x, pred, mask):
-        target = einops.rearrange(x, 'b (h k1) (w k2) c->b (h w) (c k1 k2)', k1=self.patch_size, k2=self.patch_size)
+        # target = einops.rearrange(x, 'b (h k1) (w k2) c->b (h w) (c k1 k2)', k1=self.patch_size, k2=self.patch_size)
+        target = self.patchify(x)
 
         mean = target.mean(axis=-1, keepdims=True)
-        var = target.var(axis=-1, keepdims=True)
+        var = target.var(axis=-1, keepdims=True, ddof=1)
         target = (target - mean) / (var + 1.e-6) ** .5
 
         loss = (pred - target) ** 2
@@ -286,7 +445,7 @@ class MAE(ViTBase, MAEBase, nn.Module):
         return loss
 
     def __call__(self, images: Array, det: bool = True, rng=None):
-        print(images.shape)
+
         latent, mask, ids_restore = self.forward_encoder(images, det)
         pred = self.forward_decoder(latent, ids_restore)
         loss = self.forward_loss(images, pred, mask)
@@ -297,7 +456,6 @@ class TrainState(train_state.TrainState):
     mixup_rng: PRNGKey
     dropout_rng: PRNGKey
     random_masking_rng: PRNGKey
-    iter: int = 10
 
     micro_step: int = 0
     micro_in_mini: int = 1
@@ -390,20 +548,6 @@ def create_train_state(rng,
                        ):
     """Creates initial `TrainState`."""
 
-    cnn = MAE(
-        layers=layers,
-        dim=dim,
-        heads=heads,
-        labels=labels,
-        layerscale=layerscale,
-        patch_size=patch_size,
-        image_size=image_size,
-        posemb=posemb,
-        pooling=pooling,
-        dropout=dropout,
-        droppath=droppath,
-    )
-
     cnn = ViT(
         layers=layers,
         dim=dim,
@@ -492,202 +636,123 @@ def create_train_state(rng,
 if __name__ == "__main__":
     rng = jax.random.PRNGKey(1)
     state = create_train_state(rng, layers=1, warmup_steps=1000, training_steps=10000000, weight_decay=0.05,
-                               learning_rate=1e-3, labels=10)  #.replicate()
+                               pooling='cls',
+                               learning_rate=1e-3).replicate()
     batch = 2
     image_shape = [batch, 32, 32, 3]
-    label_shape = [batch, ]
+
+    k1 = 1
+    k2 = 1
     x = jnp.ones(image_shape)
-    label = jnp.ones(label_shape)
+    # x = jax.random.normal(rng, image_shape)
+    """
+    x = einops.rearrange(x, 'b (h k1) (w k2) c ->b (h w) (c k1 k2) ', k1=k1, k2=k2, )
+
+    b, n, d = x.shape
+    # print(rng)
+    noise = jax.random.uniform(rng, shape=(b, n))
+    # ids_shuffle = jnp.argsort(noise, axis=1)
+    ids_shuffle = jnp.arange(0, n)[None, :].repeat(b, 0)
+    ids_restore = jnp.argsort(noise, axis=1)
+
+    mask_ratio = 0.998
+    len_keep = int(n * (1 - mask_ratio))
+    ids_shuffle_expand = ids_shuffle[:, :len_keep, None]  #.repeat(d, -1)
+
+    # print(x[ids_shuffle[:, :len_keep], ids_shuffle[:, :len_keep]])
+
+    # print(x[ids_shuffle[:, :len_keep], ids_shuffle[:, :len_keep]])
+    # print('\n'*5)
+    print(x[:, :len_keep])
+    print('\n' * 5)
+    print(jnp.take_along_axis(x, ids_shuffle_expand, axis=1))
+"""
 
 
-    def loss_fun_trade(state, data):
-        """Compute the loss of the network."""
-        inputs, logits = data
-        x_adv = inputs.astype(jnp.float32)
-        logits_adv = state.apply_fn({"params": state.params}, x_adv)
-        return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
+    @partial(jax.pmap, axis_name="batch", )
+    def test(state):
+        def loss(params):
+            # y = state.apply_fn({'params': params, }, x, rngs={'random_masking': rng})
+            # return optax.losses.l2_loss(y, jnp.zeros_like(y)).mean()
+
+            loss, pred, mask = state.apply_fn({'params': params, }, x, rngs={'random_masking': rng})
+            return loss
+
+        grad = jax.grad(loss)(state.params)
+        state = state.apply_gradients(grads=grad)
+
+        return state
 
 
-    def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=None):
-        """PGD attack on the L-infinity ball with radius epsilon.
+    # print(state.opt_state)
 
-      Args:
-        image: array-like, input data for the CNN
-        label: integer, class label corresponding to image
-        params: tree, parameters of the model to attack
-        epsilon: float, radius of the L-infinity ball.
-        maxiter: int, number of iterations of this algorithm.
+    new_tx = create_optimizer(1e-5, 1, 1, 100, decay=True)
 
-      Returns:
-        perturbed_image: Adversarial image on the boundary of the L-infinity ball
-          of radius epsilon and centered at image.
+    new_state = create_train_state(rng, layers=1, warmup_steps=1000, training_steps=10000000, weight_decay=0.05,
+                                   learning_rate=1e-3, decay=False).replicate()
 
-      Notes:
-        PGD attack is described in (Madry et al. 2017),
-        https://arxiv.org/pdf/1706.06083.pdf
+    # print('\n'*5)
+    # print(new_state.opt_state)
 
-        # image_perturbation = jnp.zeros_like(image)
-        image_perturbation = 0.001 * jax.random.normal(key, shape=image.shape)
+    # loss(state.params)
+    # state.opt_state
 
-        def adversarial_loss(perturbation):
-            return loss_fun_trade(params, (image, image + perturbation, label))
+    # state.replace()
 
-        grad_adversarial = jax.grad(adversarial_loss)
-        for _ in range(maxiter):
-            # compute gradient of the loss wrt to the image
-            sign_grad = jnp.sign(grad_adversarial(image_perturbation))
+    old_opt_state = state.opt_state
+    state = test(state)
+    # grad = jax.grad(loss)(state.params)
+    # state = state.apply_gradients(grads=grad)
 
-            # heuristic step-size 2 eps / maxiter
-            # image_perturbation += (2 * epsilon / maxiter) * sign_grad
+    # state.replace(opt_state=old_opt_state)
 
-            image_perturbation += step_size * sign_grad
-            # projection step onto the L-infinity ball centered at image
-            image_perturbation = jnp.clip(image_perturbation, - epsilon, epsilon)
+    print(state.opt_state.hyperparams)
 
-        # clip the image to ensure pixels are between 0 and 1
-        return jnp.clip(image + image_perturbation, 0, 1)
+    state = new_state.replace(opt_state=state.opt_state)
+    # print(state.opt_state)
+    state = test(state)
+    # state.replace(opt_state=old_opt_state)
 
-         """
+    print(state.opt_state)
 
-        logits = jax.lax.stop_gradient(state.apply_fn({"params": state.params}, image))
+    # state=state.replace(step=100)
+    # print(state.opt_state)
 
-        # x_adv = 0.001 * jax.random.normal(key, shape=image.shape) + image
+    """
+    x, mask, ids_restore = loss(state.params)
 
-        x_adv = jax.random.uniform(key, shape=image.shape, minval=-epsilon, maxval=epsilon) + image
-        x_adv = jnp.clip(x_adv, 0, 1)
+    mask_tokens = jnp.zeros((x.shape[0], ids_restore.shape[1] - x.shape[1], x.shape[2]))
 
-        # def adversarial_loss(adv_image, image):
-        #     return loss_fun_trade(state, (image, adv_image, label))
+    x = jnp.concatenate([x, mask_tokens], axis=1)
+    print(ids_restore[0])
 
-        def adversarial_loss(adv_image, logits):
-            return loss_fun_trade(state, (adv_image, logits))
+    # ids_restore=jnp.arange(0,256)[None,:].repeat(x.shape[0],0)
+    # print(ids_restore[0])
+    # ids_restore = ids_restore[:, :, None].repeat(x.shape[-1], -1)
+    print(x[0, :, 0])
+    print(ids_restore)
+    x = jnp.take_along_axis(x, ids_restore[..., None], axis=1)
 
-        grad_adversarial = jax.grad(adversarial_loss)
+    # x = jnp.take(x, ids_restore[:, :, None].repeat(x.shape[-1], -1))
 
-        # for _ in range(maxiter):
-        #     # compute gradient of the loss wrt to the image
-        #     sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial(x_adv, logits)))
-        #     # heuristic step-size 2 eps / maxiter
-        #     # image_perturbation += step_size * sign_grad
-        #
-        #     # delta = jnp.clip(image_perturbation - image, min=-epsilon, max=epsilon)
-        #
-        #     x_adv = jax.lax.stop_gradient(x_adv) + step_size * sign_grad
-        #     r1 = jnp.where(x_adv > image - epsilon, x_adv, image - epsilon)
-        #     x_adv = jnp.where(r1 < image + epsilon, r1, image + epsilon)
-        #
-        #     x_adv = jnp.clip(x_adv, min=0, max=1)
-        #
-        #     # projection step onto the L-infinity ball centered at image
-        #     # image_perturbation = jnp.clip(image_perturbation, - epsilon, epsilon)
+    print(x.shape, ids_restore.shape)
+    # print(x[0]-y[0])
+    print(x[0, :, 0])
+    print(jnp.take_along_axis(mask, ids_restore, axis=1)[0, :])
 
-        def loop_body(i, x_adv):
-            sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial(x_adv, logits)))
+    while True:
+        pass
 
-            x_adv = jax.lax.stop_gradient(x_adv) + step_size * sign_grad
-            r1 = jnp.where(x_adv > image - epsilon, x_adv, image - epsilon)
-            x_adv = jnp.where(r1 < image + epsilon, r1, image + epsilon)
-
-            x_adv = jnp.clip(x_adv, min=0, max=1)
-
-            return x_adv
-
-        x_adv = jax.lax.fori_loop(0, maxiter, body_fun=loop_body, init_val=x_adv)
-
-        # clip the image to ensure pixels are between 0 and 1
-        return x_adv
+    x = einops.rearrange(x, 'b (h w) (c k1 k2) ->b (h k1) (w k2) c', k1=2, k2=2, h=16)
 
 
-    @jax.jit
-    def apply_model_trade(state, data, key):
-        images, labels = data
+    import matplotlib.pyplot as plt
 
-        # images = einops.rearrange(images, 'b c h w->b h w c')
-        images = images.astype(jnp.float32) / 255
+    print(x.shape, mask_tokens.shape)
+    plt.imshow(x[0])
+    plt.show()
 
-        labels = labels.astype(jnp.float32)
+    plt.imshow(x[1])
+    plt.show()
 
-        aug_image = images
-
-        print(images.shape)
-
-        """Computes gradients, loss and accuracy for a single batch."""
-        adv_image = trade(images, labels, state, key=key, step_size=2 / 255, maxiter=1)
-
-        def loss_fn(params):
-            # logits = state.apply_fn({'params': params}, aug_image)
-            # logits_adv = state.apply_fn({'params': params}, adv_image)
-            # one_hot = jax.nn.one_hot(labels, logits.shape[-1])
-            # one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
-            # loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
-            # trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
-            #                                  nn.softmax(logits, axis=1)).mean()
-
-            def loss_nat_fn(params):
-                logits = state.apply_fn({'params': params}, aug_image)
-                one_hot = jax.nn.one_hot(labels, logits.shape[-1])
-                # one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
-                loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
-                return loss, logits
-
-            def loss_adv_fn(params):
-                logits = state.apply_fn({'params': params}, aug_image)
-                logits_adv = state.apply_fn({'params': params}, adv_image)
-                # trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
-                #                                  nn.softmax(logits, axis=1)).mean()
-
-                trade_loss = optax.sigmoid_binary_cross_entropy(logits, logits_adv).mean()
-                return trade_loss, logits_adv
-
-            (loss_nature, logits), grads_nature = jax.value_and_grad(loss_nat_fn, has_aux=True)(params)
-            (loss_adv, logits_adv), grads_adv = jax.value_and_grad(loss_adv_fn, has_aux=True)(params)
-
-            # metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
-            metrics = {'loss': loss_nature, 'trade_loss': loss_adv, 'logits': logits, 'logits_adv': logits_adv}
-
-            factor = jnp.clip(optax.global_norm(grads_nature) / (optax.global_norm(grads_adv) + 1e-4), 0, 1e4)
-
-            return loss_nature + jax.lax.stop_gradient(factor) * 5 * loss_adv, metrics
-
-            # return loss_nature + factor * 5 * loss_adv, metrics
-
-        def loss_fn2(params):
-            logits = state.apply_fn({'params': params}, aug_image)
-            logits_adv = state.apply_fn({'params': params}, adv_image)
-            one_hot = jax.nn.one_hot(labels, logits.shape[-1])
-            # one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
-            loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
-            trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
-                                             nn.softmax(logits, axis=1)).mean()
-            return loss + 5 * trade_loss, None
-
-        grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
-        (loss, metrics), grads = grad_fn(state.params)
-
-        (loss, metrics), grads2 = jax.value_and_grad(loss_fn2, has_aux=True)(state.params)
-
-        return grads, grads2
-
-        accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
-        accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
-
-        metrics['accuracy'] = accuracy_std
-        metrics['adversarial accuracy'] = accuracy_adv
-
-        metrics = jax.lax.pmean(metrics, axis_name="batch")
-
-        grads = jax.lax.pmean(grads, axis_name="batch")
-
-        state = state.apply_gradients(grads=grads)
-
-        new_ema_params = jax.tree_util.tree_map(
-            lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
-            state.ema_params, state.params)
-        state = state.replace(ema_params=new_ema_params)
-
-        return state, metrics | state.opt_state.hyperparams
-
-
-    grad, grad2 = apply_model_trade(state, (x, label), rng)
-    print(grad['head'])
-    print(grad2['head'])
+    """

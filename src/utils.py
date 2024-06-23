@@ -153,21 +153,22 @@ def load_pretrained_params(args: argparse.Namespace, params: ArrayTree) -> Array
     print(jax.process_index())
     time.sleep(jax.process_index()*1.5)
 
-    with wds.gopen(args.pretrained_ckpt,bufsize=8192*2**5) as fp:
+    with wds.gopen(args.pretrained_ckpt) as fp:
         new_params = flax.serialization.msgpack_restore(fp.read())
 
+    print(new_params["model"]["embed"]["wpe"].shape, params["model"]["embed"]["wpe"].shape)
     # The positional embeddings will be resized when there is a difference in image
     # resolutions between pretraining and finetuning stage.
-    if (
-            args.posemb == "learnable"
-            and new_params["model"]["embed"]["wpe"].shape
-            != params["model"]["embed"]["wpe"].shape
-    ):
-        new_params["model"]["embed"]["wpe"] = jax.image.resize(
-            new_params["model"]["embed"]["wpe"],
-            params["model"]["embed"]["wpe"].shape,
-            method="bicubic",
-        )
+    # if (
+    #         args.posemb == "learnable"
+    #         and new_params["model"]["embed"]["wpe"].shape
+    #         != params["model"]["embed"]["wpe"].shape
+    # ):
+    #     new_params["model"]["embed"]["wpe"] = jax.image.resize(
+    #         new_params["model"]["embed"]["wpe"],
+    #         params["model"]["embed"]["wpe"].shape,
+    #         method="bicubic",
+    #     )
 
     # Reinitialize the classifier head if the model was pretrained on different dataset
     # and `args.label_mapping` is not specified.
@@ -179,7 +180,7 @@ def load_pretrained_params(args: argparse.Namespace, params: ArrayTree) -> Array
     ):
         new_params["model"]["head"] = params["model"]["head"]
 
-    keys_to_delete=[k for k in new_params['model'] if 'decoder' in  k]
+    keys_to_delete = [k for k in new_params['model'] if 'decoder' in k]
     for k in keys_to_delete:
         del new_params['model'][k]
 
@@ -198,4 +199,6 @@ def load_pretrained_params(args: argparse.Namespace, params: ArrayTree) -> Array
         bias[dst] = new_params["model"]["head"]["bias"][src]
 
         new_params["model"]["head"] = {"kernel": kernel, "bias": bias}
+
     return new_params
+

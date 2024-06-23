@@ -28,8 +28,7 @@ from flax.training.common_utils import shard
 from torch.utils.data import DataLoader
 
 from dataset import create_dataloaders
-from training import TrainState, create_train_state, training_step, validation_step, create_mae_train_state, \
-    training_mae_step
+from training import TrainState,  validation_step, create_mae_train_state,training_mae_step
 from utils import AverageMeter, save_checkpoint_in_background
 
 warnings.filterwarnings("ignore")
@@ -47,9 +46,11 @@ def evaluate(state: TrainState, dataloader: DataLoader) -> dict[str, float]:
 
 
 def main(args: argparse.Namespace):
-    train_dataloader, valid_dataloader = create_dataloaders(args=args,batch_size=args.train_batch_size)
-    train_dataloader_iter = iter(train_dataloader)
+    print(args)
     state = create_mae_train_state(args).replicate()
+    train_dataloader, valid_dataloader = create_dataloaders(args)
+    train_dataloader_iter = iter(train_dataloader)
+
 
     if jax.process_index() == 0:
         wandb.init(name=args.name, project=args.project, config=args, settings=wandb.Settings(_disable_stats=True))
@@ -101,7 +102,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--random-crop", default="rrc")
     parser.add_argument("--color-jitter", type=float, default=0.0)
-    parser.add_argument("--auto-augment", default="rand-m9-mstd0.5-inc1")
+    parser.add_argument("--auto-augment", default="none")
     parser.add_argument("--random-erasing", type=float, default=0.25)
     parser.add_argument("--augment-repeats", type=int, default=3)
     parser.add_argument("--test-crop-ratio", type=float, default=0.875)
@@ -112,6 +113,7 @@ if __name__ == "__main__":
     parser.add_argument("--label-smoothing", type=float, default=0.1)
 
     parser.add_argument("--layers", type=int, default=12)
+    parser.add_argument("--decoder_layers", type=int, default=8)
     parser.add_argument("--dim", type=int, default=768)
     parser.add_argument("--heads", type=int, default=12)
     parser.add_argument("--labels", type=int, default=-1)
