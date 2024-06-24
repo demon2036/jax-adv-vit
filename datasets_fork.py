@@ -169,7 +169,6 @@ def get_train_dataloader(batch_size=1024,
     # train_transform = T.Compose(train_transform)
     # test_transform = T.Compose(test_transform)
     # test_transform2 = T.Compose(test_transform2)
-    print(test_transform)
 
     dataset = wds.DataPipeline(
         wds.SimpleShardList(shard_path, seed=1),
