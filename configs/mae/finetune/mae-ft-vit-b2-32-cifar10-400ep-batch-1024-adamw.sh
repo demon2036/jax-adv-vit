@@ -14,7 +14,7 @@ python -u main_copy_fork.py \
     --posemb "learnable"  \
     --pooling 'gap'  \
     --dropout 0.0  \
-    --droppath 0.0  \
+    --droppath 0.1 \
     --train-batch-size $TRAIN_BATCH_SIZE \
     --learning-rate 2e-3 \
     --weight-decay 0.05 \
