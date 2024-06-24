@@ -243,7 +243,7 @@ def get_train_dataloader(batch_size=1024,
     for op in ops:
         test_dataset = test_dataset.compose(op)
     #
-    test_batch_size = 16
+    test_batch_size = 1024
     num_workers = 32
 
     count = jax.process_count()
