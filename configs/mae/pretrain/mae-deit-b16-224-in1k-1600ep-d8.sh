@@ -1,7 +1,7 @@
 export train_batch_size=4096 warmup_epoch=40 epoch=1600
 
 python3 src/main_pretrain_mae.py \
-    --output-dir $GCS_MODEL_DIR/mae \
+    --output-dir $GCS_MODEL_DIR/cifar10_mae_test/mae \
     --train-dataset-shards "$GCS_DATASET_DIR/cifar10-50m-wds/shards-{00000..00999}.tar" \
     --train-batch-size $train_batch_size \
     --train-loader-workers 80 \
