@@ -197,7 +197,6 @@ def load_pretrained_params(pretrained_ckpt, params: ArrayTree, posemb: str) -> A
     time.sleep(jax.process_index() * 1.5)
     params = {'model': params} if 'model' not in params else params
 
-
     with wds.gopen(pretrained_ckpt, bufsize=8192 * 2 ** 5) as fp:
         new_params = flax.serialization.msgpack_restore(fp.read())
         new_params = {'model': new_params} if 'model' not in new_params else new_params

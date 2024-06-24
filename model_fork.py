@@ -33,6 +33,8 @@ import optax
 import jax
 import flax
 
+from datasets_fork import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
+
 DenseGeneral = partial(nn.DenseGeneral, kernel_init=init.truncated_normal(0.02))
 Dense = partial(nn.Dense, kernel_init=init.truncated_normal(0.02))
 Conv = partial(nn.Conv, kernel_init=init.truncated_normal(0.02))
@@ -229,8 +231,10 @@ class ViTLayer(ViTBase, nn.Module):
 
     def setup(self):
         self.attn = Attention(**self.kwargs)
-
-        self.ff = FeedForward(**self.kwargs)
+        if self.use_kan:
+            self.ff = KANLayer(self.polynomial_degree)
+        else:
+            self.ff = FeedForward(**self.kwargs)
 
         self.norm1 = nn.LayerNorm(dtype=self.dtype, use_fast_variance=self.use_fast_variance)
         self.norm2 = nn.LayerNorm(dtype=self.dtype, use_fast_variance=self.use_fast_variance)
@@ -264,6 +268,7 @@ class ViT(ViTBase, nn.Module):
         self.head = Dense(self.labels, dtype=self.dtype, precision=self.precision) if self.labels is not None else None
 
     def __call__(self, x: Array, det: bool = True) -> Array:
+        x = (x - IMAGENET_DEFAULT_MEAN) / IMAGENET_DEFAULT_STD
         x = self.drop(self.embed(x), det)
         for layer in self.layer:
             x = layer(x, det)
@@ -284,196 +289,3 @@ class ViT(ViTBase, nn.Module):
         x = self.head(x)
         print(x.dtype)
         return x
-
-
-@dataclass
-class MAEBase:
-    mask_ratio: int = 0.75
-    decoder_dim: int = 512
-    decoder_layers: int = 8
-    decoder_heads: int = 16
-    decoder_posemb: Literal["learnable", "sincos2d"] = "learnable"
-
-
-class MAE(ViTBase, MAEBase, nn.Module):
-    def setup(self):
-        self.embed = PatchEmbed(**self.kwargs)
-        self.drop = nn.Dropout(self.dropout)
-
-        # The layer class should be wrapped with `nn.remat` if `grad_ckpt` is enabled.
-        layer_fn = nn.remat(ViTLayer) if self.grad_ckpt else ViTLayer
-        self.layer = [layer_fn(**self.kwargs) for _ in range(self.layers)]
-
-        self.norm = nn.LayerNorm(dtype=self.dtype, use_fast_variance=self.use_fast_variance)
-
-        self.decoder_embed = Dense(self.decoder_dim)
-
-        self.mask_token = self.param(
-            "mask_token", init.truncated_normal(0.02), (1, 1, self.decoder_dim)
-        )
-
-        # self.decoder_pos_embed = self.param(
-        #     "decoder_pos_embed", init.truncated_normal(0.02), (1, self.num_patches[0] ** 2 + 1, self.decoder_dim)
-        # )
-
-        self.decoder_pos_embed = self.param("decoder_pos_embed", sincos_pos_embed_init,
-                                            (self.num_patches[0], self.decoder_dim))
-
-        # self.decoder_pos_embed = self.param(
-        #     "decoder_pos_embed", init.truncated_normal(0.02), (1, self.num_patches[0] ** 2, self.decoder_dim)
-        # )
-
-        # self.decoder_pos_embed = fixed_sincos2d_embeddings(*self.num_patches, self.decoder_dim).reshape(1, -1,
-        #                                                                                                 self.decoder_dim)
-
-        kwargs = self.kwargs
-        kwargs.update({'dim': self.decoder_dim, 'heads': self.decoder_heads, 'layers': self.decoder_layers})
-        print(kwargs)
-        self.decoder_layer = [layer_fn(**kwargs) for _ in range(self.decoder_layers)]
-
-        self.decoder_norm = nn.LayerNorm(dtype=self.dtype, use_fast_variance=self.use_fast_variance)
-        self.decoder_pred = Dense(self.patch_size ** 2 * 3)
-
-    def random_masking(self, x):
-        rng = self.make_rng("random_masking")
-        # x = einops.rearrange(x, 'b (h k1) (w k2) c->b (h w) (c k1 k2)', k1=self.patch_size, k2=self.patch_size)
-
-        b, n, d = x.shape
-        len_keep = int(n * (1 - self.mask_ratio))
-
-        noise = jax.random.uniform(rng, shape=(b, n))
-        ids_shuffle = jnp.argsort(noise, axis=1)
-        ids_restore = jnp.argsort(ids_shuffle, axis=1)
-
-        mask = jnp.ones((b, n))
-        mask = mask.at[:, :len_keep].set(0)
-        mask = jnp.take(mask, ids_restore)
-
-        x = jnp.take_along_axis(x, ids_shuffle[:, :len_keep, None], axis=1)
-        print(x.shape)
-
-        return x, mask, ids_restore
-
-    def forward_encoder(self, x, det: bool = True):
-        # x = self.drop(self.embed(x), det)
-        #
-        # if self.pooling == "cls":
-        #     cls_token, x = x[:, :1, :], x[:, 1:]
-        #
-        # x, mask, ids_restore = self.random_masking(x)
-        #
-        # if self.pooling == "cls":
-        #     x = jnp.concatenate((cls_token, x), axis=1)
-        #
-        # for layer in self.layer:
-        #     x = layer(x, det)
-        # x = self.norm(x)
-        #
-        # return x, mask, ids_restore
-
-        x = self.drop(self.embed(x), det)
-
-        cls_token, x = x[:, :1, :], x[:, 1:]
-
-        x, mask, ids_restore = self.random_masking(x)
-
-        x = jnp.concatenate((cls_token, x), axis=1)
-        for layer in self.layer:
-            x = layer(x, det)
-        x = self.norm(x)
-        return x, mask, ids_restore
-
-    def forward_decoder(self, x, ids_restore):
-        # print('\n' * 5)
-        # print(x.shape)
-        x = self.decoder_embed(x)
-        # print(x.shape)
-
-        cls_token, x = x[:, :1, :], x[:, 1:]
-
-        mask_tokens = jnp.tile(self.mask_token, (x.shape[0], ids_restore.shape[1] - x.shape[1], 1))
-
-        # print(mask_tokens.shape,x.shape[0])
-
-        x = jnp.concatenate([x, mask_tokens], axis=1)
-        x = jnp.take_along_axis(x, ids_restore[..., None], axis=1)
-
-        x = jnp.concatenate([cls_token, x], axis=1)
-
-        print(x.shape, self.decoder_pos_embed.shape)
-
-        x = x + jax.lax.stop_gradient(self.decoder_pos_embed)
-
-        for layer in self.decoder_layer:
-            x = layer(x)
-
-        x = self.decoder_norm(x)
-        x = self.decoder_pred(x)
-
-        cls_token, x = x[:, :1, :], x[:, 1:]
-        # print(mask_tokens.shape, x.shape)
-        return x
-
-    def patchify(self, imgs):
-        """
-        imgs: (N, H, W, 3)
-        x: (N, L, patch_size**2 *3)
-        """
-        p = self.patch_size
-        assert imgs.shape[1] == imgs.shape[2] and imgs.shape[1] % p == 0
-        h = w = imgs.shape[2] // p
-        x = imgs.reshape((imgs.shape[0], h, p, w, p, 3))
-        x = jnp.einsum('nhpwqc->nhwpqc', x)
-        x = x.reshape((imgs.shape[0], h * w, p ** 2 * 3))
-        return x
-
-    def forward_loss(self, x, pred, mask):
-        # target = einops.rearrange(x, 'b (h k1) (w k2) c->b (h w) (c k1 k2)', k1=self.patch_size, k2=self.patch_size)
-        target = self.patchify(x)
-
-        mean = target.mean(axis=-1, keepdims=True)
-        var = target.var(axis=-1, keepdims=True, ddof=1)
-        target = (target - mean) / (var + 1.e-6) ** .5
-
-        loss = (pred - target) ** 2
-        loss = loss.mean(axis=-1)
-        loss = (loss * mask).sum() / mask.sum()
-        return loss
-
-    def __call__(self, images: Array, det: bool = True, rng=None):
-
-        latent, mask, ids_restore = self.forward_encoder(images, det)
-        pred = self.forward_decoder(latent, ids_restore)
-        loss = self.forward_loss(images, pred, mask)
-        return loss, pred, mask
-
-
-class TrainState(train_state.TrainState):
-    mixup_rng: PRNGKey
-    dropout_rng: PRNGKey
-    random_masking_rng: PRNGKey
-
-    micro_step: int = 0
-    micro_in_mini: int = 1
-    grad_accum: ArrayTree | None = None
-
-    def split_rngs(self) -> tuple[ArrayTree, ArrayTree]:
-        mixup_rng, new_mixup_rng = jax.random.split(self.mixup_rng)
-        dropout_rng, new_dropout_rng = jax.random.split(self.dropout_rng)
-        random_masking_rng, new_random_masking_rng = jax.random.split(self.random_masking_rng)
-
-        rngs = {"mixup": mixup_rng, "dropout": dropout_rng, 'random_masking': random_masking_rng}
-        updates = {"mixup_rng": new_mixup_rng, "dropout_rng": new_dropout_rng,
-                   'random_masking_rng': new_random_masking_rng}
-        return rngs, updates
-
-    def replicate(self) -> TrainState:
-        return flax.jax_utils.replicate(self).replace(
-            mixup_rng=shard_prng_key(self.mixup_rng),
-            dropout_rng=shard_prng_key(self.dropout_rng),
-            random_masking_rng=shard_prng_key(self.random_masking_rng),
-        )
-
-    def replace_tx(self, tx):
-        return flax.jax_utils.unreplicate(self).replace(tx=tx)
-
