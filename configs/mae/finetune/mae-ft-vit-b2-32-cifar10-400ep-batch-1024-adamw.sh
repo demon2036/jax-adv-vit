@@ -14,10 +14,10 @@ python -u main_copy_fork.py \
     --posemb "learnable"  \
     --pooling 'gap'  \
     --dropout 0.0  \
-    --droppath 0.1 \
+    --droppath 0.0 \
     --train-batch-size $TRAIN_BATCH_SIZE \
-    --learning-rate 2e-3 \
-    --weight-decay 0.05 \
+    --learning-rate 1e-4 \
+    --weight-decay 0.5 \
     --lr-decay 0.65 \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
