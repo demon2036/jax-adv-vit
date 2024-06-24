@@ -27,7 +27,7 @@ from datasets_fork import get_train_dataloader
 from model_fork import ViT
 import os
 import wandb
-from utils2 import AverageMeter, save_checkpoint_in_background, load_pretrained_params
+from utils2 import AverageMeter, save_checkpoint_in_background, load_pretrained_params, get_layer_index_fn
 
 EPSILON = 8 / 255  # @param{type:"number"}
 
@@ -452,7 +452,7 @@ def create_train_state(rng,
                        pooling='cls',
                        dropout=0.0,
                        droppath=0.0,
-                       clip_grad=1.0,
+                       clip_grad=0.0,
                        warmup_steps=None,
                        training_steps=None,
                        learning_rate=None,
@@ -494,13 +494,23 @@ def create_train_state(rng,
     def create_optimizer_fn(
             learning_rate: optax.Schedule,
     ) -> optax.GradientTransformation:
-        tx = optax.lion(
+        # tx = optax.lion(
+        #     learning_rate=learning_rate,
+        #     # b1=0.95,b2=0.98,
+        #     # eps=args.adam_eps,
+        #     weight_decay=weight_decay,
+        #     mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
+        # )
+
+
+        tx = optax.adamw(
             learning_rate=learning_rate,
             # b1=0.95,b2=0.98,
             # eps=args.adam_eps,
             weight_decay=weight_decay,
             mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
         )
+
 
         # tx = optax.lamb(
         #     learning_rate=learning_rate,
@@ -510,24 +520,19 @@ def create_train_state(rng,
         #     mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
         # )
 
-        def get_layer_index_fn(path, _, num_layers: int = 12) -> int:
-            if path[0].key.startswith("layer_"):
-                return int(re.match(r"layer_(\d+)", path[0].key).group(1)) + 1
-            if path[0].key == "embed":
-                return 0
-
-            return num_layers
+        num_layers = layers + 1
 
         if lr_decay < 1.0:
             layerwise_scales = {
-                i: optax.scale(lr_decay ** (layers - i))
-                for i in range(layers + 1)
+                i: optax.scale(lr_decay ** (num_layers - i))
+                for i in range(num_layers + 1)
             }
-            label_fn = partial(get_layer_index_fn, num_layers=layers)
+            label_fn = partial(get_layer_index_fn, num_layers=num_layers)
             label_fn = partial(jax.tree_util.tree_map_with_path, label_fn)
             tx = optax.chain(tx, optax.multi_transform(layerwise_scales, label_fn))
         if clip_grad > 0:
             tx = optax.chain(optax.clip_by_global_norm(clip_grad), tx)
+
         return tx
 
     learning_rate = optax.warmup_cosine_decay_schedule(
