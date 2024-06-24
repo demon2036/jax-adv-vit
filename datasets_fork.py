@@ -233,13 +233,12 @@ def get_train_dataloader(batch_size=1024,
         # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
         # wds.detshuffle(),
         wds.decode("pil", handler=wds.ignore_and_continue),
-        wds.to_tuple("jpg",  "cls", handler=wds.ignore_and_continue),
+        wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
         wds.map_tuple(test_transform, torch.tensor),
 
     ]
 
     test_dataset = wds.WebDataset(urls=test_shard_path, handler=wds.ignore_and_continue).mcached()
-
 
     for op in ops:
         test_dataset = test_dataset.compose(op)
@@ -259,8 +258,6 @@ def get_train_dataloader(batch_size=1024,
         prefetch_factor=10,
         persistent_workers=True,
     )
-
-
 
     return mix_dataloader_iter(train_dataloader, train_origin_dataloader), test_dataloader
 
@@ -298,7 +295,7 @@ if __name__ == '__main__':
         h = w = imgs.shape[2] // p
         x = imgs.reshape(shape=(imgs.shape[0], 3, h, p, w, p))
         x = torch.einsum('nchpwq->nhwpqc', x)
-        x = x.reshape(shape=(imgs.shape[0], h * w, p**2 * 3))
+        x = x.reshape(shape=(imgs.shape[0], h * w, p ** 2 * 3))
         return x
 
 
@@ -316,15 +313,14 @@ if __name__ == '__main__':
         # print(x1-x2)
 
         # x = einops.rearrange(img, 'b c h w->b h w c')
-        x=img
+        x = img
         x1 = patchify(x)
         # x2 = einops.rearrange(x, 'b (h k1) (w k2) c->b (h w) (k1 k2 c)', k1=4, k2=4)
         x2 = einops.rearrange(x, 'b c (h k1) (w k2) ->b (h w) (c k1 k2 )', k1=4, k2=4)
-        x3= x.flatten(2).transpose(1, 2)
+        x3 = x.flatten(2).transpose(1, 2)
         print(x3.shape)
 
         # temp=
-
 
         # if img.shape[1] == 3:
         #     img = einops.rearrange(img, '(b k) c h w -> (b h) (k w) c', k=4)
@@ -337,7 +333,6 @@ if __name__ == '__main__':
         #     plt.show()
         #
         #     break
-
 
         break
 

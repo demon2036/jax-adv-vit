@@ -714,7 +714,15 @@ def train_and_evaluate(args
 
     if jax.process_index() == 0:
         metrics = average_meter.summary("val/")
-        print(metrics)
+        print(f'metrics:{metrics}')
+
+
+
+
+
+        while True:
+            pass
+
         num_samples = metrics.pop("val/num_samples")
         metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
         wandb.log(metrics, step)
