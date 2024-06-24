@@ -169,6 +169,7 @@ def get_train_dataloader(batch_size=1024,
     # train_transform = T.Compose(train_transform)
     # test_transform = T.Compose(test_transform)
     # test_transform2 = T.Compose(test_transform2)
+    print(test_transform)
 
     dataset = wds.DataPipeline(
         wds.SimpleShardList(shard_path, seed=1),
@@ -230,15 +231,16 @@ def get_train_dataloader(batch_size=1024,
         # wds.detshuffle(),
         wds.slice(jax.process_index(), None, jax.process_count()),
         # wds.split_by_worker,
-        # # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
+        # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
         # wds.detshuffle(),
         wds.decode("pil", handler=wds.ignore_and_continue),
-        wds.to_tuple("jpg", "jpg", "cls", handler=wds.ignore_and_continue),
+        wds.to_tuple("jpg",  "cls", handler=wds.ignore_and_continue),
         wds.map_tuple(test_transform, torch.tensor),
 
     ]
 
     test_dataset = wds.WebDataset(urls=test_shard_path, handler=wds.ignore_and_continue).mcached()
+
 
     for op in ops:
         test_dataset = test_dataset.compose(op)
@@ -259,8 +261,7 @@ def get_train_dataloader(batch_size=1024,
         persistent_workers=True,
     )
 
-    # for data in test_dataloader:
-    #     print(data[0].shape)
+
 
     return mix_dataloader_iter(train_dataloader, train_origin_dataloader), test_dataloader
 
