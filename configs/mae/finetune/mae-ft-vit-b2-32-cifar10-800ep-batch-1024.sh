@@ -1,4 +1,4 @@
-export EPOCH=800 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=20
+export EPOCH=2000 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=50
 
 
 python -u main_copy_fork.py \
@@ -26,6 +26,6 @@ python -u main_copy_fork.py \
     --beta 5.0 \
     --label-smoothing 0.4 \
     --pretrained-ckpt gs://fbs0_dl_bucket/cifar10_mae_test/mae/mae-deit-b16-224-in1k-1600ep-d1-last.msgpack \
-    --ema-decay 0.9995 \
+    --ema-decay 0.9999 \
     --ipaddr $(curl -s ifconfig.me) \
     --hostname $(hostname) \
