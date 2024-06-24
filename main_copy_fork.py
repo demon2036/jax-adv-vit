@@ -328,9 +328,9 @@ def apply_model_freelb(state, data, key):
 
     def loss_fun_trade(params, inputs):
         x_adv = inputs.astype(jnp.float32)
-        logits_adv = state.apply_fn({"params": params}, x_adv)
+        logits_adv = state.apply_fn({"params": params}, x_adv, det=False)
 
-        logits = state.apply_fn({"params": params}, images)
+        logits = state.apply_fn({"params": params}, images, det=False)
         # one_hot = jax.nn.one_hot(labels, logits_adv.shape[-1])
         # one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         # return jnp.mean(optax.softmax_cross_entropy(logits=logits_adv, labels=one_hot))
@@ -502,7 +502,6 @@ def create_train_state(rng,
         #     mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
         # )
 
-
         tx = optax.adamw(
             learning_rate=learning_rate,
             # b1=0.95,b2=0.98,
@@ -510,7 +509,6 @@ def create_train_state(rng,
             weight_decay=weight_decay,
             mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
         )
-
 
         # tx = optax.lamb(
         #     learning_rate=learning_rate,
@@ -708,9 +706,6 @@ def train_and_evaluate(args
                 params_bytes = msgpack_serialize(params)
                 save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
                                               output_dir=args.output_dir)
-
-
-
 
     return state
 
