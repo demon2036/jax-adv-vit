@@ -36,8 +36,8 @@ from timm.data.auto_augment import (
 )
 from torch.utils.data import DataLoader, default_collate
 
-IMAGENET_DEFAULT_MEAN = np.array([0.485, 0.456, 0.406])
-IMAGENET_DEFAULT_STD = np.array([0.229, 0.224, 0.225])
+IMAGENET_DEFAULT_MEAN = np.array([0.4914, 0.4822, 0.4465])
+IMAGENET_DEFAULT_STD = np.array([0.2471, 0.2435, 0.2616])
 
 
 def auto_augment_factory(args: argparse.Namespace) -> T.Transform:
@@ -58,7 +58,7 @@ def auto_augment_factory(args: argparse.Namespace) -> T.Transform:
 def create_transforms(args: argparse.Namespace) -> tuple[nn.Module, nn.Module]:
     train_transforms=[T.ToPILImage()]
     if args.random_crop == "rrc":
-        train_transforms += [T.RandomResizedCrop(args.image_size,scale=(0.2, 1),  interpolation=3)]
+        train_transforms += [T.RandomResizedCrop(args.image_size,scale=(0.3, 1),  interpolation=3)]
     elif args.random_crop == "src":
         train_transforms += [
             T.Resize(args.image_size, interpolation=3),
