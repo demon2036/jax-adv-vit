@@ -24,6 +24,7 @@ from typing import Any
 import einops
 import jax
 import numpy as np
+import timm.data
 import torch
 import torch.nn as nn
 import torchvision
@@ -39,8 +40,11 @@ from torchvision.transforms import Compose, ToTensor
 
 # from baseline.model import MAE_ViT_2_T
 
-IMAGENET_DEFAULT_MEAN = np.array([0.4914, 0.4822, 0.4465])
-IMAGENET_DEFAULT_STD = np.array([0.2471, 0.2435, 0.2616])
+
+IMAGENET_DEFAULT_MEAN = np.array([0.485, 0.456, 0.406])
+IMAGENET_DEFAULT_STD = np.array([0.229, 0.224, 0.225])
+# IMAGENET_DEFAULT_MEAN = np.array([0.4914, 0.4822, 0.4465])
+# IMAGENET_DEFAULT_STD = np.array([0.2471, 0.2435, 0.2616])
 
 
 def auto_augment_factory(args: argparse.Namespace) -> T.Transform:
