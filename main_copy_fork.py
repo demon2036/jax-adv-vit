@@ -538,7 +538,7 @@ def create_train_state(rng,
         peak_value=learning_rate,
         warmup_steps=warmup_steps,
         decay_steps=training_steps,
-        end_value=1e-5,
+        end_value=1e-6,
     )
 
     # learning_rate = optax.warmup_cosine_decay_schedule(
