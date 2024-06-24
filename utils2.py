@@ -202,6 +202,7 @@ def load_pretrained_params(pretrained_ckpt, params: ArrayTree, posemb: str) -> A
         new_params = {'model': new_params} if 'model' not in new_params else new_params
     # The positional embeddings will be resized when there is a difference in image
     # resolutions between pretraining and finetuning stage.
+    print(new_params["model"]["embed"]["wpe"].shape,params["model"]["embed"]["wpe"].shape)
     if (
             posemb == "learnable"
             and new_params["model"]["embed"]["wpe"].shape
