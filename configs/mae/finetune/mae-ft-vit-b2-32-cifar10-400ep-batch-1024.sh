@@ -9,7 +9,6 @@ python -u main_copy_fork.py \
     --dim 768  \
     --heads 12  \
     --labels 10  \
-    --layerscale   \
     --patch-size 2  \
     --image-size 32  \
     --posemb "learnable"  \

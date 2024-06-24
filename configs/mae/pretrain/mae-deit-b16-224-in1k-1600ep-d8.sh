@@ -19,8 +19,8 @@ python3 src/main_pretrain_mae.py \
     --dim 768 \
     --heads 12 \
     --labels 1000 \
-    --patch-size 16 \
-    --image-size 224 \
+    --patch-size 2  \
+    --image-size 32  \
     --posemb sincos2d \
     --pooling cls \
     --dropout 0.0 \
