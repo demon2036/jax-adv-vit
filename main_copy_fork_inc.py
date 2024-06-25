@@ -350,7 +350,7 @@ def create_train_state(rng,
 
     tx = create_optimizer_fn(learning_rate)
 
-    return EMATrainState.create(apply_fn=cnn.apply, params=trainable_params, tx=tx, ema_params=params,
+    return EMATrainState.create(apply_fn=cnn_inc.apply, params=trainable_params, tx=tx, ema_params=params,
                                 ema_decay=ema_decay,
                                 trade_beta=trade_beta, label_smoothing=label_smoothing,
                                 un_trainable_params=un_trainable_params)
