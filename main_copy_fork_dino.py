@@ -369,6 +369,7 @@ def apply_model_freelb(state, data, key):
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
     state = state.replace(ema_params=new_ema_params)
+    state = state.replace(C=0.9*state.C+(1-0.9)*metrics['logits_adv2'].mean())
 
     return state, metrics | state.opt_state.hyperparams
 
