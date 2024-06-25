@@ -238,7 +238,7 @@ def create_train_state(rng,
                        label_smoothing=0.1,
                        pretrained_ckpt=None,
                        lr_decay=1.0,
-                       blocks=4
+                       blocks=16
 
                        ):
     """Creates initial `TrainState`."""
