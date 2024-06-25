@@ -225,11 +225,14 @@ def apply_model_trade(state, data, key):
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
-        trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
-                                         nn.softmax(logits, axis=1)).mean()
+        # trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
+        #                                  nn.softmax(logits, axis=1)).mean()
 
-        trade_loss = optax.kl_divergence(nn.log_softmax(jax.lax.stop_gradient(logits_adv), axis=1),
-                                         nn.softmax(logits, axis=1)).mean()
+        # trade_loss = optax.kl_divergence(nn.log_softmax(jax.lax.stop_gradient(logits_adv), axis=1),
+        #                                  nn.softmax(logits, axis=1)).mean()
+
+        trade_loss = optax.kl_divergence(nn.log_softmax(jax.lax.stop_gradient(logits), axis=1),
+                                         nn.softmax( logits_adv, axis=1)).mean()
 
         metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
 
