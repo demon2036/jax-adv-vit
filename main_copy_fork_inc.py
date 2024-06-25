@@ -34,14 +34,6 @@ EPSILON = 8 / 255  # @param{type:"number"}
 os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
 
 
-
-
-
-
-
-
-
-
 def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter=10):
     """PGD attack on the L-infinity ball with radius epsilon.
 
@@ -64,7 +56,7 @@ def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter
     image_perturbation = jnp.zeros_like(image)
 
     def adversarial_loss(perturbation):
-        logits = state.apply_fn({"params": state.ema_params| state.un_trainable_params}, image + perturbation)
+        logits = state.apply_fn({"params": state.ema_params | state.un_trainable_params}, image + perturbation)
         loss_value = jnp.mean(softmax_cross_entropy_with_integer_labels(logits, label))
         return loss_value
 
@@ -80,7 +72,6 @@ def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter
 
     # clip the image to ensure pixels are between 0 and 1
     return jnp.clip(image + image_perturbation, 0, 1)
-
 
 
 def loss_fun_trade(state, data):
@@ -232,11 +223,15 @@ def apply_model_trade(state, data, key):
         #                                  nn.softmax(logits, axis=1)).mean()
 
         logits_adv2 = state.apply_fn({'params': state.ema_params | state.un_trainable_params}, adv_image)
+        logits_adv2 = nn.softmax(logits_adv2, axis=1)
+
+        logits_adv2 = (logits_adv2 - state.C) / 0.04
 
         trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
-                                         nn.softmax( logits_adv2 , axis=1)).mean()
+                                         logits_adv2).mean()
 
-        metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
+        metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv,
+                   'logits_adv2': logits_adv2}
 
         return loss + state.trade_beta * trade_loss, metrics
 
@@ -258,6 +253,7 @@ def apply_model_trade(state, data, key):
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
     state = state.replace(ema_params=new_ema_params)
+    state = state.replace(C=metrics['logits_adv2'].mean())
 
     return state, metrics | state.opt_state.hyperparams
 
@@ -270,6 +266,8 @@ class EMATrainState(flax.training.train_state.TrainState):
     ema_params: Any = None
     trade_step_size: int = 2 / 255
     trade_iters: int = 10
+
+    C: Any = jnp.zeros((10,))
 
 
 def create_train_state(rng,
