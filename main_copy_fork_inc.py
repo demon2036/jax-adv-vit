@@ -231,7 +231,9 @@ def apply_model_trade(state, data, key):
         # trade_loss = optax.kl_divergence(nn.log_softmax(jax.lax.stop_gradient(logits_adv), axis=1),
         #                                  nn.softmax(logits, axis=1)).mean()
 
-        trade_loss = optax.kl_divergence(nn.log_softmax(jax.lax.stop_gradient(logits), axis=1),
+        logits_adv2 = state.apply_fn({'params': state.ema_params | state.un_trainable_params}, adv_image)
+
+        trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv2, axis=1),
                                          nn.softmax( logits_adv, axis=1)).mean()
 
         metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
