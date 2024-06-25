@@ -122,6 +122,7 @@ class ViTBase:
     dtype: Any = jnp.float32
     precision: Any = jax.lax.Precision.DEFAULT
     use_fast_variance: bool = True
+    splits: int = 0
 
     @property
     def kwargs(self) -> dict[str, Any]:
@@ -261,7 +262,15 @@ class ViT(ViTBase, nn.Module):
         layer_fn = nn.remat(ViTLayer) if self.grad_ckpt else ViTLayer
 
         dpr = [x.item() for x in np.linspace(0, self.droppath, self.layers)]
-        self.layer = [layer_fn(**self.kwargs, drop_path_prob=dpr[i]) for i in range(self.layers)]
+        # self.layer = [layer_fn(**self.kwargs, drop_path_prob=dpr[i]) for i in range(self.layers)]
+
+        if self.splits > 0:
+            self.layer = [
+                layer_fn(**(self.kwargs | {'layerscale': True} if (i + 1) % self.splits == 0 else self.kwargs),
+                         drop_path_prob=dpr[i]) for i in range(self.layers)]
+        else:
+            self.layer = [layer_fn(**self.kwargs, drop_path_prob=dpr[i]) for i in range(self.layers)]
+
         # self.layer = [layer_fn(**self.kwargs, drop_path_prob=self.droppath) for i in range(self.layers)]
 
         self.norm = nn.LayerNorm(dtype=self.dtype, use_fast_variance=self.use_fast_variance)
