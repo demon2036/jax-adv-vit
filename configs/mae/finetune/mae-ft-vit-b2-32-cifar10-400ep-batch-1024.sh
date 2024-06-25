@@ -23,7 +23,7 @@ python -u main_copy_fork.py \
     --project cifar10-ablation-epoch \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/ablation/epoch" \
-    --beta 5.0 \
+    --beta 2.0 \
     --label-smoothing 0.4 \
     --pretrained-ckpt gs://fbs0_dl_bucket/cifar10_mae_test/mae/mae-deit-b16-224-in1k-400ep-d8-last.msgpack \
     --ema-decay 0.9995 \
