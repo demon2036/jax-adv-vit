@@ -1,4 +1,3 @@
-import copy
 import re
 
 import jax
@@ -8,6 +7,7 @@ import jax
 import argparse
 from typing import Any
 from flax.serialization import msgpack_serialize
+from attacks.pgd import pgd_attack3
 from functools import partial
 from torch.utils.data import DataLoader
 import einops
@@ -34,51 +34,46 @@ EPSILON = 8 / 255  # @param{type:"number"}
 os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
 
 
-def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter=10):
-    """PGD attack on the L-infinity ball with radius epsilon.
+@partial(jax.pmap, axis_name="batch", )
+def apply_model(state, images, labels):
+    """Computes gradients, loss and accuracy for a single batch."""
+    adv_image = pgd_attack3(images, labels, state, )
 
-  Args:
-    image: array-like, input data for the CNN
-    label: integer, class label corresponding to image
-    params: tree, parameters of the model to attack
-    epsilon: float, radius of the L-infinity ball.
-    maxiter: int, number of iterations of this algorithm.
+    def loss_fn(params):
+        logits = state.apply_fn({'params': params}, adv_image)
+        one_hot = jax.nn.one_hot(labels, logits.shape[-1])
+        loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
+        return loss, logits
 
-  Returns:
-    perturbed_image: Adversarial image on the boundary of the L-infinity ball
-      of radius epsilon and centered at image.
+    grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
+    (loss, logits), grads = grad_fn(state.params)
+    accuracy = jnp.mean(jnp.argmax(logits, -1) == labels)
 
-  Notes:
-    PGD attack is described in (Madry et al. 2017),
-    https://arxiv.org/pdf/1706.06083.pdf
-    :param step_size:
-  """
-    image_perturbation = jnp.zeros_like(image)
+    grads = jax.lax.pmean(grads, axis_name="batch")
 
-    def adversarial_loss(perturbation):
-        logits = state.apply_fn({"params": state.ema_params | state.un_trainable_params}, image + perturbation)
-        loss_value = jnp.mean(softmax_cross_entropy_with_integer_labels(logits, label))
-        return loss_value
+    new_state = state.apply_gradients(grads=grads)
 
-    grad_adversarial = jax.grad(adversarial_loss)
-    for _ in range(maxiter):
-        # compute gradient of the loss wrt to the image
-        sign_grad = jnp.sign(grad_adversarial(image_perturbation))
+    return new_state, grads, loss, accuracy
 
-        # heuristic step-size 2 eps / maxiter
-        image_perturbation += step_size * sign_grad
-        # projection step onto the L-infinity ball centered at image
-        image_perturbation = jnp.clip(image_perturbation, - epsilon, epsilon)
 
-    # clip the image to ensure pixels are between 0 and 1
-    return jnp.clip(image + image_perturbation, 0, 1)
+# def loss_fun_trade(state, data):
+#
+#     image, inputs, labels = data
+#     x_adv = inputs.astype(jnp.float32)
+#
+#     x = image.astype(jnp.float32)
+#
+#     logits = state.apply_fn({"params": state.params}, x)
+#     logits_adv = state.apply_fn({"params": state.params}, x_adv)
+#
+#     return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
 
 
 def loss_fun_trade(state, data):
     """Compute the loss of the network."""
     inputs, logits = data
     x_adv = inputs.astype(jnp.float32)
-    logits_adv = state.apply_fn({"params": state.params | state.un_trainable_params}, x_adv)
+    logits_adv = state.apply_fn({"params": state.params}, x_adv)
     return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
 
 
@@ -124,7 +119,7 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
      """
 
-    logits = jax.lax.stop_gradient(state.apply_fn({"params": state.params | state.un_trainable_params}, image))
+    logits = jax.lax.stop_gradient(state.apply_fn({"params": state.params}, image))
 
     # x_adv = 0.001 * jax.random.normal(key, shape=image.shape) + image
 
@@ -211,8 +206,8 @@ def apply_model_trade(state, data, key):
     adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255, maxiter=state.trade_iters)
 
     def loss_fn(params):
-        logits = state.apply_fn({'params': params | state.un_trainable_params}, images)
-        logits_adv = state.apply_fn({'params': params | state.un_trainable_params}, adv_image)
+        logits = state.apply_fn({'params': params }, images)
+        logits_adv = state.apply_fn({'params': params}, adv_image)
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
@@ -222,20 +217,16 @@ def apply_model_trade(state, data, key):
         # trade_loss = optax.kl_divergence(nn.log_softmax(jax.lax.stop_gradient(logits_adv), axis=1),
         #                                  nn.softmax(logits, axis=1)).mean()
 
-        logits_adv2 = state.apply_fn({'params': state.ema_params | state.un_trainable_params}, adv_image)
+        logits_adv2 = state.apply_fn({'params': state.ema_params }, adv_image)
         logits_adv2 = (logits_adv2 - state.C) / 0.04
         logits_adv2 = nn.softmax(logits_adv2, axis=1)
-        optax.kl_divergence
-        # trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
-        #                                  logits_adv2).mean()
-
-        trade_loss=jnp.sum( -logits_adv2 * nn.log_softmax(logits_adv, axis=1),axis=-1).mean()
 
         # trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
         #                                  logits_adv2).mean()
 
-        metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv,
-                   'logits_adv2': logits_adv2}
+        trade_loss = jnp.sum(-logits_adv2 * nn.log_softmax(logits_adv, axis=1), axis=-1).mean()
+
+        metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
 
         return loss + state.trade_beta * trade_loss, metrics
 
@@ -257,20 +248,179 @@ def apply_model_trade(state, data, key):
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
     state = state.replace(ema_params=new_ema_params)
-    state = state.replace(C=metrics['logits_adv2'].mean())
 
     return state, metrics | state.opt_state.hyperparams
 
 
+@partial(jax.pmap, axis_name="batch")
+def apply_model_freelb(state, data, key):
+    images, aug_image, labels = data
+
+    images = einops.rearrange(images, 'b c h w->b h w c')
+    images = images.astype(jnp.float32) / 255
+
+    aug_image = einops.rearrange(aug_image, 'b c h w->b h w c')
+    aug_image = aug_image.astype(jnp.float32) / 255
+
+    labels = labels.astype(jnp.float32)
+
+    epsilon = 8 / 255
+    step_size = 4 / 255
+    k = 20
+
+    # def loss_fn(params):
+    #     logits = state.apply_fn({'params': params}, images)
+    #     one_hot = jax.nn.one_hot(labels, logits.shape[-1])
+    #     one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
+    #     loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
+    #
+    #     metrics = {'loss': loss, 'logits': logits, }
+    #     grads = jax.tree_util.tree_map(jnp.zeros_like, params)
+    #
+    #     def loss_fun_trade(params, inputs):
+    #         x_adv = inputs.astype(jnp.float32)
+    #         logits_adv = state.apply_fn({"params": params}, x_adv)
+    #         return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
+    #
+    #     for i in range(k):
+    #         grad_adversarial_params, grad_adversarial_x_adv = jax.grad(loss_fun_trade, argnums=(0, 1))(params, x_adv)
+    #
+    #         grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 / k, grads,
+    #                                        grad_adversarial_params)
+    #
+    #         sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial_x_adv))
+    #
+    #         x_adv = jax.lax.stop_gradient(x_adv) + step_size * sign_grad
+    #         r1 = jnp.where(x_adv > images - epsilon, x_adv, images - epsilon)
+    #         x_adv = jnp.where(r1 < images + epsilon, r1, images + epsilon)
+    #
+    #         x_adv = jnp.clip(x_adv, min=0, max=1)
+    #
+    #     return metrics['loss'], (metrics,grads)
+
+    def loss_fn_nature(params):
+        logits = state.apply_fn({'params': params}, images)
+        one_hot = jax.nn.one_hot(labels, logits.shape[-1])
+        one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
+        loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
+
+        metrics = {'loss': loss, 'logits': logits, }
+        return metrics['loss'], metrics
+
+    (loss, metrics), grads = jax.value_and_grad(loss_fn_nature, has_aux=True)(state.params)
+
+    def loss_fun_trade(params, inputs):
+        x_adv = inputs.astype(jnp.float32)
+        logits_adv = state.apply_fn({"params": params}, x_adv, det=False)
+
+        logits = state.apply_fn({"params": params}, images, det=False)
+        # one_hot = jax.nn.one_hot(labels, logits_adv.shape[-1])
+        # one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
+        # return jnp.mean(optax.softmax_cross_entropy(logits=logits_adv, labels=one_hot))
+        return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
+
+    x_adv = jax.random.uniform(key, shape=images.shape, minval=-epsilon, maxval=epsilon) + images
+    x_adv = jnp.clip(x_adv, 0, 1)
+
+    beta = 0.95
+    powers_of_betas = jnp.array([beta ** i for i in range(k)])
+    denominator = jnp.sum(powers_of_betas, )
+
+    for i in range(k):
+
+        if (i + 1) % 4 == 0:
+            step_size /= 2
+
+        grad_adversarial_params, grad_adversarial_x_adv = jax.grad(loss_fun_trade, argnums=(0, 1))(state.params, x_adv)
+
+        # grads = jax.tree_util.tree_map(lambda x1, x2: x1 + state.trade_beta * x2 / k, grads, grad_adversarial_params)
+
+        grads = jax.tree_util.tree_map(
+            lambda x1, x2: x1 + state.trade_beta * x2 * powers_of_betas[k - i - 1] / denominator,
+            grads, grad_adversarial_params)
+
+        # grads = jax.tree_util.tree_map(lambda x1, x2: x1 + x2 / k, grads, grad_adversarial_params)
+
+        sign_grad = jnp.sign(jax.lax.stop_gradient(grad_adversarial_x_adv))
+
+        x_adv = jax.lax.stop_gradient(x_adv) + step_size * sign_grad
+        r1 = jnp.where(x_adv > images - epsilon, x_adv, images - epsilon)
+        x_adv = jnp.where(r1 < images + epsilon, r1, images + epsilon)
+        x_adv = jnp.clip(x_adv, min=0, max=1)
+
+    # def loss_fun_trade_last(params, inputs):
+    #     x_adv = inputs.astype(jnp.float32)
+    #     logits_adv = state.apply_fn({"params": params}, x_adv)
+    #     logits = state.apply_fn({"params": params}, images)
+    #     accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
+    #     metrics['logits_adv'] = logits
+    #     metrics['adversarial accuracy'] = accuracy_adv
+    #
+    #     return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
+    #
+    # (loss, metrics), grads = jax.value_and_grad(loss_fun_trade_last, has_aux=True)(state.params)
+
+    metrics = jax.lax.pmean(metrics, axis_name="batch")
+    grads = jax.lax.pmean(grads, axis_name="batch")
+
+    state = state.apply_gradients(grads=grads)
+
+    new_ema_params = jax.tree_util.tree_map(
+        lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
+        state.ema_params, state.params)
+    state = state.replace(ema_params=new_ema_params)
+
+    return state, metrics | state.opt_state.hyperparams
+
+    """ """
+    """
+    print(images.shape)
+
+   
+    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
+
+    def loss_fn(params):
+        logits = state.apply_fn({'params': params}, aug_image)
+        logits_adv = state.apply_fn({'params': params}, adv_image)
+        one_hot = jax.nn.one_hot(labels, logits.shape[-1])
+        one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
+        loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
+        trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
+                                         nn.softmax(logits, axis=1)).mean()
+        metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
+
+        return loss + state.trade_beta * trade_loss, metrics
+
+    grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
+    (loss, metrics), grads = grad_fn(state.params)
+    accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
+    accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
+
+    metrics['accuracy'] = accuracy_std
+    metrics['adversarial accuracy'] = accuracy_adv
+
+    metrics = jax.lax.pmean(metrics, axis_name="batch")
+
+    grads = jax.lax.pmean(grads, axis_name="batch")
+
+    state = state.apply_gradients(grads=grads)
+
+    new_ema_params = jax.tree_util.tree_map(
+        lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
+        state.ema_params, state.params)
+    state = state.replace(ema_params=new_ema_params)
+
+    return state, metrics | state.opt_state.hyperparams
+    """
+
+
 class EMATrainState(flax.training.train_state.TrainState):
-    un_trainable_params: Any
     label_smoothing: int
     trade_beta: int
     ema_decay: int = 0.995
     ema_params: Any = None
     trade_step_size: int = 2 / 255
     trade_iters: int = 10
-
     C: Any = jnp.zeros((10,))
 
 
@@ -295,8 +445,7 @@ def create_train_state(rng,
                        trade_beta=5.0,
                        label_smoothing=0.1,
                        pretrained_ckpt=None,
-                       lr_decay=1.0,
-                       blocks=16
+                       lr_decay=1.0
 
                        ):
     """Creates initial `TrainState`."""
@@ -315,22 +464,7 @@ def create_train_state(rng,
         droppath=droppath,
     )
 
-    splits = int(blocks / (blocks - layers))
-
-    cnn_inc = ViT(
-        layers=blocks,
-        dim=dim,
-        heads=heads,
-        labels=labels,
-        layerscale=layerscale,
-        patch_size=patch_size,
-        image_size=image_size,
-        posemb=posemb,
-        pooling=pooling,
-        dropout=dropout,
-        droppath=droppath,
-        splits=int(blocks / (blocks - layers))
-    )
+    # cnn = CNN()
 
     # image_shape = [1, 28, 28, 1]
     image_shape = [1, image_size, image_size, 3]
@@ -339,30 +473,6 @@ def create_train_state(rng,
 
     if pretrained_ckpt is not None:
         params = load_pretrained_params(pretrained_ckpt=pretrained_ckpt, params=params, posemb=posemb)
-
-    def expand(params):
-        layer_cnt = 0
-        trainable_params = {}
-        un_trainable_params = copy.deepcopy(params)
-        for i in range(layers):
-            un_trainable_params[f'layer_{layer_cnt}'] = copy.deepcopy(params[f'layer_{i}'])
-            layer_cnt += 1
-
-            if (layer_cnt + 1) % splits == 0:
-                trainable_params[f'layer_{layer_cnt}'] = copy.deepcopy(params[f'layer_{i}'])
-                print("test:", layer_cnt, splits, (layer_cnt + 1) % splits)
-                trainable_params[f'layer_{layer_cnt}']['scale1'] = jnp.zeros_like(
-                    trainable_params[f'layer_{layer_cnt}']['attn']['wo']['bias'])
-
-                trainable_params[f'layer_{layer_cnt}'][
-                    'scale2'] = jnp.zeros_like(trainable_params[f'layer_{layer_cnt}']['attn']['wo']['bias'])
-
-                if layer_cnt < layers:
-                    un_trainable_params.pop(f'layer_{layer_cnt}')
-                layer_cnt += 1
-        return trainable_params, un_trainable_params
-
-    trainable_params, un_trainable_params = expand(params)
 
     @partial(optax.inject_hyperparams, hyperparam_dtype=jnp.float32)
     def create_optimizer_fn(
@@ -376,7 +486,24 @@ def create_train_state(rng,
             mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
         )
 
+        # tx = optax.adamw(
+        #     learning_rate=learning_rate,
+        #     # b1=0.95,b2=0.98,
+        #     # eps=args.adam_eps,
+        #     weight_decay=weight_decay,
+        #     mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
+        # )
+
+        # tx = optax.lamb(
+        #     learning_rate=learning_rate,
+        #     # b1=0.95,b2=0.98,
+        #     # eps=args.adam_eps,
+        #     weight_decay=weight_decay,
+        #     mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
+        # )
+
         num_layers = layers + 1
+
         if lr_decay < 1.0:
             layerwise_scales = {
                 i: optax.scale(lr_decay ** (num_layers - i))
@@ -408,10 +535,8 @@ def create_train_state(rng,
 
     tx = create_optimizer_fn(learning_rate)
 
-    return EMATrainState.create(apply_fn=cnn_inc.apply, params=trainable_params, tx=tx, ema_params=trainable_params,
-                                ema_decay=ema_decay,
-                                trade_beta=trade_beta, label_smoothing=label_smoothing,
-                                un_trainable_params=un_trainable_params)
+    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay,
+                                trade_beta=trade_beta, label_smoothing=label_smoothing)
 
 
 @partial(jax.pmap, axis_name="batch", )
@@ -427,11 +552,11 @@ def accuracy(state, data):
     #     pass
     inputs = einops.rearrange(inputs, 'b c h w->b h w c')
 
-    logits = state.apply_fn({"params": state.ema_params | state.un_trainable_params}, inputs)
+    logits = state.apply_fn({"params": state.ema_params}, inputs)
     clean_accuracy = jnp.argmax(logits, axis=-1) == labels
 
     adversarial_images = pgd_attack3(inputs, labels, state, )
-    logits_adv = state.apply_fn({"params": state.ema_params | state.un_trainable_params}, adversarial_images)
+    logits_adv = state.apply_fn({"params": state.ema_params}, adversarial_images)
     adversarial_accuracy = jnp.argmax(logits_adv, axis=-1) == labels
 
     metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy, "num_samples": labels != -1}
