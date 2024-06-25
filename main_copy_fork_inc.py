@@ -226,10 +226,13 @@ def apply_model_trade(state, data, key):
         logits_adv2 = (logits_adv2 - state.C) / 0.04
         logits_adv2 = nn.softmax(logits_adv2, axis=1)
 
+        # trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
+        #                                  logits_adv2).mean()
 
+        trade_loss=jnp.sum( -logits_adv2 * nn.log_softmax(logits_adv, axis=1),axis=-1).mean()
 
-        trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
-                                         logits_adv2).mean()
+        # trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1),
+        #                                  logits_adv2).mean()
 
         metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv,
                    'logits_adv2': logits_adv2}
