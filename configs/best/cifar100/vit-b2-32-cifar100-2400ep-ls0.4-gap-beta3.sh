@@ -21,8 +21,8 @@ python -u main_copy_fork.py \
     --weight-decay 0.5 \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
-    --project cifar10-ablation-beta \
+    --project cifar100-50m \
     --name $(basename $0 .sh) \
-    --output-dir "$GCS_DATASET_DIR/cifar100-50m" \
+    --output-dir "$GCS_DATASET_DIR/best/cifar100-50m" \
     --beta 3.0 \
     --label-smoothing 0.4
