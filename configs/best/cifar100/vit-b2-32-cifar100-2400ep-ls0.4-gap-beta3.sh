@@ -23,6 +23,6 @@ python -u main_copy_fork.py \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
     --project cifar10-ablation-beta \
     --name $(basename $0 .sh) \
-    --output-dir "$GCS_DATASET_DIR/ablation/beta" \
+    --output-dir "$GCS_DATASET_DIR/cifar100-50m" \
     --beta 3.0 \
     --label-smoothing 0.4
