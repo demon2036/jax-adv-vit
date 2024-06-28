@@ -173,7 +173,7 @@ def apply_model_trade(state, data, key):
     metrics = jax.lax.pmean(metrics, axis_name="batch")
     new_batch_stats = jax.lax.pmean(new_batch_stats, axis_name='batch')
     grads = jax.lax.pmean(grads, axis_name="batch")
-    state = state.apply_gradients(grads=grads, batch_stats=new_batch_stats['batch_stats'], ema_params=new_ema_params)
+    state = state.apply_gradients(grads=grads, )
 
     new_ema_params = jax.tree_util.tree_map(
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
