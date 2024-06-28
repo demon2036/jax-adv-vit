@@ -178,7 +178,7 @@ def apply_model_trade(state, data, key):
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
 
-    state = state.apply_gradients(grads=grads, new_batch_stats=new_batch_stats, ema_params=new_ema_params)
+    state = state.apply_gradients(grads=grads, batch_stats=new_batch_stats, ema_params=new_ema_params)
 
     return state, metrics | state.opt_state.hyperparams
 

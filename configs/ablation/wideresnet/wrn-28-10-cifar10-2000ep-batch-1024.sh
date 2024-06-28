@@ -21,9 +21,9 @@ python -u main_wideresnet.py \
     --weight-decay 0.5 \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
-    --project cifar10-ablation-batch \
+    --project cifar10-ablation-wrn \
     --name $(basename $0 .sh) \
-    --output-dir "$GCS_DATASET_DIR/ablation/batch" \
+    --output-dir "$GCS_DATASET_DIR/ablation/wrn" \
     --beta 5.0 \
     --label-smoothing 0.1 \
     --ema-decay 0.995
