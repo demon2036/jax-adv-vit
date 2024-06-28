@@ -8,7 +8,6 @@ import flax.linen as nn
 import numpy
 import numpy as np
 
-from convert_flax_to_pytorch_wideresnet import convert_flax_to_pytorch_wideresnet
 
 CIFAR10_MEAN = jnp.array((0.4914, 0.4822, 0.4465))
 CIFAR10_STD = jnp.array((0.2471, 0.2435, 0.2616))
