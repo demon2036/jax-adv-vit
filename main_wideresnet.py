@@ -179,7 +179,7 @@ def apply_model_trade(state, data, key):
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
 
-    state = state.replace(ema_params=new_ema_params)
+    state = state.replace(ema_params=new_ema_params,batch_stats=new_batch_stats)
 
     return state, metrics | state.opt_state.hyperparams
 
