@@ -142,7 +142,7 @@ def apply_model_trade(state, data, key):
     images = images.astype(jnp.float32) / 255
     labels = labels.astype(jnp.float32)
 
-    print(images.shape)
+    # print(images.shape)
 
     """Computes gradients, loss and accuracy for a single batch."""
     adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
