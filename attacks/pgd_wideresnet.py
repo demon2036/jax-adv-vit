@@ -25,7 +25,7 @@ def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter
     image_perturbation = jnp.zeros_like(image)
 
     def adversarial_loss(perturbation):
-        logits = state.apply_fn({"params": state.ema_params,'batch_stats':state['batch_stats']}, image + perturbation)
+        logits = state.apply_fn({"params": state.ema_params,'batch_stats':state.batch_stats}, image + perturbation)
         loss_value = jnp.mean(softmax_cross_entropy_with_integer_labels(logits, label))
         return loss_value
 

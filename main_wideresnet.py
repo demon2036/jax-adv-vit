@@ -5,7 +5,7 @@ jax.distributed.initialize()
 import argparse
 from typing import Any
 from flax.serialization import msgpack_serialize
-from attacks.pgd import pgd_attack3
+from attacks.pgd_wideresnet import pgd_attack3
 from functools import partial
 from torch.utils.data import DataLoader
 import einops
@@ -32,15 +32,11 @@ EPSILON = 8 / 255  # @param{type:"number"}
 os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
 
 
-
-
-
-
 def loss_fun_trade(state, data):
     """Compute the loss of the network."""
     inputs, logits = data
     x_adv = inputs.astype(jnp.float32)
-    logits_adv = state.apply_fn({"params": state.params,'batch_stats':state['batch_stats']}, x_adv)
+    logits_adv = state.apply_fn({"params": state.params, 'batch_stats': state.batch_stats}, x_adv)
     return optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
 
 
@@ -85,7 +81,7 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
      """
 
-    logits = jax.lax.stop_gradient(state.apply_fn({"params": state.params,'batch_stats':state['batch_stats']}, image))
+    logits = jax.lax.stop_gradient(state.apply_fn({"params": state.params, 'batch_stats': state.batch_stats}, image))
 
     # x_adv = 0.001 * jax.random.normal(key, shape=image.shape) + image
 
@@ -152,22 +148,24 @@ def apply_model_trade(state, data, key):
     adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
 
     def loss_fn(params):
-        logits,new_batch_stats = state.apply_fn({'params': params,'batch_stats':state['batch_stats']}, images,mutable=['batch_stats'])
-        logits_adv,new_batch_stats = state.apply_fn({'params': params,'batch_stats':new_batch_stats}, adv_image,mutable=['batch_stats'])
+        logits, new_batch_stats = state.apply_fn({'params': params, 'batch_stats': state.batch_stats}, images,
+                                                 mutable=['batch_stats'])
+        logits_adv, new_batch_stats = state.apply_fn({'params': params, 'batch_stats': new_batch_stats}, adv_image,
+                                                     mutable=['batch_stats'])
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
         trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
         metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
 
-        return loss + state.trade_beta * trade_loss, (metrics,new_batch_stats)
+        return loss + state.trade_beta * trade_loss, (metrics, new_batch_stats)
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
-    (loss, (metrics,new_batch_stats)), grads = grad_fn(state.params)
+    (loss, (metrics, new_batch_stats)), grads = grad_fn(state.params)
     accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
     accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
 
-    new_batch_stats=jax.lax.pmean(new_batch_stats,axis_name='batch')
+    new_batch_stats = jax.lax.pmean(new_batch_stats, axis_name='batch')
 
     metrics['accuracy'] = accuracy_std
     metrics['adversarial accuracy'] = accuracy_adv
@@ -176,13 +174,11 @@ def apply_model_trade(state, data, key):
 
     grads = jax.lax.pmean(grads, axis_name="batch")
 
-
-
     new_ema_params = jax.tree_util.tree_map(
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
 
-    state = state.apply_gradients(grads=grads, new_batch_stats=new_batch_stats,ema_params=new_ema_params)
+    state = state.apply_gradients(grads=grads, new_batch_stats=new_batch_stats, ema_params=new_ema_params)
 
     return state, metrics | state.opt_state.hyperparams
 
@@ -192,7 +188,7 @@ class EMATrainState(flax.training.train_state.TrainState):
     trade_beta: int
     ema_decay: int = 0.995
     ema_params: Any = None
-    batch_stats: Any=None
+    batch_stats: Any = None
 
 
 def create_train_state(rng,
@@ -226,10 +222,9 @@ def create_train_state(rng,
     # image_shape = [1, 28, 28, 1]
     image_shape = [1, 32, 32, 3]
 
-    variables=cnn.init(rng, jnp.ones(image_shape))
+    variables = cnn.init(rng, jnp.ones(image_shape))
 
-
-    params,batch_stats = variables['params'],variables['batch_stats']
+    params, batch_stats = variables['params'], variables['batch_stats']
 
     @partial(optax.inject_hyperparams, hyperparam_dtype=jnp.float32)
     def create_optimizer_fn(
@@ -255,11 +250,10 @@ def create_train_state(rng,
         end_value=1e-5,
     )
 
-
     tx = create_optimizer_fn(learning_rate)
 
     return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay,
-                                trade_beta=trade_beta, label_smoothing=label_smoothing,batch_stats=batch_stats)
+                                trade_beta=trade_beta, label_smoothing=label_smoothing, batch_stats=batch_stats)
 
 
 @partial(jax.pmap, axis_name="batch", )
@@ -275,11 +269,11 @@ def accuracy(state, data):
     #     pass
     inputs = einops.rearrange(inputs, 'b c h w->b h w c')
 
-    logits = state.apply_fn({"params": state.ema_params,'batch_stats':state['batch_stats']}, inputs)
+    logits = state.apply_fn({"params": state.ema_params, 'batch_stats': state.batch_stats}, inputs)
     clean_accuracy = jnp.argmax(logits, axis=-1) == labels
 
     adversarial_images = pgd_attack3(inputs, labels, state, )
-    logits_adv = state.apply_fn({"params": state.ema_params,'batch_stats':state['batch_stats']}, adversarial_images)
+    logits_adv = state.apply_fn({"params": state.ema_params, 'batch_stats': state.batch_stats}, adversarial_images)
     adversarial_accuracy = jnp.argmax(logits_adv, axis=-1) == labels
 
     metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy, "num_samples": labels != -1}
@@ -339,8 +333,6 @@ def train_and_evaluate(args
                                                                   shard_path=args.train_dataset_shards,
                                                                   test_shard_path=args.valid_dataset_shards,
                                                                   origin_shard_path=args.train_origin_dataset_shards)
-
-
 
     log_interval = 200
 
