@@ -1,4 +1,4 @@
-export EPOCH=2000 TRAIN_BATCH_SIZE=1 WARMUP_EPOCH=5
+export EPOCH=2000 TRAIN_BATCH_SIZE=16 WARMUP_EPOCH=5
 
 
 python -u main_wideresnet.py \

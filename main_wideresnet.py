@@ -178,7 +178,7 @@ def apply_model_trade(state, data, key):
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
 
-    state = state.apply_gradients(grads=grads, batch_stats=new_batch_stats, ema_params=new_ema_params)
+    state = state.apply_gradients(grads=grads, batch_stats=new_batch_stats['batch_stats'], ema_params=new_ema_params)
 
     return state, metrics | state.opt_state.hyperparams
 
@@ -299,13 +299,18 @@ def train_and_evaluate(args
   """
 
     if jax.process_index() == 0:
-        # wandb.init(name=args.name, project=args.project, config=args.__dict__,
-        #            config_exclude_keys=['train_dataset_shards', 'valid_dataset_shards', 'train_origin_dataset_shards'])
+        wandb.init(name=args.name, project=args.project, config=args.__dict__,
+                   config_exclude_keys=['train_dataset_shards', 'valid_dataset_shards', 'train_origin_dataset_shards'])
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
     rng = jax.random.key(0)
 
     rng, init_rng = jax.random.split(rng)
+    train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
+                                                                  shard_path=args.train_dataset_shards,
+                                                                  test_shard_path=args.valid_dataset_shards,
+                                                                  origin_shard_path=args.train_origin_dataset_shards)
+
     state = create_train_state(init_rng,
                                layers=args.layers,
                                dim=args.dim,
@@ -328,11 +333,6 @@ def train_and_evaluate(args
                                )
 
     state = flax.jax_utils.replicate(state)
-
-    train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
-                                                                  shard_path=args.train_dataset_shards,
-                                                                  test_shard_path=args.valid_dataset_shards,
-                                                                  origin_shard_path=args.train_origin_dataset_shards)
 
     log_interval = 200
 
@@ -365,14 +365,11 @@ def train_and_evaluate(args
 
         state, metrics = apply_model_trade(state, data, train_step_key)
 
-
-
         if jax.process_index() == 0:
-            print(state.batch_stats)
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
             # print(metrics)
-            # wandb.log(metrics, step)
+            wandb.log(metrics, step)
 
         if step % log_interval == 0:
             for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
@@ -385,7 +382,7 @@ def train_and_evaluate(args
                 metrics = average_meter.summary("val/")
                 num_samples = metrics.pop("val/num_samples")
                 metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
-                # wandb.log(metrics, step)
+                wandb.log(metrics, step)
 
                 # params = flax.jax_utils.unreplicate(state.params)
                 # params_bytes = msgpack_serialize(params)
