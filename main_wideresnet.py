@@ -1,6 +1,6 @@
 import jax
 
-# jax.distributed.initialize()
+jax.distributed.initialize()
 
 import argparse
 from typing import Any
