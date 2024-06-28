@@ -78,10 +78,10 @@ class PatchEmbed(ViTBase, nn.Module):
             strides=(self.patch_size, self.patch_size),
             padding="VALID",
         )
-        if self.pooling == "cls":
-            self.cls_token = self.param(
-                "cls_token", init.truncated_normal(0.02), (1, 1, self.dim)
-            )
+        # if self.pooling == "cls":
+        self.cls_token = self.param(
+            "cls_token", init.truncated_normal(0.02), (1, 1, self.dim)
+        )
 
         if self.posemb == "learnable":
             self.wpe = self.param(
@@ -92,9 +92,9 @@ class PatchEmbed(ViTBase, nn.Module):
 
     def __call__(self, x: Array) -> Array:
         x = (self.wte(x) + self.wpe).reshape(x.shape[0], -1, self.dim)
-        if self.pooling == "cls":
-            cls_token = jnp.repeat(self.cls_token, x.shape[0], axis=0)
-            x = jnp.concatenate((cls_token, x), axis=1)
+        # if self.pooling == "cls":
+        cls_token = jnp.repeat(self.cls_token, x.shape[0], axis=0)
+        x = jnp.concatenate((cls_token, x), axis=1)
         return x
 
 
@@ -179,5 +179,5 @@ class ViT(ViTBase, nn.Module):
         if self.pooling == "cls":
             x = x[:, 0, :]
         elif self.pooling == "gap":
-            x = x.mean(1)
+            x = x[:,0:].mean(1)
         return self.head(x)
