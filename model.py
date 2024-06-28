@@ -27,7 +27,6 @@ from chex import Array
 from datasets import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from utils2 import fixed_sincos2d_embeddings
 
-
 DenseGeneral = partial(nn.DenseGeneral, kernel_init=init.truncated_normal(0.02))
 Dense = partial(nn.Dense, kernel_init=init.truncated_normal(0.02))
 Conv = partial(nn.Conv, kernel_init=init.truncated_normal(0.02))
@@ -179,5 +178,5 @@ class ViT(ViTBase, nn.Module):
         if self.pooling == "cls":
             x = x[:, 0, :]
         elif self.pooling == "gap":
-            x = x[:,0:].mean(1)
+            x = x[:, 0:].mean(1)
         return self.head(x)
