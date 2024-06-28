@@ -165,7 +165,7 @@ def apply_model_trade(state, data, key):
     accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
     accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
 
-    new_batch_stats = jax.lax.pmean(new_batch_stats, axis_name='batch')
+    # new_batch_stats = jax.lax.pmean(new_batch_stats, axis_name='batch')
 
     metrics['accuracy'] = accuracy_std
     metrics['adversarial accuracy'] = accuracy_adv
@@ -365,9 +365,10 @@ def train_and_evaluate(args
 
         state, metrics = apply_model_trade(state, data, train_step_key)
 
-        print(state.batch_stats)
+
 
         if jax.process_index() == 0:
+            print(state.batch_stats)
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
             # print(metrics)
