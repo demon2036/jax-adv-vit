@@ -149,9 +149,9 @@ def apply_model_trade(state, data, key):
 
     def loss_fn(params):
         logits, mutable = state.apply_fn({'params': params, 'batch_stats': state.batch_stats}, images,
-                                                 mutable=['batch_stats'])
+                                         mutable=['batch_stats'])
         logits_adv, mutable = state.apply_fn({'params': params, 'batch_stats': state.batch_stats}, adv_image,
-                                                     mutable=['batch_stats'])
+                                             mutable=['batch_stats'])
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
@@ -165,8 +165,6 @@ def apply_model_trade(state, data, key):
     accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
     accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
 
-
-
     metrics['accuracy'] = accuracy_std
     metrics['adversarial accuracy'] = accuracy_adv
 
@@ -179,7 +177,7 @@ def apply_model_trade(state, data, key):
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
 
-    state = state.replace(ema_params=new_ema_params,batch_stats=mutable['batch_stats'])
+    state = state.replace(ema_params=new_ema_params, batch_stats=mutable['batch_stats'])
 
     return state, metrics | state.opt_state.hyperparams
 
@@ -391,7 +389,8 @@ def train_and_evaluate(args
                 #                               output_dir=os.getenv('GCS_DATASET_DIR'))
 
                 params = flax.jax_utils.unreplicate(state.ema_params)
-                params_bytes = msgpack_serialize(params)
+                batch_stats = flax.jax_utils.unreplicate(state.batch_stats)
+                params_bytes = msgpack_serialize({'params': params, 'batch_stats': batch_stats})
                 save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
                                               output_dir=args.output_dir)
 
