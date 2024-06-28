@@ -142,7 +142,7 @@ def apply_model_trade(state, data, key):
     images = images.astype(jnp.float32) / 255
     labels = labels.astype(jnp.float32)
 
-    # print(images.shape)
+    print(images.shape)
 
     """Computes gradients, loss and accuracy for a single batch."""
     adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
@@ -165,20 +165,21 @@ def apply_model_trade(state, data, key):
     accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
     accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
 
-    new_batch_stats = jax.lax.pmean(new_batch_stats, axis_name='batch')
+
 
     metrics['accuracy'] = accuracy_std
     metrics['adversarial accuracy'] = accuracy_adv
 
     metrics = jax.lax.pmean(metrics, axis_name="batch")
-
+    new_batch_stats = jax.lax.pmean(new_batch_stats, axis_name='batch')
     grads = jax.lax.pmean(grads, axis_name="batch")
+    state = state.apply_gradients(grads=grads, batch_stats=new_batch_stats['batch_stats'], ema_params=new_ema_params)
 
     new_ema_params = jax.tree_util.tree_map(
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
 
-    state = state.apply_gradients(grads=grads, batch_stats=new_batch_stats['batch_stats'], ema_params=new_ema_params)
+    state = state.replace(ema_params=new_ema_params)
 
     return state, metrics | state.opt_state.hyperparams
 
