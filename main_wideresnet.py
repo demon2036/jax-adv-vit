@@ -1,6 +1,6 @@
 import jax
 
-jax.distributed.initialize()
+# jax.distributed.initialize()
 
 import argparse
 from typing import Any
@@ -299,8 +299,8 @@ def train_and_evaluate(args
   """
 
     if jax.process_index() == 0:
-        wandb.init(name=args.name, project=args.project, config=args.__dict__,
-                   config_exclude_keys=['train_dataset_shards', 'valid_dataset_shards', 'train_origin_dataset_shards'])
+        # wandb.init(name=args.name, project=args.project, config=args.__dict__,
+        #            config_exclude_keys=['train_dataset_shards', 'valid_dataset_shards', 'train_origin_dataset_shards'])
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
     rng = jax.random.key(0)
@@ -365,11 +365,13 @@ def train_and_evaluate(args
 
         state, metrics = apply_model_trade(state, data, train_step_key)
 
+        print(state.batch_stats)
+
         if jax.process_index() == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
             # print(metrics)
-            wandb.log(metrics, step)
+            # wandb.log(metrics, step)
 
         if step % log_interval == 0:
             for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
@@ -382,7 +384,7 @@ def train_and_evaluate(args
                 metrics = average_meter.summary("val/")
                 num_samples = metrics.pop("val/num_samples")
                 metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
-                wandb.log(metrics, step)
+                # wandb.log(metrics, step)
 
                 # params = flax.jax_utils.unreplicate(state.params)
                 # params_bytes = msgpack_serialize(params)

@@ -73,7 +73,6 @@ class BlockGroup(nn.Module):
 
     def __call__(self, x, use_running_average=True):
         x = self.block(x, use_running_average)
-        print(x.shape)
         return x
 
 
