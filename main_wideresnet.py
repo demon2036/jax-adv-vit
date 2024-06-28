@@ -148,9 +148,9 @@ def apply_model_trade(state, data, key):
     adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
 
     def loss_fn(params):
-        logits, new_batch_stats = state.apply_fn({'params': params, 'batch_stats': state.batch_stats}, images,
+        logits, mutable = state.apply_fn({'params': params, 'batch_stats': state.batch_stats}, images,
                                                  mutable=['batch_stats'])
-        logits_adv, new_batch_stats = state.apply_fn({'params': params, 'batch_stats': new_batch_stats}, adv_image,
+        logits_adv, mutable = state.apply_fn({'params': params, 'batch_stats': state.batch_stats}, adv_image,
                                                      mutable=['batch_stats'])
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
@@ -158,10 +158,10 @@ def apply_model_trade(state, data, key):
         trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
         metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
 
-        return loss + state.trade_beta * trade_loss, (metrics, new_batch_stats)
+        return loss + state.trade_beta * trade_loss, (metrics, mutable)
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
-    (loss, (metrics, new_batch_stats)), grads = grad_fn(state.params)
+    (loss, (metrics, mutable)), grads = grad_fn(state.params)
     accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
     accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
 
@@ -179,7 +179,7 @@ def apply_model_trade(state, data, key):
         lambda ema, normal: ema * state.ema_decay + (1 - state.ema_decay) * normal,
         state.ema_params, state.params)
 
-    state = state.replace(ema_params=new_ema_params)
+    state = state.replace(ema_params=new_ema_params,batch_stats=mutable['batch_stats'])
 
     return state, metrics | state.opt_state.hyperparams
 
