@@ -85,7 +85,7 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
      """
 
-    logits = jax.lax.stop_gradient(state.apply_fn({"params": state.params}, image))
+    logits = jax.lax.stop_gradient(state.apply_fn({"params": state.params,'batch_stats':state['batch_stats']}, image))
 
     # x_adv = 0.001 * jax.random.normal(key, shape=image.shape) + image
 
