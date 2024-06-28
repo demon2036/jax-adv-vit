@@ -165,7 +165,7 @@ def apply_model_trade(state, data, key):
     accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
     accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
 
-    # new_batch_stats = jax.lax.pmean(new_batch_stats, axis_name='batch')
+    new_batch_stats = jax.lax.pmean(new_batch_stats, axis_name='batch')
 
     metrics['accuracy'] = accuracy_std
     metrics['adversarial accuracy'] = accuracy_adv
