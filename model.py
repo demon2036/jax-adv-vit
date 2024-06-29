@@ -178,5 +178,5 @@ class ViT(ViTBase, nn.Module):
         if self.pooling == "cls":
             x = x[:, 0, :]
         elif self.pooling == "gap":
-            x = x[:, 0:].mean(1)
+            x = x[:, 1:].mean(1)
         return self.head(x)

@@ -4,7 +4,7 @@ from typing import Any
 import jax
 from flax.serialization import msgpack_serialize
 
-jax.distributed.initialize()
+# jax.distributed.initialize()
 
 from functools import partial
 from torch.utils.data import DataLoader
@@ -447,19 +447,10 @@ def train_and_evaluate(args
   Returns:
     The train state (which includes the `.params`).
   """
-
-    if jax.process_index() == 0:
-        wandb.init(name=args.name, project=args.project,config=args.__dict__,config_exclude_keys=['train_dataset_shards','valid_dataset_shards','train_origin_dataset_shards'])
-        average_meter = AverageMeter(use_latest=["learning_rate"])
-
-    train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
-                                                                  shard_path=args.train_dataset_shards,
-                                                                  test_shard_path=args.valid_dataset_shards,
-                                                                  origin_shard_path=args.train_origin_dataset_shards)
-
     rng = jax.random.key(0)
 
     rng, init_rng = jax.random.split(rng)
+
     state = create_train_state(init_rng,
                                layers=args.layers,
                                dim=args.dim,
@@ -480,8 +471,20 @@ def train_and_evaluate(args
                                trade_beta=args.beta,
                                label_smoothing=args.label_smoothing
                                )
-
     state = flax.jax_utils.replicate(state)
+    while True:
+        pass
+
+    if jax.process_index() == 0:
+        wandb.init(name=args.name, project=args.project,config=args.__dict__,config_exclude_keys=['train_dataset_shards','valid_dataset_shards','train_origin_dataset_shards'])
+        average_meter = AverageMeter(use_latest=["learning_rate"])
+
+    train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
+                                                                  shard_path=args.train_dataset_shards,
+                                                                  test_shard_path=args.valid_dataset_shards,
+                                                                  origin_shard_path=args.train_origin_dataset_shards)
+
+
 
     # train_dataloader_iter = iter(train_dataloader)
 
@@ -587,10 +590,10 @@ if __name__ == "__main__":
     parser.add_argument("--heads", type=int, default=12)
     parser.add_argument("--labels", type=int, default=-1)
     parser.add_argument("--layerscale", action="store_true", default=False)
-    parser.add_argument("--patch-size", type=int, default=16)
-    parser.add_argument("--image-size", type=int, default=224)
+    parser.add_argument("--patch-size", type=int, default=2)
+    parser.add_argument("--image-size", type=int, default=32)
     parser.add_argument("--posemb", default="learnable")
-    parser.add_argument("--pooling", default="cls")
+    parser.add_argument("--pooling", default="gap")
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--droppath", type=float, default=0.1)
     parser.add_argument("--grad-ckpt", action="store_true", default=False)
