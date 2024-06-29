@@ -1,4 +1,4 @@
-export EPOCH=2400 TRAIN_BATCH_SIZE=2048 WARMUP_EPOCH=5
+export EPOCH=2400 TRAIN_BATCH_SIZE=2048 WARMUP_EPOCH=60
 
 
 python -u main_wideresnet.py \
@@ -17,7 +17,7 @@ python -u main_wideresnet.py \
     --dropout 0.0  \
     --droppath 0.0  \
     --train-batch-size $TRAIN_BATCH_SIZE \
-    --learning-rate 2e-4 \
+    --learning-rate 1e-4 \
     --weight-decay 0.5 \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
