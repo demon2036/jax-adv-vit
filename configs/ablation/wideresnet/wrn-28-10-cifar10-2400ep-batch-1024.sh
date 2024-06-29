@@ -2,7 +2,7 @@ export EPOCH=2400 TRAIN_BATCH_SIZE=2048 WARMUP_EPOCH=5
 
 
 python -u main_wideresnet.py \
-    --train-dataset-shards "$GCS_DATASET_DIR/cifar10-50m-wds/shards-{00000..00999}.tar" \
+    --train-dataset-shards "$GCS_DATASET_DIR/cifar10-20m-wds/shards-{00000..00999}.tar" \
     --valid-dataset-shards  "$GCS_DATASET_DIR/cifar10-test-wds/shards-{00000..00099}.tar" \
     --train-origin-dataset-shards "$GCS_DATASET_DIR/cifar10-train-wds/shards-{00000..00099}.tar" \
     --layers 12  \
