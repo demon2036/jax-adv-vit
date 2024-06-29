@@ -45,7 +45,8 @@ class ViTBase:
     posemb: Literal["learnable", "sincos2d"] = "learnable"
     pooling: Literal["cls", "gap"] = "gap"
     qk_norm: bool = False
-    use_fc_norm: bool = True
+    use_fc_norm: bool = False
+    reduce_include_prefix: bool = True
 
     dropout: float = 0.0
     droppath: float = 0.0
@@ -166,8 +167,7 @@ class ViT(ViTBase, nn.Module):
         self.norm = nn.LayerNorm() if not self.use_fc_norm else Identity()
         self.fc_norm = nn.LayerNorm() if self.use_fc_norm else Identity()
 
-        print(self.norm,self.fc_norm)
-
+        print(self.norm, self.fc_norm)
 
         self.head = Dense(self.labels) if self.labels is not None else None
 
@@ -186,7 +186,8 @@ class ViT(ViTBase, nn.Module):
         if self.pooling == "cls":
             x = x[:, 0, :]
         elif self.pooling == "gap":
-            x = x[:, 1:].mean(1)
+            x = x if self.reduce_include_prefix else x[:, 1:]
+            x = x.mean(1)
         else:
             raise NotImplemented()
 
