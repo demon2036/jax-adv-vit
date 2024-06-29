@@ -170,7 +170,7 @@ def apply_model_trade(state, data, key):
     metrics['adversarial accuracy'] = accuracy_adv
 
     metrics = jax.lax.pmean(metrics, axis_name="batch")
-    # new_batch_stats = jax.lax.pmean(new_batch_stats['batch_stats'], axis_name='batch')
+    # mutable = jax.lax.pmean(mutable, axis_name='batch')
     grads = jax.lax.pmean(grads, axis_name="batch")
     state = state.apply_gradients(grads=grads, )
 
@@ -203,7 +203,7 @@ def create_train_state(rng,
                        pooling='cls',
                        dropout=0.0,
                        droppath=0.0,
-                       clip_grad=1.0,
+                       clip_grad=0.0,
                        warmup_steps=None,
                        training_steps=None,
                        learning_rate=None,
