@@ -273,7 +273,7 @@ def create_train_state(rng,
     ) -> optax.GradientTransformation:
         tx = optax.lion(
             learning_rate=learning_rate,
-            b1=0.95,b2=0.98,
+            b1=0.95, b2=0.98,
             # eps=args.adam_eps,
             weight_decay=weight_decay,
             mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
@@ -429,13 +429,13 @@ def train_and_evaluate(args
 
         state, metrics = apply_model_trade(state, data, train_step_key)
 
-        if jax.process_index() == 0:
+        if jax.process_index() == 0 and step % args.log_interval == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
             # print(metrics)
             wandb.log(metrics, step)
 
-        if step % log_interval == 0:
+        if step % args.eval_interval == 0:
             for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
                 data = shard(jax.tree_util.tree_map(np.asarray, data))
                 metrics = accuracy(state, data)
@@ -522,8 +522,8 @@ if __name__ == "__main__":
     #
     parser.add_argument("--warmup-steps", type=int, default=10000)
     parser.add_argument("--training-steps", type=int, default=200000)
-    # parser.add_argument("--log-interval", type=int, default=50)
-    # parser.add_argument("--eval-interval", type=int, default=0)
+    parser.add_argument("--log-interval", type=int, default=50)
+    parser.add_argument("--eval-interval", type=int, default=200)
     #
     parser.add_argument("--project")
     parser.add_argument("--name")
