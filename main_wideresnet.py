@@ -148,10 +148,11 @@ def apply_model_trade(state, data, key):
     adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
 
     def loss_fn(params):
-        logits, mutable = state.apply_fn({'params': params, 'batch_stats': state.batch_stats}, images,
-                                         mutable=['batch_stats'])
         logits_adv, mutable = state.apply_fn({'params': params, 'batch_stats': state.batch_stats}, adv_image,
                                              mutable=['batch_stats'])
+        logits, mutable = state.apply_fn({'params': params, 'batch_stats': state.batch_stats}, images,
+                                         mutable=['batch_stats'])
+
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
