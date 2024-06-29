@@ -385,6 +385,7 @@ def train_and_evaluate(args
 
     state = flax.jax_utils.replicate(state)
 
+
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
                                                                   test_shard_path=args.valid_dataset_shards,
