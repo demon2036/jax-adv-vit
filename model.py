@@ -183,7 +183,6 @@ class ViT(ViTBase, nn.Module):
         if self.head is None:
             return x
 
-
         if self.pooling == "cls":
             x = x[:, 0, :]
         elif self.pooling == "gap":
