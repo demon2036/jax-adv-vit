@@ -183,6 +183,14 @@ class ViT(ViTBase, nn.Module):
         if self.head is None:
             return x
 
+
+        if self.pooling == "cls":
+            x = x[:, 0, :]
+        elif self.pooling == "gap":
+            x = x[:, 0:].mean(1)
+        return self.head(x)
+        """
+
         if self.pooling == "cls":
             x = x[:, 0, :]
         elif self.pooling == "gap":
@@ -194,3 +202,4 @@ class ViT(ViTBase, nn.Module):
         x = self.fc_norm(x)
 
         return self.head(x)
+        """
