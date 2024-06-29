@@ -43,10 +43,8 @@ class ViTBase:
     patch_size: int = 16
     image_size: int = 224
     posemb: Literal["learnable", "sincos2d"] = "learnable"
-    pooling: Literal["cls", "gap"] = "gap"
+    pooling: Literal["cls", "gap"] = "cls"
     qk_norm: bool = False
-    use_fc_norm: bool = False
-    reduce_include_prefix: bool = True
 
     dropout: float = 0.0
     droppath: float = 0.0
@@ -162,13 +160,7 @@ class ViT(ViTBase, nn.Module):
         layer_fn = nn.remat(ViTLayer) if self.grad_ckpt else ViTLayer
         self.layer = [layer_fn(**self.kwargs) for _ in range(self.layers)]
 
-        # self.norm = nn.LayerNorm()
-
-        self.norm = nn.LayerNorm() if not self.use_fc_norm else Identity()
-        self.fc_norm = nn.LayerNorm() if self.use_fc_norm else Identity()
-
-        print(self.norm, self.fc_norm)
-
+        self.norm = nn.LayerNorm()
         self.head = Dense(self.labels) if self.labels is not None else None
 
     def __call__(self, x: Array, det: bool = True) -> Array:
@@ -188,17 +180,3 @@ class ViT(ViTBase, nn.Module):
         elif self.pooling == "gap":
             x = x[:, 0:].mean(1)
         return self.head(x)
-        """
-
-        if self.pooling == "cls":
-            x = x[:, 0, :]
-        elif self.pooling == "gap":
-            x = x if self.reduce_include_prefix else x[:, 1:]
-            x = x.mean(1)
-        else:
-            raise NotImplemented()
-
-        x = self.fc_norm(x)
-
-        return self.head(x)
-        """

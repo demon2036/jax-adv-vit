@@ -1,3 +1,4 @@
+
 # Copyright 2024 Jungwoo Park (affjljoo3581)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -102,8 +103,7 @@ def mix_dataloader_iter(train_dataloader, train_origin_dataloader):
     train_origin_dataloader_iter = iter(train_origin_dataloader)
 
     while True:
-        yield [torch.cat([x, y], dim=0) for x, y in
-               zip(next(train_dataloader_iter), next(train_origin_dataloader_iter))]
+        yield [torch.cat([x, y], dim=0) for x, y in zip(next(train_dataloader_iter), next(train_origin_dataloader_iter))]
 
 
 def get_train_dataloader(batch_size=1024,
@@ -116,22 +116,6 @@ def get_train_dataloader(batch_size=1024,
     train_origin_batch_size = total_batch_size - train_batch_size
 
     train_transform, test_transform = create_transforms()
-    # dataset = wds.DataPipeline(
-    #     wds.SimpleShardList(shard_path, seed=1),
-    #     wds.slice(jax.process_index(), None, jax.process_count()),
-    #     itertools.cycle,
-    #     wds.detshuffle(),
-    #     # wds.slice(jax.process_index(), None, jax.process_count()),
-    #     wds.split_by_worker,
-    #     # wds.tarfile_to_samples(handler=wds.ignore_and_continue),
-    #     wds.cached_tarfile_to_samples(handler=wds.ignore_and_continue,cache_dir='/root/test'),
-    #     wds.detshuffle(),
-    #     wds.decode("pil", handler=wds.ignore_and_continue),
-    #     wds.to_tuple("jpg.pyd", "cls", handler=wds.ignore_and_continue),
-    #     # partial(repeat_samples, repeats=args.augment_repeats),
-    #     wds.map_tuple(train_transform, torch.tensor),
-    # )
-
     dataset = wds.DataPipeline(
         wds.SimpleShardList(shard_path, seed=1),
         itertools.cycle,
@@ -213,7 +197,7 @@ def get_train_dataloader(batch_size=1024,
         persistent_workers=True,
     )
 
-    return mix_dataloader_iter(train_dataloader, train_origin_dataloader), test_dataloader
+    return mix_dataloader_iter(train_dataloader,train_origin_dataloader), test_dataloader
 
 
 if __name__ == '__main__':
