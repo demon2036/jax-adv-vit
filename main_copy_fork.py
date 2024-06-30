@@ -1,7 +1,7 @@
 import jax
 
 jax.distributed.initialize()
-from jax.experimental import checkify
+
 import argparse
 from typing import Any
 from flax.serialization import msgpack_serialize
@@ -185,7 +185,6 @@ def apply_model_trade(state, data, key):
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, images)
         logits_adv = state.apply_fn({'params': params}, adv_image)
-
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
@@ -386,6 +385,7 @@ def train_and_evaluate(args
 
     state = flax.jax_utils.replicate(state)
 
+
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
                                                                   test_shard_path=args.valid_dataset_shards,
@@ -424,10 +424,6 @@ def train_and_evaluate(args
     for step in tqdm.tqdm(range(1, args.training_steps)):
         rng, input_rng = jax.random.split(rng)
         data = next(train_dataloader_iter)
-
-        _, labels = data
-        print(labels)
-        assert jnp.max(labels) == args.labels, print(jnp.max(labels))
 
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
