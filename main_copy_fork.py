@@ -169,7 +169,6 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
 
 @partial(jax.pmap, axis_name="batch")
-@checkify.checkify
 def apply_model_trade(state, data, key):
     images, labels = data
 
@@ -186,7 +185,8 @@ def apply_model_trade(state, data, key):
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, images)
         logits_adv = state.apply_fn({'params': params}, adv_image)
-        checkify.check(jnp.max(labels) == logits.shape[-1], "index needs to be non-negative, got {i}", i=jnp.max(labels))
+
+
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
@@ -425,6 +425,9 @@ def train_and_evaluate(args
     for step in tqdm.tqdm(range(1, args.training_steps)):
         rng, input_rng = jax.random.split(rng)
         data = next(train_dataloader_iter)
+
+        _,labels=data
+        assert jnp.max(labels) == args.labels, print(jax.max(labels))
 
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
