@@ -84,8 +84,14 @@ def convert(pretrained_model, checkpoint):
     print(pos_embed.shape, state_dict["pos_embed"].shape)
 
     if "norm" in params["model"]:
+        print('use norm')
         state_dict["norm.weight"] = params["model"]["norm"]["scale"]
         state_dict["norm.bias"] = params["model"]["norm"]["bias"]
+
+    if "fc_norm" in params["model"]:
+        print('use fc_norm')
+        state_dict["fc_norm.weight"] = params["model"]["fc_norm"]["scale"]
+        state_dict["fc_norm.bias"] = params["model"]["fc_norm"]["bias"]
     # if "head" in params["model"] and not args.exclude_heads:
     #     state_dict["head.weight"] = params["model"]["head"]["kernel"].transpose(1, 0)
     #     state_dict["head.bias"] = params["model"]["head"]["bias"]
@@ -148,6 +154,9 @@ def convert(pretrained_model, checkpoint):
             state_dict[f"blocks.{layer_idx}.ls2.gamma"] = layer["scale2"]
 
     state_dict = {k: torch.tensor(np.asarray(v)) for k, v in state_dict.items()}
+
+    print(state_dict.keys())
+
     torch.save(state_dict, checkpoint)  #args.checkpoint.replace(".msgpack", ".pth")
     return state_dict
 
@@ -171,8 +180,8 @@ def train_and_evaluate(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pretrained-model", type=str,
-                        default='checkpoint/jax_model/epoch/vit-b2-32-cifar10-6000ep-batch-1024-gap-ls0.4-beta3-ema.msgpack')
+                        default='checkpoint/jax_model/epoch/vit-b2-32-cifar10-6000ep-gap-ls0.4-beta3-ema.msgpack')
     parser.add_argument("--checkpoint", type=str,
-                        default='checkpoint/pytorch_model/epoch/vit-b2-32-cifar10-6000ep-batch-1024-gap-ls0.4-beta3-ema.pth')
+                        default='checkpoint/pytorch_model/epoch/vit-b2-32-cifar10-6000ep-gap-ls0.4-beta3-ema.pth')
 
     train_and_evaluate(parser.parse_args())
