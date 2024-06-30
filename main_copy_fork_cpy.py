@@ -278,7 +278,7 @@ def apply_model_trade(state, data, key):
         logits = state.apply_fn({'params': params}, images)
         logits_adv = state.apply_fn({'params': params}, adv_image)
 
-        assert jnp.max(labels)==logits.shape[-1]
+        assert jnp.max(labels) == logits.shape[-1]
 
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
@@ -314,7 +314,7 @@ factor = 2
 
 
 class EMATrainState(flax.training.train_state.TrainState):
-    label_smoothing:int
+    label_smoothing: int
     trade_beta: int
     ema_decay: int = 0.995
     ema_params: Any = None
@@ -406,7 +406,8 @@ def create_train_state(rng,
 
     tx = create_optimizer_fn(learning_rate)
 
-    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay,trade_beta=trade_beta,label_smoothing=label_smoothing)
+    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay,
+                                trade_beta=trade_beta, label_smoothing=label_smoothing)
 
 
 @partial(jax.pmap, axis_name="batch", )
@@ -479,15 +480,14 @@ def train_and_evaluate(args
         pass
 
     if jax.process_index() == 0:
-        wandb.init(name=args.name, project=args.project,config=args.__dict__,config_exclude_keys=['train_dataset_shards','valid_dataset_shards','train_origin_dataset_shards'])
+        wandb.init(name=args.name, project=args.project, config=args.__dict__,
+                   config_exclude_keys=['train_dataset_shards', 'valid_dataset_shards', 'train_origin_dataset_shards'])
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
                                                                   test_shard_path=args.valid_dataset_shards,
                                                                   origin_shard_path=args.train_origin_dataset_shards)
-
-
 
     # train_dataloader_iter = iter(train_dataloader)
 
