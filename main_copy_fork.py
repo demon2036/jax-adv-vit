@@ -427,7 +427,7 @@ def train_and_evaluate(args
         data = next(train_dataloader_iter)
 
         _,labels=data
-        assert jnp.max(labels) == args.labels, print(jax.max(labels))
+        assert jnp.max(labels) == args.labels, print(jnp.max(labels))
 
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
