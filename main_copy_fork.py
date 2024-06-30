@@ -186,7 +186,6 @@ def apply_model_trade(state, data, key):
         logits = state.apply_fn({'params': params}, images)
         logits_adv = state.apply_fn({'params': params}, adv_image)
 
-
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
@@ -426,7 +425,8 @@ def train_and_evaluate(args
         rng, input_rng = jax.random.split(rng)
         data = next(train_dataloader_iter)
 
-        _,labels=data
+        _, labels = data
+        print(labels)
         assert jnp.max(labels) == args.labels, print(jnp.max(labels))
 
         rng, train_step_key = jax.random.split(rng, num=2)
