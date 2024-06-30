@@ -1,7 +1,7 @@
 import jax
 
 jax.distributed.initialize()
-
+from jax.experimental import checkify
 import argparse
 from typing import Any
 from flax.serialization import msgpack_serialize
@@ -185,7 +185,7 @@ def apply_model_trade(state, data, key):
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, images)
         logits_adv = state.apply_fn({'params': params}, adv_image)
-        assert jnp.max(labels) == logits.shape[-1], print(jax.max(labels))
+        checkify.check(jnp.max(labels) == logits.shape[-1], "index needs to be non-negative, got {i}", i=jnp.max(labels))
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
