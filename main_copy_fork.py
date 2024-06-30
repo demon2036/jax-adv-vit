@@ -185,7 +185,7 @@ def apply_model_trade(state, data, key):
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, images)
         logits_adv = state.apply_fn({'params': params}, adv_image)
-        assert jnp.max(labels) == logits.shape[-1]
+        assert jnp.max(labels) == logits.shape[-1], print(jax.max(labels))
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
         one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
@@ -385,7 +385,6 @@ def train_and_evaluate(args
                                )
 
     state = flax.jax_utils.replicate(state)
-
 
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
