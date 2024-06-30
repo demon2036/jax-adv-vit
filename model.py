@@ -45,8 +45,8 @@ class ViTBase:
     posemb: Literal["learnable", "sincos2d"] = "learnable"
     pooling: Literal["cls", "gap"] = "gap"
     qk_norm: bool = False
-    use_fc_norm: bool = False
-    reduce_include_prefix: bool = True
+    use_fc_norm: bool = True
+    reduce_include_prefix: bool = False
 
     dropout: float = 0.0
     droppath: float = 0.0

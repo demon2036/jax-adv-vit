@@ -273,7 +273,7 @@ def create_train_state(rng,
     ) -> optax.GradientTransformation:
         tx = optax.lion(
             learning_rate=learning_rate,
-            # b1=0.95, b2=0.98,
+            b1=0.95, b2=0.98,
             # eps=args.adam_eps,
             weight_decay=weight_decay,
             mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
