@@ -169,6 +169,7 @@ def trade(image, label, state, epsilon=0.1, maxiter=10, step_size=0.007, key=Non
 
 
 @partial(jax.pmap, axis_name="batch")
+@checkify.checkify
 def apply_model_trade(state, data, key):
     images, labels = data
 
