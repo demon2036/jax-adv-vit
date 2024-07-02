@@ -13,7 +13,7 @@ python -u main_copy_fork_cpy.py \
     --patch-size 2  \
     --image-size 32  \
     --posemb "learnable"  \
-    --pooling gap  \
+    --pooling cls  \
     --dropout 0.0  \
     --droppath 0.0  \
     --train-batch-size $TRAIN_BATCH_SIZE \
