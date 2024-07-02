@@ -241,7 +241,11 @@ def create_train_state(rng,
                        weight_decay=None,
                        ema_decay=0.9999,
                        trade_beta=5.0,
-                       label_smoothing=0.1
+                       label_smoothing=0.1,
+                       use_fc_norm: bool = True,
+                       reduce_include_prefix: bool = False,
+                       b1=0.95,
+                       b2=0.98
 
                        ):
     """Creates initial `TrainState`."""
@@ -258,6 +262,8 @@ def create_train_state(rng,
         pooling=pooling,
         dropout=dropout,
         droppath=droppath,
+        use_fc_norm=use_fc_norm,
+        reduce_include_prefix=reduce_include_prefix
     )
 
     # cnn = CNN()
@@ -273,7 +279,7 @@ def create_train_state(rng,
     ) -> optax.GradientTransformation:
         tx = optax.lion(
             learning_rate=learning_rate,
-            b1=0.95, b2=0.98,
+            b1=b1, b2=b2,
             # eps=args.adam_eps,
             weight_decay=weight_decay,
             mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
@@ -383,7 +389,11 @@ def train_and_evaluate(args
                                weight_decay=args.weight_decay,
                                ema_decay=args.ema_decay,
                                trade_beta=args.beta,
-                               label_smoothing=args.label_smoothing
+                               label_smoothing=args.label_smoothing,
+                               use_fc_norm=args.use_fc_norm,
+                               reduce_include_prefix=args.reduce_include_prefix,
+                               b1=args.adam_b1,
+                               b2=args.adam_b2
                                )
 
     state = flax.jax_utils.replicate(state)
@@ -504,6 +514,10 @@ if __name__ == "__main__":
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--droppath", type=float, default=0.1)
     parser.add_argument("--grad-ckpt", action="store_true", default=False)
+    parser.add_argument("--use-fc-norm",action="store_true", default=False)
+    parser.add_argument("--reduce_include_prefix", action="store_true", default=False)
+
+
 
     # parser.add_argument("--init-seed", type=int, default=random.randint(0, 1000000))
     # parser.add_argument("--mixup-seed", type=int, default=random.randint(0, 1000000))
@@ -515,8 +529,8 @@ if __name__ == "__main__":
     # parser.add_argument("--optimizer", default="adamw")
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=0.05)
-    # parser.add_argument("--adam-b1", type=float, default=0.9)
-    # parser.add_argument("--adam-b2", type=float, default=0.999)
+    parser.add_argument("--adam-b1", type=float, default=0.9)
+    parser.add_argument("--adam-b2", type=float, default=0.99)
     # parser.add_argument("--adam-eps", type=float, default=1e-8)
     # parser.add_argument("--lr-decay", type=float, default=1.0)
     # parser.add_argument("--clip-grad", type=float, default=0.0)
