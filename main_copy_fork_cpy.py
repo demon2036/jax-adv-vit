@@ -179,10 +179,8 @@ def apply_model_trade(state, data, key):
 
     print(images.shape)
 
-    maxiter = 20
-
     """Computes gradients, loss and accuracy for a single batch."""
-    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=EPSILON * 2 / maxiter, maxiter=maxiter)
+    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255)
 
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, images)
@@ -303,7 +301,7 @@ def create_train_state(rng,
         peak_value=learning_rate,
         warmup_steps=warmup_steps,
         decay_steps=training_steps,
-        end_value=1e-5,
+        end_value=1e-6,
     )
 
     # learning_rate = optax.warmup_cosine_decay_schedule(
@@ -516,8 +514,10 @@ if __name__ == "__main__":
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--droppath", type=float, default=0.1)
     parser.add_argument("--grad-ckpt", action="store_true", default=False)
-    parser.add_argument("--use-fc-norm", action="store_true", default=True)
+    parser.add_argument("--use-fc-norm",action="store_true", default=False)
     parser.add_argument("--reduce_include_prefix", action="store_true", default=False)
+
+
 
     # parser.add_argument("--init-seed", type=int, default=random.randint(0, 1000000))
     # parser.add_argument("--mixup-seed", type=int, default=random.randint(0, 1000000))
@@ -529,8 +529,8 @@ if __name__ == "__main__":
     # parser.add_argument("--optimizer", default="adamw")
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=0.05)
-    parser.add_argument("--adam-b1", type=float, default=0.9)
-    parser.add_argument("--adam-b2", type=float, default=0.99)
+    parser.add_argument("--adam-b1", type=float, default=0.95)
+    parser.add_argument("--adam-b2", type=float, default=0.98)
     # parser.add_argument("--adam-eps", type=float, default=1e-8)
     # parser.add_argument("--lr-decay", type=float, default=1.0)
     # parser.add_argument("--clip-grad", type=float, default=0.0)
