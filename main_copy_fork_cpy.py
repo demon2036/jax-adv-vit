@@ -393,7 +393,8 @@ def train_and_evaluate(args
                                use_fc_norm=args.use_fc_norm,
                                reduce_include_prefix=args.reduce_include_prefix,
                                b1=args.adam_b1,
-                               b2=args.adam_b2
+                               b2=args.adam_b2,
+                               clip_grad=0.0
                                )
 
     state = flax.jax_utils.replicate(state)
