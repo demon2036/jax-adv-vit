@@ -328,7 +328,10 @@ def accuracy(state, data):
     logits = state.apply_fn({"params": state.ema_params}, inputs)
     clean_accuracy = jnp.argmax(logits, axis=-1) == labels
 
-    adversarial_images = pgd_attack3(inputs, labels, state, )
+    maxiter = 20
+
+    adversarial_images = pgd_attack3(inputs, labels, state, epsilon=EPSILON, maxiter=maxiter,
+                                     step_size=EPSILON * 2 / maxiter)
     logits_adv = state.apply_fn({"params": state.ema_params}, adversarial_images)
     adversarial_accuracy = jnp.argmax(logits_adv, axis=-1) == labels
 
@@ -384,7 +387,6 @@ def train_and_evaluate(args
                                )
 
     state = flax.jax_utils.replicate(state)
-
 
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
