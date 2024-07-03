@@ -1,7 +1,7 @@
-export EPOCH=10000 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5
+export EPOCH=6000 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5
 
 
-python -u main_copy_fork.py \
+python -u main_copy_fork_cpy.py \
     --train-dataset-shards "$GCS_DATASET_DIR/cifar10-50m-wds/shards-{00000..00999}.tar" \
     --valid-dataset-shards  "$GCS_DATASET_DIR/cifar10-test-wds/shards-{00000..00099}.tar" \
     --train-origin-dataset-shards "$GCS_DATASET_DIR/cifar10-train-wds/shards-{00000..00099}.tar" \
@@ -18,7 +18,7 @@ python -u main_copy_fork.py \
     --droppath 0.0  \
     --train-batch-size $TRAIN_BATCH_SIZE \
     --learning-rate 1e-4 \
-    --weight-decay 0.5 \
+    --weight-decay 0.05 \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
     --eval-interval $((50000 * 50 / $TRAIN_BATCH_SIZE)) \

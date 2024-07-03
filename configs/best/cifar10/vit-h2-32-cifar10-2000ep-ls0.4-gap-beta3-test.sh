@@ -8,7 +8,7 @@ python -u main_copy_fork_cpy.py \
     --layers 32  \
     --dim 1280  \
     --heads 16  \
-    --labels 16  \
+    --labels 10  \
     --layerscale   \
     --patch-size 2  \
     --image-size 32  \
