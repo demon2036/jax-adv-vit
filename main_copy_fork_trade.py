@@ -179,8 +179,11 @@ def apply_model_trade(state, data, key):
 
     print(images.shape)
 
+    maxiter = 20
+
     """Computes gradients, loss and accuracy for a single batch."""
-    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, step_size=2 / 255,maxiter=4)
+    adv_image = trade(images, labels, state, key=key, epsilon=EPSILON, maxiter=maxiter,
+                                     step_size=EPSILON * 2 / maxiter)
 
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, images)
@@ -328,7 +331,10 @@ def accuracy(state, data):
     logits = state.apply_fn({"params": state.ema_params}, inputs)
     clean_accuracy = jnp.argmax(logits, axis=-1) == labels
 
-    adversarial_images = pgd_attack3(inputs, labels, state, )
+    maxiter = 20
+
+    adversarial_images = pgd_attack3(inputs, labels, state, epsilon=EPSILON, maxiter=maxiter,
+                                     step_size=EPSILON * 2 / maxiter)
     logits_adv = state.apply_fn({"params": state.ema_params}, adversarial_images)
     adversarial_accuracy = jnp.argmax(logits_adv, axis=-1) == labels
 
