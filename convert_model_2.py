@@ -181,8 +181,8 @@ def train_and_evaluate(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pretrained-model", type=str,
-                        default='checkpoint/jax_model/best/cifar100/vit-b2-32-cifar100-1000ep-ls0.4-gap-beta5-ema.msgpack')
+                        default='checkpoint/jax_model/best/cifar10/vit-l2-32-cifar10-10000ep-ls0.4-gap-beta3-test-ema.msgpack')
     parser.add_argument("--checkpoint", type=str,
-                        default='checkpoint/pytorch_model/best/cifar100/vit-b2-32-cifar100-1000ep-ls0.4-gap-beta5-ema.pth')
+                        default='checkpoint/pytorch_model/best/cifar10/vit-l2-32-cifar10-10000ep-ls0.4-gap-beta3-test-ema.pth')
 
     train_and_evaluate(parser.parse_args())
