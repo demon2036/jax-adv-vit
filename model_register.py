@@ -88,6 +88,7 @@ class PatchEmbed(ViTBase, nn.Module):
         self.reg_token = self.param(
             "reg_token", init.truncated_normal(0.02), (1, self.reg_tokens, self.dim)
         )
+        print(self.reg_token)
 
         if self.posemb == "learnable":
             self.wpe = self.param(
