@@ -144,10 +144,10 @@ class ViTLayer(ViTBase, nn.Module):
 
         self.scale1 = self.scale2 = 1.0
         if self.layerscale:
-            # self.scale1 = self.param("scale1", init.constant(1e-4), (self.dim,))
-            # self.scale2 = self.param("scale2", init.constant(1e-4), (self.dim,))
-            self.scale1 = self.param("scale1", init.constant(1e-6), (self.dim,))
-            self.scale2 = self.param("scale2", init.constant(1e-6), (self.dim,))
+            self.scale1 = self.param("scale1", init.constant(1e-4), (self.dim,))
+            self.scale2 = self.param("scale2", init.constant(1e-4), (self.dim,))
+            # self.scale1 = self.param("scale1", init.constant(1e-6), (self.dim,))
+            # self.scale2 = self.param("scale2", init.constant(1e-6), (self.dim,))
 
     def __call__(self, x: Array, det: bool = True) -> Array:
         x = x + self.drop(self.scale1 * self.attn(self.norm1(x), det), det)

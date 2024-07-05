@@ -27,7 +27,6 @@ from chex import Array
 from datasets import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from utils2 import fixed_sincos2d_embeddings
 
-
 DenseGeneral = partial(nn.DenseGeneral, kernel_init=init.truncated_normal(0.02))
 Dense = partial(nn.Dense, kernel_init=init.truncated_normal(0.02))
 Conv = partial(nn.Conv, kernel_init=init.truncated_normal(0.02))
@@ -44,8 +43,10 @@ class ViTBase:
     patch_size: int = 16
     image_size: int = 224
     posemb: Literal["learnable", "sincos2d"] = "learnable"
-    pooling: Literal["cls", "gap"] = "cls"
+    pooling: Literal["cls", "gap"] = "gap"
     qk_norm: bool = False
+    use_fc_norm: bool = True
+    reduce_include_prefix: bool = False
 
     dropout: float = 0.0
     droppath: float = 0.0
@@ -78,10 +79,10 @@ class PatchEmbed(ViTBase, nn.Module):
             strides=(self.patch_size, self.patch_size),
             padding="VALID",
         )
-        if self.pooling == "cls":
-            self.cls_token = self.param(
-                "cls_token", init.truncated_normal(0.02), (1, 1, self.dim)
-            )
+        # if self.pooling == "cls":
+        self.cls_token = self.param(
+            "cls_token", init.truncated_normal(0.02), (1, 1, self.dim)
+        )
 
         if self.posemb == "learnable":
             self.wpe = self.param(
@@ -92,9 +93,9 @@ class PatchEmbed(ViTBase, nn.Module):
 
     def __call__(self, x: Array) -> Array:
         x = (self.wte(x) + self.wpe).reshape(x.shape[0], -1, self.dim)
-        if self.pooling == "cls":
-            cls_token = jnp.repeat(self.cls_token, x.shape[0], axis=0)
-            x = jnp.concatenate((cls_token, x), axis=1)
+        # if self.pooling == "cls":
+        cls_token = jnp.repeat(self.cls_token, x.shape[0], axis=0)
+        x = jnp.concatenate((cls_token, x), axis=1)
         return x
 
 
@@ -143,8 +144,10 @@ class ViTLayer(ViTBase, nn.Module):
 
         self.scale1 = self.scale2 = 1.0
         if self.layerscale:
-            self.scale1 = self.param("scale1", init.constant(1e-4), (self.dim,))
-            self.scale2 = self.param("scale2", init.constant(1e-4), (self.dim,))
+            # self.scale1 = self.param("scale1", init.constant(1e-4), (self.dim,))
+            # self.scale2 = self.param("scale2", init.constant(1e-4), (self.dim,))
+            self.scale1 = self.param("scale1", init.constant(1e-6), (self.dim,))
+            self.scale2 = self.param("scale2", init.constant(1e-6), (self.dim,))
 
     def __call__(self, x: Array, det: bool = True) -> Array:
         x = x + self.drop(self.scale1 * self.attn(self.norm1(x), det), det)
@@ -161,7 +164,13 @@ class ViT(ViTBase, nn.Module):
         layer_fn = nn.remat(ViTLayer) if self.grad_ckpt else ViTLayer
         self.layer = [layer_fn(**self.kwargs) for _ in range(self.layers)]
 
-        self.norm = nn.LayerNorm()
+        # self.norm = nn.LayerNorm()
+
+        self.norm = nn.LayerNorm() if not self.use_fc_norm else Identity()
+        self.fc_norm = nn.LayerNorm() if self.use_fc_norm else Identity()
+
+        print(self.norm, self.fc_norm)
+
         self.head = Dense(self.labels) if self.labels is not None else None
 
     def __call__(self, x: Array, det: bool = True) -> Array:
@@ -175,9 +184,23 @@ class ViT(ViTBase, nn.Module):
         # tokens instead of pooling to a single vector and then calculate class logits.
         if self.head is None:
             return x
+        """
+        if self.pooling == "cls":
+            x = x[:, 0, :]
+        elif self.pooling == "gap":
+            x = x[:, 0:].mean(1)
+        return self.head(x)
+        """
 
         if self.pooling == "cls":
             x = x[:, 0, :]
         elif self.pooling == "gap":
+            x = x if self.reduce_include_prefix else x[:, 1:]
             x = x.mean(1)
+        else:
+            raise NotImplemented()
+
+        x = self.fc_norm(x)
+
         return self.head(x)
+
