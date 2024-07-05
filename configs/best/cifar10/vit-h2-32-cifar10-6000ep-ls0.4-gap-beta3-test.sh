@@ -1,4 +1,4 @@
-export EPOCH=6000 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5
+export EPOCH=6000 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=200
 
 
 python -u main_copy_fork_cpy.py \
@@ -18,12 +18,12 @@ python -u main_copy_fork_cpy.py \
     --droppath 0.0  \
     --train-batch-size $TRAIN_BATCH_SIZE \
     --learning-rate 1e-4 \
-    --weight-decay 0.05 \
+    --weight-decay 0.5 \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
     --eval-interval $((50000 * 50 / $TRAIN_BATCH_SIZE)) \
     --project cifar10-ablation-best \
     --name $(basename $0 .sh) \
-    --output-dir "$GCS_DATASET_DIR/best" \
+    --output-dir "$GCS_DATASET_DIR/best/cifar10" \
     --beta 3.0 \
     --label-smoothing 0.4
