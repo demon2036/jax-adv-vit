@@ -102,7 +102,7 @@ class PatchEmbed(ViTBase, nn.Module):
         # if self.pooling == "cls":
         cls_token = jnp.repeat(self.cls_token, x.shape[0], axis=0)
         reg_token = jnp.repeat(self.reg_token, x.shape[0], axis=0)
-        x = jnp.concatenate((cls_token,reg_token, x), axis=1)
+        x = jnp.concatenate((cls_token, reg_token, x), axis=1)
         return x
 
 

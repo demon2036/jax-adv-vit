@@ -263,7 +263,8 @@ def create_train_state(rng,
         dropout=dropout,
         droppath=droppath,
         use_fc_norm=use_fc_norm,
-        reduce_include_prefix=reduce_include_prefix
+        reduce_include_prefix=reduce_include_prefix,
+        qk_norm=True
     )
 
     # cnn = CNN()
