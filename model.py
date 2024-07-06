@@ -169,9 +169,9 @@ class ViT(ViTBase, nn.Module):
         self.norm = nn.LayerNorm() if not self.use_fc_norm else Identity()
         self.fc_norm = nn.LayerNorm() if self.use_fc_norm else Identity()
 
-        print(self.norm, self.fc_norm)
+        print(self.kwargs)
 
-        self.head = nn.Dense(self.labels,kernel_init=init.truncated_normal(2e-5)) if self.labels is not None else None
+        self.head = nn.Dense(self.labels) if self.labels is not None else None
 
     def __call__(self, x: Array, det: bool = True) -> Array:
         # x = (x - IMAGENET_DEFAULT_MEAN) / IMAGENET_DEFAULT_STD
