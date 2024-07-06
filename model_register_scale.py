@@ -78,7 +78,7 @@ class PatchEmbed(ViTBase, nn.Module):
             self.dim,
             kernel_size=(self.patch_size, self.patch_size),
             strides=(self.patch_size, self.patch_size),
-            padding="VALID",
+            padding="VALID",kernel_init=init.truncated_normal((2/5)**0.5),
         )
         # if self.pooling == "cls":
         self.cls_token = self.param(
@@ -210,7 +210,7 @@ class ViT(ViTBase, nn.Module):
         if self.pooling == "cls":
             x = x[:, 0, :]
         elif self.pooling == "gap":
-            x = x if self.reduce_include_prefix else x[:, 1:]
+            x = x if self.reduce_include_prefix else x[:, 1+self.reg_tokens:]
             x = x.mean(1)
         else:
             raise NotImplemented()
