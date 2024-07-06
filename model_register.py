@@ -202,7 +202,7 @@ class ViT(ViTBase, nn.Module):
         if self.pooling == "cls":
             x = x[:, 0, :]
         elif self.pooling == "gap":
-            x = x if self.reduce_include_prefix else x[:, 1:]
+            x = x if self.reduce_include_prefix else x[:, 1+self.reg_tokens:]
             x = x.mean(1)
         else:
             raise NotImplemented()

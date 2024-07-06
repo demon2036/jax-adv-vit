@@ -22,7 +22,7 @@ import optax
 from optax.losses import softmax_cross_entropy_with_integer_labels
 
 from datasets_fork import get_train_dataloader
-from model_register_scale import ViT
+from model_register import ViT
 import os
 import wandb
 from utils2 import AverageMeter, save_checkpoint_in_background
@@ -264,7 +264,7 @@ def create_train_state(rng,
         droppath=droppath,
         use_fc_norm=use_fc_norm,
         reduce_include_prefix=reduce_include_prefix,
-        qk_norm=True
+        qk_norm=False
     )
 
     # cnn = CNN()
