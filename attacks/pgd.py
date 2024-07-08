@@ -52,7 +52,7 @@ def pgd_attack_l2(image, label, state, epsilon=128 / 255, maxiter=10,  key=None)
     # p_natural = state.apply_fn({'params': state.ema_params}, x)
     def jax_re_norm(delta, max_norm):
         b, h, w, c = delta.shape
-        norms = jnp.linalg.norm(delta.reshape(b, -1), ord=2, axis=1, keepdims=True)
+        norms = jnp.linalg.norm(delta.reshape(b, -1), ord=2, axis=1, keepdims=True).reshape(b, 1, 1, 1)
         desired = jnp.clip(norms, a_min=None, a_max=max_norm)
         scale = desired / (1e-6 + norms)
         return delta * scale

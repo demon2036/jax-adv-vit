@@ -10,12 +10,12 @@ from model import ViT
 
 model = ViT()
 rng = jax.random.PRNGKey(0)
-shape = (1, 32, 32, 3)
-x = jnp.ones(shape)
-# x = jax.random.normal(rng, shape)
+shape = (2, 32, 32, 3)
+# x = jnp.ones(shape)
+x = jax.random.normal(rng, shape)
 params = model.init(rng, x)['params']
 
-
+"""
 @jax.jit
 def trade_l2(epsilon=128 / 255, perturb_steps=10):
     delta = 0.001 * jax.random.normal(rng, x.shape)
@@ -54,6 +54,7 @@ def trade_l2(epsilon=128 / 255, perturb_steps=10):
 x_adv = trade_l2()
 print(x_adv)
 """
+
 x_torch = torch.from_numpy(np.array(x))
 x_torch_out = torch.renorm(x_torch, p=2, dim=0, maxnorm=5)
 
@@ -64,7 +65,7 @@ x_torch_out = torch.renorm(x_torch, p=2, dim=0, maxnorm=5)
 
 def clip_grad_norm(grad, max_norm=5):
     b, h, w, c = grad.shape
-    norms = jnp.linalg.norm(grad.reshape(b, -1), ord=2, axis=1, keepdims=True)
+    norms = jnp.linalg.norm(grad.reshape(b, -1), ord=2, axis=1, keepdims=True).reshape(b, 1, 1, 1)
     desired = jnp.clip(norms, a_min=None, a_max=max_norm)
     scale = desired / (1e-6 + norms)
     return grad * scale
@@ -73,7 +74,7 @@ def clip_grad_norm(grad, max_norm=5):
 np_torch_out = np.array(x_torch_out)
 np_jax_out = np.array(clip_grad_norm(x))
 print(np_jax_out - np_torch_out)
-"""
+""""""
 #         for _ in range(perturb_steps):
 #             adv = x_natural + delta
 #
