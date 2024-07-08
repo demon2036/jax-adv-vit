@@ -22,8 +22,8 @@ python  -u main_copy_fork_cpy_l2.py \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
     --eval-interval $((50000 * 5 / $TRAIN_BATCH_SIZE)) \
-    --project cifar1000-ablation-beta \
+    --project cifar10-l2-ablation-beta \
     --name $(basename $0 .sh) \
-    --output-dir "$GCS_DATASET_DIR/ablation/beta" \
+    --output-dir "$GCS_DATASET_DIR/best/cifar10-l2" \
     --beta 3.0 \
     --label-smoothing 0.4
