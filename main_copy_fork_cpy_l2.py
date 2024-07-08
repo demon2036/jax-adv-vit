@@ -38,8 +38,8 @@ def trade(image, label, state, epsilon=128 / 255, maxiter=10, key=None):
     delta = 0.001 * jax.random.normal(key, image.shape)
     optimizer = optax.sgd(epsilon / maxiter * 2)
     opt_state = optimizer.init(delta)
-    p_natural = state.apply_fn({'params': state.ema_params}, image)
-
+    p_natural = state.apply_fn({'params': state.params}, image)
+    p_natural=jax.lax.stop_gradient(p_natural)
     def jax_re_norm(delta, max_norm):
         b, h, w, c = delta.shape
         norms = jnp.linalg.norm(delta.reshape(b, -1), ord=2, axis=1, keepdims=True).reshape(b, 1, 1, 1)
