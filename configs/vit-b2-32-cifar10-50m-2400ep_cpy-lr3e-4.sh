@@ -20,6 +20,6 @@ python -u main_copy.py \
     --weight-decay 0.2 \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
-    --project cifar10-20m \
+    --project cifar1000-20m \
     --name $(basename $0 .sh) \
     --ema-decay 0.999

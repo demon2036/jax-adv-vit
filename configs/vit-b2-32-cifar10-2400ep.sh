@@ -15,5 +15,5 @@ python main.py \
     --pooling 'cls'  \
     --dropout 0.0  \
     --droppath 0.0  \
-    --project cifar10-20m \
+    --project cifar1000-20m \
     --name $(basename $0 .sh) \

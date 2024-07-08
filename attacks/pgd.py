@@ -1,6 +1,7 @@
 import jax.numpy as jnp
 from optax.losses import softmax_cross_entropy_with_integer_labels
 import jax
+import optax
 
 
 def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter=10):
@@ -43,3 +44,34 @@ def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter
     return jnp.clip(image + image_perturbation, 0, 1)
 
 
+#image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter=10
+def pgd_attack_l2(image, label, state, epsilon=128 / 255, maxiter=10,  key=None):
+    delta = 0.001 * jax.random.normal(key, image.shape)
+    optimizer = optax.sgd(epsilon / maxiter * 2)
+    opt_state = optimizer.init(delta)
+    # p_natural = state.apply_fn({'params': state.ema_params}, x)
+    def jax_re_norm(delta, max_norm):
+        b, h, w, c = delta.shape
+        norms = jnp.linalg.norm(delta.reshape(b, -1), ord=2, axis=1, keepdims=True)
+        desired = jnp.clip(norms, a_min=None, a_max=max_norm)
+        scale = desired / (1e-6 + norms)
+        return delta * scale
+
+    def grad_fn(delta, x):
+        adv = x + delta
+        model_out = state.apply_fn({'params': state.ema_params}, adv)
+        # loss = -1 * optax.losses.kl_divergence(nn.log_softmax(model_out), p_natural)
+        loss_value = jnp.mean(softmax_cross_entropy_with_integer_labels(model_out, label))
+        return loss_value
+
+    for _ in range(maxiter):
+        grad = jax.grad(grad_fn)(delta, image)
+        grad_norm = jnp.linalg.norm(grad.reshape(grad.shape[0], -1), axis=1)
+        grad = grad / grad_norm.reshape(-1, 1, 1, 1)
+        updates, opt_state = optimizer.update(grad, opt_state, delta)
+        delta = optax.apply_updates(delta, updates)
+        delta = delta + image
+        delta = jnp.clip(delta, 0, 1) - image
+        delta = jax_re_norm(delta, max_norm=epsilon)
+
+    return jnp.clip(image + delta, 0, 1)

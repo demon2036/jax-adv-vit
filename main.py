@@ -47,7 +47,7 @@ WEIGHT_DECAY = 0.5
 # WEIGHT_DECAY = 0.05
 
 # @markdown The dataset to use.
-DATASET = "cifar10"  # @param{type:"string"}
+DATASET = "cifar10-l2"  # @param{type:"string"}
 # @markdown The amount of L2 regularization to use:
 L2_REG = 0.0001  # @param{type:"number"}
 # @markdown Adversarial perturbations lie within the infinity-ball of radius epsilon.

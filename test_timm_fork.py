@@ -24,7 +24,7 @@ TEST_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Learning rate for the optimizer:
 LEARNING_RATE = 1e-3  # @param{type:"number"}
 # @markdown The dataset to use.
-DATASET = "cifar10"  # @param{type:"string"}
+DATASET = "cifar10-l2"  # @param{type:"string"}
 # @markdown The amount of L2 regularization to use:
 L2_REG = 0.0001  # @param{type:"number"}
 # @markdown Adversarial perturbations lie within the infinity-ball of radius epsilon.
@@ -65,7 +65,7 @@ def train_and_evaluate(args):
     adversary = AutoAttack(model, norm='Linf', eps=8 / 255, )
     # adversary.apgd.n_restarts = 1
 
-    if args.dataset == 'cifar10':
+    if args.dataset == 'cifar10-l2':
 
         test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
                                                     transform=Compose(

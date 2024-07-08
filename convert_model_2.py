@@ -49,7 +49,7 @@ TEST_BATCH_SIZE = 64  # @param{type:"integer"}
 # @markdown Learning rate for the optimizer:
 LEARNING_RATE = 1e-3  # @param{type:"number"}
 # @markdown The dataset to use.
-DATASET = "cifar10"  # @param{type:"string"}
+DATASET = "cifar10-l2"  # @param{type:"string"}
 # @markdown The amount of L2 regularization to use:
 L2_REG = 0.0001  # @param{type:"number"}
 # @markdown Adversarial perturbations lie within the infinity-ball of radius epsilon.
@@ -181,8 +181,8 @@ def train_and_evaluate(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pretrained-model", type=str,
-                        default='checkpoint/jax_model/best/cifar10/vit-l2-32-cifar10-10000ep-ls0.4-gap-beta3-test-ema.msgpack')
+                        default='checkpoint/jax_model/best/cifar10-l2/vit-l2-32-cifar10-l2-10000ep-ls0.4-gap-beta3-test-ema.msgpack')
     parser.add_argument("--checkpoint", type=str,
-                        default='checkpoint/pytorch_model/best/cifar10/vit-l2-32-cifar10-10000ep-ls0.4-gap-beta3-test-ema.pth')
+                        default='checkpoint/pytorch_model/best/cifar10-l2/vit-l2-32-cifar10-l2-10000ep-ls0.4-gap-beta3-test-ema.pth')
 
     train_and_evaluate(parser.parse_args())

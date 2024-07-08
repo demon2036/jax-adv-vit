@@ -40,8 +40,8 @@ class ViTBase:
     labels: int | None = 1000
     layerscale: bool = False
 
-    patch_size: int = 16
-    image_size: int = 224
+    patch_size: int = 2
+    image_size: int = 32
     posemb: Literal["learnable", "sincos2d"] = "learnable"
     pooling: Literal["cls", "gap"] = "gap"
     qk_norm: bool = False

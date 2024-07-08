@@ -106,8 +106,8 @@ def mix_dataloader_iter(train_dataloader, train_origin_dataloader):
 
 
 def get_train_dataloader(batch_size=1024,
-                         shard_path='gs://caster-us-central-2b/cifar10-20m-wds/shards-{00000..01290}.tar',
-                         test_shard_path='gs://caster-us-central-2b/cifar10-test-wds/shards-{00000..00078}.tar',
+                         shard_path='gs://caster-us-central-2b/cifar10-l2-20m-wds/shards-{00000..01290}.tar',
+                         test_shard_path='gs://caster-us-central-2b/cifar10-l2-test-wds/shards-{00000..00078}.tar',
                          origin_shard_path='gs://fbs0_dl_bucket/cifar100-train-wds/shards-{00000..00099}.tar',
                          ):
     total_batch_size = batch_size // jax.process_count()

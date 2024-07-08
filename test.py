@@ -53,7 +53,7 @@ def test(args):
     random.shuffle(seq)
     
 
-    shard_path = './cifar10-50m-wds'
+    shard_path = './cifar10-l2-50m-wds'
     shard_dir_path = Path(shard_path)
     shard_dir_path.mkdir(exist_ok=True)
     shard_filename = str(shard_dir_path / 'shards-%05d.tar')

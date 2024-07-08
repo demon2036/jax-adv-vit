@@ -20,6 +20,6 @@ python -u main_copy.py \
     --train-batch-size $TRAIN_BATCH_SIZE \
     --learning-rate 1e-4 \
     --weight-decay 0.5 \
-    --project cifar10-20m \
+    --project cifar1000-20m \
     --name $(basename $0 .sh) \
     --ema-decay 0.99996

@@ -12,7 +12,7 @@ import webdataset as wds
 from tqdm import tqdm
 
 
-def write_shard(shard_path='./cifar10-test-wds', dataset=None):
+def write_shard(shard_path='./cifar10-l2-test-wds', dataset=None):
     shard_dir_path = Path(shard_path)
     shard_dir_path.mkdir(exist_ok=True)
     shard_filename = str(shard_dir_path / 'shards-%05d.tar')
@@ -37,7 +37,7 @@ def write_shard(shard_path='./cifar10-test-wds', dataset=None):
 
 def get_dataset(dataset_name):
     transform_test = [PILToTensor()]
-    if dataset_name == 'cifar10':
+    if dataset_name == 'cifar10-l2':
         test_dataset = torchvision.datasets.CIFAR10('data', train=False, download=True,
                                                     transform=Compose(
                                                         transform_test))
@@ -63,7 +63,7 @@ def get_dataset(dataset_name):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset-name", type=str)
-    parser.add_argument("--shard-path", type=str, default='./cifar10-test-wds')
+    parser.add_argument("--shard-path", type=str, default='./cifar10-l2-test-wds')
 
     args = parser.parse_args()
     train_dataset, test_dataset = get_dataset(args.dataset_name)
