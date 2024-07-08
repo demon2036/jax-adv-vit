@@ -32,14 +32,13 @@ EPSILON = 128 / 255  # @param{type:"number"}
 os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
 
 
-
-
 def trade(image, label, state, epsilon=128 / 255, maxiter=10, key=None):
     delta = 0.001 * jax.random.normal(key, image.shape)
     optimizer = optax.sgd(epsilon / maxiter * 2)
     opt_state = optimizer.init(delta)
     p_natural = state.apply_fn({'params': state.params}, image)
-    p_natural=jax.lax.stop_gradient(p_natural)
+    p_natural = jax.lax.stop_gradient(p_natural)
+
     def jax_re_norm(delta, max_norm):
         b, h, w, c = delta.shape
         norms = jnp.linalg.norm(delta.reshape(b, -1), ord=2, axis=1, keepdims=True).reshape(b, 1, 1, 1)
@@ -49,7 +48,7 @@ def trade(image, label, state, epsilon=128 / 255, maxiter=10, key=None):
 
     def grad_fn(delta, x):
         adv = x + delta
-        model_out = state.apply_fn({'params': state.ema_params}, adv)
+        model_out = state.apply_fn({'params': state.params}, adv)
         loss_value = -1 * optax.losses.kl_divergence(nn.log_softmax(model_out), p_natural)
         # loss_value = jnp.mean(softmax_cross_entropy_with_integer_labels(model_out, label))
         return loss_value.mean()
@@ -231,7 +230,8 @@ def accuracy(state, data):
     clean_accuracy = jnp.argmax(logits, axis=-1) == labels
 
     maxiter = 20
-    adversarial_images = pgd_attack_l2(inputs, labels, state, epsilon=EPSILON, maxiter=maxiter,key=jax.random.PRNGKey(0))
+    adversarial_images = pgd_attack_l2(inputs, labels, state, epsilon=EPSILON, maxiter=maxiter,
+                                       key=jax.random.PRNGKey(0))
     logits_adv = state.apply_fn({"params": state.ema_params}, adversarial_images)
     adversarial_accuracy = jnp.argmax(logits_adv, axis=-1) == labels
     metrics = {"adversarial accuracy": adversarial_accuracy, "accuracy": clean_accuracy, "num_samples": labels != -1}
