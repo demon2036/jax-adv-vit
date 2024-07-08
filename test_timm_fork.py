@@ -48,7 +48,7 @@ def train_and_evaluate(args):
 
     # model = timm.create_model("vit_tiny_patch16_224", init_values=1e-4)
     print(type(model))
-    state_dict=torch.load(args.checkpoint)
+    state_dict = torch.load(args.checkpoint)
     # state_dict['head.weight']=state_dict['head.weight'][:10]
     # state_dict['head.bias'] = state_dict['head.bias'][:10]
     print(model.load_state_dict(state_dict))
@@ -62,10 +62,11 @@ def train_and_evaluate(args):
 
     from autoattack import AutoAttack
     # adversary = AutoAttack(model, norm='Linf', eps=8 / 255, version='custom', attacks_to_run=['apgd-ce', 'apgd-dlr'])
-    adversary = AutoAttack(model, norm='Linf', eps=8 / 255, )
+    # adversary = AutoAttack(model, norm='Linf', eps=8 / 255, )
+    adversary = AutoAttack(model, norm='L2', eps=0.5, )
     # adversary.apgd.n_restarts = 1
 
-    if args.dataset == 'cifar10-l2':
+    if args.dataset == 'cifar10':
 
         test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
                                                     transform=Compose(
@@ -97,16 +98,15 @@ def train_and_evaluate(args):
         # x_test = x_test.cuda()
         # y_test = y_test.cuda()
 
-        _, advs, success = fb.attacks.LinfPGD( random_start=True)(fmodel, x_test.to('cuda:0'),
-                                                                           y_test.to('cuda:0'), epsilons=[8 / 255])
+        # _, advs, success = fb.attacks.LinfPGD( random_start=True)(fmodel, x_test.to('cuda:0'),
+        #                                                                    y_test.to('cuda:0'), epsilons=[8 / 255])
+        _, advs, success = fb.attacks.L2PGD()(fmodel, x_test.to('cuda:0'), y_test.to('cuda:0'), epsilons=[0.5])
 
         # _, advs, success = fb.attacks.LinfPGD(steps=10,rel_stepsize=2/255,random_start=True)(fmodel, x_test.to('cuda:0'),
         #                                                          y_test.to('cuda:0'), epsilons=[8 / 255])
         # print(success.shape)
         print(success[success == True].sum() / success.shape[1])
-     """
-
-
+    """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

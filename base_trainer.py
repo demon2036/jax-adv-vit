@@ -11,8 +11,8 @@ from model import ViT
 model = ViT()
 rng = jax.random.PRNGKey(0)
 shape = (2, 32, 32, 3)
-# x = jnp.ones(shape)
-x = jax.random.normal(rng, shape)
+x = jnp.ones(shape)
+# x = jax.random.normal(rng, shape)
 params = model.init(rng, x)['params']
 
 """
@@ -67,7 +67,7 @@ def clip_grad_norm(grad, max_norm=5):
     b, h, w, c = grad.shape
     norms = jnp.linalg.norm(grad.reshape(b, -1), ord=2, axis=1, keepdims=True).reshape(b, 1, 1, 1)
     desired = jnp.clip(norms, a_min=None, a_max=max_norm)
-    scale = desired / (1e-6 + norms)
+    scale = desired / (1e-7 + norms)
     return grad * scale
 
 

@@ -61,7 +61,7 @@ def pgd_attack_l2(image, label, state, epsilon=128 / 255, maxiter=10,  key=None)
         adv = x + delta
         model_out = state.apply_fn({'params': state.ema_params}, adv)
         # loss = -1 * optax.losses.kl_divergence(nn.log_softmax(model_out), p_natural)
-        loss_value = jnp.mean(softmax_cross_entropy_with_integer_labels(model_out, label))
+        loss_value = -jnp.mean(softmax_cross_entropy_with_integer_labels(model_out, label))
         return loss_value
 
     for _ in range(maxiter):
