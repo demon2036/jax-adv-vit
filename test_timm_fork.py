@@ -63,7 +63,12 @@ def train_and_evaluate(args):
     from autoattack import AutoAttack
     # adversary = AutoAttack(model, norm='Linf', eps=8 / 255, version='custom', attacks_to_run=['apgd-ce', 'apgd-dlr'])
     # adversary = AutoAttack(model, norm='Linf', eps=8 / 255, )
-    adversary = AutoAttack(model, norm='L2', eps=0.5, )
+    if args.norm=='l2':
+        adversary = AutoAttack(model, norm='L2', eps=0.5, )
+    elif args.norm=='linf':
+        adversary = AutoAttack(model, norm='Linf', eps=8 / 255, )
+    else:
+        raise NotImplemented()
     # adversary.apgd.n_restarts = 1
 
     if args.dataset == 'cifar10':
@@ -111,6 +116,7 @@ def train_and_evaluate(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint")
+    parser.add_argument("--norm", type=str, default='linf')
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--dim", type=int, default=768)
     parser.add_argument("--heads", type=int, default=12)
