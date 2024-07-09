@@ -25,5 +25,5 @@ python  -u main_copy_fork_cpy_l2.py \
     --project cifar10-l2-ablation-beta \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/best/cifar10-l2" \
-    --beta 3.0 \
+    --beta 5.0 \
     --label-smoothing 0.4
