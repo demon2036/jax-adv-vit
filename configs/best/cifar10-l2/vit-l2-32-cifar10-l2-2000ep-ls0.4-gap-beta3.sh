@@ -5,9 +5,9 @@ python  -u main_copy_fork_cpy_l2.py \
     --train-dataset-shards "$GCS_DATASET_DIR/cifar10-50m-wds/shards-{00000..00999}.tar" \
     --valid-dataset-shards  "$GCS_DATASET_DIR/cifar10-test-wds/shards-{00000..00099}.tar" \
     --train-origin-dataset-shards "$GCS_DATASET_DIR/cifar10-train-wds/shards-{00000..00099}.tar" \
-    --layers 12  \
-    --dim 768  \
-    --heads 12  \
+    --layers 24  \
+    --dim 1024  \
+    --heads 16  \
     --labels 10  \
     --layerscale   \
     --patch-size 2  \
@@ -25,5 +25,5 @@ python  -u main_copy_fork_cpy_l2.py \
     --project cifar10-l2-ablation-beta \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/best/cifar10-l2" \
-    --beta 5.0 \
+    --beta 3.0 \
     --label-smoothing 0.4
