@@ -147,10 +147,10 @@ def get_layer_index_fn(path: tuple[DictKey, ...], _: Any, num_layers: int = 12) 
     return num_layers
 
 
-def load_pretrained_params(args: argparse.Namespace, params: ArrayTree) -> ArrayTree:
-    with wds.gopen(args.pretrained_ckpt) as fp:
+def load_pretrained_params(pretrained_ckpt, params: ArrayTree) -> ArrayTree:
+    with wds.gopen(pretrained_ckpt) as fp:
         new_params = flax.serialization.msgpack_restore(fp.read())
-
+    return new_params
     # The positional embeddings will be resized when there is a difference in image
     # resolutions between pretraining and finetuning stage.
     if (

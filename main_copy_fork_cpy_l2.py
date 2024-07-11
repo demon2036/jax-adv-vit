@@ -25,7 +25,7 @@ from datasets_fork import get_train_dataloader
 from model import ViT
 import os
 import wandb
-from utils2 import AverageMeter, save_checkpoint_in_background
+from utils2 import AverageMeter, save_checkpoint_in_background, load_pretrained_params
 
 EPSILON = 128 / 255  # @param{type:"number"}
 
@@ -143,7 +143,7 @@ def create_train_state(rng,
                        use_fc_norm: bool = True,
                        reduce_include_prefix: bool = False,
                        b1=0.95,
-                       b2=0.98
+                       b2=0.98,pretrained_ckpt=None
 
                        ):
     """Creates initial `TrainState`."""
@@ -170,6 +170,9 @@ def create_train_state(rng,
     image_shape = [1, 32, 32, 3]
 
     params = cnn.init(rng, jnp.ones(image_shape))['params']
+
+    if pretrained_ckpt is not None:
+        params = load_pretrained_params(pretrained_ckpt, params)
 
     @partial(optax.inject_hyperparams, hyperparam_dtype=jnp.float32)
     def create_optimizer_fn(
@@ -284,8 +287,14 @@ def train_and_evaluate(args
                                reduce_include_prefix=args.reduce_include_prefix,
                                b1=args.adam_b1,
                                b2=args.adam_b2,
-                               clip_grad=0.0
+                               clip_grad=0.0,
+                               pretrained_ckpt=args.pretrained_ckpt
                                )
+
+    if 'step' in state.params:
+        init_step=state.params['step']
+    else:
+        init_step=1
 
     state = flax.jax_utils.replicate(state)
 
@@ -324,7 +333,7 @@ def train_and_evaluate(args
 
     train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
-    for step in tqdm.tqdm(range(1, args.training_steps)):
+    for step in tqdm.tqdm(range(init_step, args.training_steps)):
         rng, input_rng = jax.random.split(rng)
         data = next(train_dataloader_iter)
 
@@ -358,7 +367,7 @@ def train_and_evaluate(args
                 #                               output_dir=os.getenv('GCS_DATASET_DIR'))
 
                 params = flax.jax_utils.unreplicate(state.ema_params)
-                params_bytes = msgpack_serialize(params)
+                params_bytes = msgpack_serialize(params | {'step': step})
                 save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
                                               output_dir=args.output_dir)
 
@@ -412,7 +421,7 @@ if __name__ == "__main__":
     # parser.add_argument("--mixup-seed", type=int, default=random.randint(0, 1000000))
     # parser.add_argument("--dropout-seed", type=int, default=random.randint(0, 1000000))
     # parser.add_argument("--shuffle-seed", type=int, default=random.randint(0, 1000000))
-    # parser.add_argument("--pretrained-ckpt")
+    parser.add_argument("--pretrained-ckpt")
     # parser.add_argument("--label-mapping")
     #
     # parser.add_argument("--optimizer", default="adamw")
