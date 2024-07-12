@@ -361,6 +361,7 @@ def train_and_evaluate(args
             # if jax.process_index() == 0:
             #     average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
             if jax.process_index() == 0:
+                pass
                 # metrics = average_meter.summary("val/")
                 # num_samples = metrics.pop("val/num_samples")
                 # metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
