@@ -374,7 +374,9 @@ def train_and_evaluate(args
                 postfix = "ema"
                 name = args.name
                 output_dir = args.output_dir
+                output_dir='/root'
                 filename = os.path.join(output_dir, f"{name}-{postfix}")
+                print(filename)
 
                 checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
                                   force=True)
