@@ -365,7 +365,7 @@ def train_and_evaluate(args
 
     orbax_checkpointer = ocp.PyTreeCheckpointer()
     save_args = orbax_utils.save_args_from_target(save_data)
-    orbax_checkpointer.save(filename, save_data, save_args=save_args)
+    orbax_checkpointer.save(filename, save_data, save_args=save_args,force=True)
 
 
 
