@@ -340,12 +340,12 @@ def train_and_evaluate(args
             wandb.log(metrics, step)
 
         if step % args.eval_interval == 0:
-            for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
-                data = shard(jax.tree_util.tree_map(np.asarray, data))
-                metrics = accuracy(state, data)
-
-                if jax.process_index() == 0:
-                    average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
+            # for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
+            #     data = shard(jax.tree_util.tree_map(np.asarray, data))
+            #     metrics = accuracy(state, data)
+            #
+            #     if jax.process_index() == 0:
+            #         average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
             if jax.process_index() == 0:
                 metrics = average_meter.summary("val/")
                 num_samples = metrics.pop("val/num_samples")
