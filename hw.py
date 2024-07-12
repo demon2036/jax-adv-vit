@@ -1,7 +1,7 @@
 import jax
 import orbax.checkpoint as ocp
 
-jax.distributed.initialize()
+# jax.distributed.initialize()
 
 import argparse
 from typing import Any
@@ -456,7 +456,7 @@ if __name__ == "__main__":
     #
     parser.add_argument("--project")
     parser.add_argument("--name")
-    # parser.add_argument("--ipaddr")
-    # parser.add_argument("--hostname")
+    parser.add_argument("--ipaddr")
+    parser.add_argument("--hostname")
     parser.add_argument("--output-dir", default=".")
     train_and_evaluate(parser.parse_args())
