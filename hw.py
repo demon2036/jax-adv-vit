@@ -342,7 +342,7 @@ def train_and_evaluate(args
     postfix = "ema"
     name = args.name
     output_dir = args.output_dir
-    output_dir = '/home/jtitor/PycharmProjects/jax-dit/test/a.ckpt'
+    # output_dir = '/home/jtitor/PycharmProjects/jax-dit/test/a.ckpt'
     filename = os.path.join(output_dir, f"{name}-{postfix}")
     print(filename)
 
