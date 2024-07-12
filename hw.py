@@ -356,7 +356,7 @@ def train_and_evaluate(args
 
     train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
-    for step in tqdm.tqdm(range(init_step, args.training_steps),initial=init_step):
+    for step in tqdm.tqdm(range(init_step, args.training_steps),initial=init_step,total=args.training_steps):
         rng, input_rng = jax.random.split(rng)
         data = next(train_dataloader_iter)
 
