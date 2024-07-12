@@ -362,10 +362,10 @@ def train_and_evaluate(args
     #
     #
     # orbax_checkpointer.wait_until_finished()
-
-    orbax_checkpointer = ocp.PyTreeCheckpointer()
-    save_args = orbax_utils.save_args_from_target(save_data)
-    orbax_checkpointer.save(filename, save_data, save_args=save_args,force=True)
+    if jax.process_index()==0:
+        orbax_checkpointer = ocp.PyTreeCheckpointer()
+        save_args = orbax_utils.save_args_from_target(save_data)
+        orbax_checkpointer.save(filename, save_data, save_args=save_args,force=True)
 
 
 
