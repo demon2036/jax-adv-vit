@@ -350,7 +350,7 @@ def train_and_evaluate(args
 
     from flax.training import orbax_utils
     print(1)
-    orbax_checkpointer = ocp.AsyncCheckpointer(ocp.StandardCheckpointHandler())
+    orbax_checkpointer = ocp.AsyncCheckpointer(ocp.PyTreeCheckpointHandler())
     save_args = orbax_utils.save_args_from_target(save_data)
     orbax_checkpointer.save(filename, save_data, save_args=save_args)
 
