@@ -19,6 +19,22 @@ mngr = ocp.CheckpointManager(
     path, options=options, item_names=('state', 'extra_params')
 )
 print(path)
+
+
+
+state=replicate(state)
+
+def p(state):
+    return jax.tree_util.tree_map(lambda x:x+1,state)
+
+state=jax.pmap(p,axis_name='batch')(state)
+
+
+state=unreplicate(state)
+
+
+
+
 for step in range(11):  # [0, 1, ..., 10]
     mngr.save(
         step,
@@ -29,8 +45,9 @@ for step in range(11):  # [0, 1, ..., 10]
     )
 
 
-state=replicate(state)
-state=unreplicate(state)
+
+
+
 
 mngr.wait_until_finished()
 restored = mngr.restore(10)
