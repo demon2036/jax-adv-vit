@@ -299,19 +299,22 @@ def train_and_evaluate(args
     else:
         init_step = 1
 
-    state = flax.jax_utils.replicate(state)
-    postfix = "ema"
-    name = args.name
-    output_dir = args.output_dir
-    output_dir = '/home/jtitor/pythonProject1/jax_vit'
-    filename = os.path.join(output_dir, f"{name}-{postfix}")
-    print(filename)
-    # state_cpu = jax.device_get(flax.jax_utils.unreplicate(state), )
-    state_cpu = flax.jax_utils.unreplicate(state),
-    checkpointer.save(filename, args=ocp.args.StandardSave(state_cpu),
-                      force=True)
 
-    print(1)
+    if jax.process_index()==0:
+
+        state = flax.jax_utils.replicate(state)
+        postfix = "ema"
+        name = args.name
+        output_dir = args.output_dir
+        output_dir = '/home/jtitor/pythonProject1/jax_vit'
+        filename = os.path.join(output_dir, f"{name}-{postfix}")
+        print(filename)
+        # state_cpu = jax.device_get(flax.jax_utils.unreplicate(state), )
+        state_cpu = flax.jax_utils.unreplicate(state),
+        checkpointer.save(filename, args=ocp.args.StandardSave(state_cpu),
+                          force=True)
+
+        print(1)
     return state
 
 
