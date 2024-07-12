@@ -340,32 +340,32 @@ def train_and_evaluate(args
     train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
     for step in tqdm.tqdm(range(init_step, args.training_steps)):
-        # rng, input_rng = jax.random.split(rng)
-        # data = next(train_dataloader_iter)
-        #
-        # rng, train_step_key = jax.random.split(rng, num=2)
-        # train_step_key = shard_prng_key(train_step_key)
-        #
-        # state, metrics = apply_model_trade(state, data, train_step_key)
-        #
-        # if jax.process_index() == 0 and step % args.log_interval == 0:
-        #     average_meter.update(**flax.jax_utils.unreplicate(metrics))
-        #     metrics = average_meter.summary('train/')
-        #     # print(metrics)
-        #     wandb.log(metrics, step)
+        rng, input_rng = jax.random.split(rng)
+        data = next(train_dataloader_iter)
+
+        rng, train_step_key = jax.random.split(rng, num=2)
+        train_step_key = shard_prng_key(train_step_key)
+
+        state, metrics = apply_model_trade(state, data, train_step_key)
+
+        if jax.process_index() == 0 and step % args.log_interval == 0:
+            average_meter.update(**flax.jax_utils.unreplicate(metrics))
+            metrics = average_meter.summary('train/')
+            # print(metrics)
+            wandb.log(metrics, step)
 
         if step % args.eval_interval == 0:
-            # for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
-            #     data = shard(jax.tree_util.tree_map(np.asarray, data))
-            #     metrics = accuracy(state, data)
-            #
-            #     if jax.process_index() == 0:
-            #         average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
-            # if jax.process_index() == 0:
-            #     metrics = average_meter.summary("val/")
-            #     num_samples = metrics.pop("val/num_samples")
-            #     metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
-            #     wandb.log(metrics, step)
+            for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
+                data = shard(jax.tree_util.tree_map(np.asarray, data))
+                metrics = accuracy(state, data)
+
+                if jax.process_index() == 0:
+                    average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
+            if jax.process_index() == 0:
+                metrics = average_meter.summary("val/")
+                num_samples = metrics.pop("val/num_samples")
+                metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
+                wandb.log(metrics, step)
             #
             #     # params = flax.jax_utils.unreplicate(state.params)
             #     # params_bytes = msgpack_serialize(params)
@@ -382,9 +382,7 @@ def train_and_evaluate(args
                               force=True)
 
 
-            print(1)
-            while True:
-                pass
+
 
                 # params = flax.jax_utils.unreplicate(state.ema_params)
                 # params_bytes = msgpack_serialize(params )
