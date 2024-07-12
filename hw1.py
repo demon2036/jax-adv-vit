@@ -30,7 +30,7 @@ def p(state):
 # state=jax.pmap(p,axis_name='batch')(state)
 
 
-state=unreplicate(state)
+# state=unreplicate(state)
 
 
 
