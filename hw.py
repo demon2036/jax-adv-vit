@@ -293,7 +293,18 @@ def train_and_evaluate(args
                                )
 
     checkpointer = ocp.AsyncCheckpointer(ocp.StandardCheckpointHandler())
+    ckpt = {'model': state}
+
+    postfix = "ema"
+    name = args.name
+    output_dir = args.output_dir
+
+    filename = os.path.join(output_dir, f"{name}-{postfix}")
+    print(filename)
+
     if args.pretrained_ckpt is not None:
+
+        state = checkpointer.restore(filename, item=ckpt)['model']
 
         restored = checkpointer.restore(args.pretrained_ckpt)
         print(restored)
@@ -376,21 +387,15 @@ def train_and_evaluate(args
             #     # params_bytes = msgpack_serialize(params)
             #     # save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
             #     #                               output_dir=os.getenv('GCS_DATASET_DIR'))
-            postfix = "ema"
-            name = args.name
-            output_dir = args.output_dir
 
-            filename = os.path.join(output_dir, f"{name}-{postfix}")
-            print(filename)
 
             ckpt = {'model': jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))}
-            orbax_checkpointer = ocp.PyTreeCheckpointer()
+            # orbax_checkpointer = ocp.PyTreeCheckpointer()
             save_args = orbax_utils.save_args_from_target(ckpt)
-            orbax_checkpointer.save(filename, ckpt, save_args=save_args,force=True)
+            checkpointer.save(filename, ckpt, save_args=save_args,force=True)
 
-            ckpt = {'model': state}
-            state = orbax_checkpointer.restore(filename, item=ckpt)['model']
-            state=flax.jax_utils.replicate(state)
+
+            # state=flax.jax_utils.replicate(state)
 
 
 
