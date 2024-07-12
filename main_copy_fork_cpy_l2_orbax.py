@@ -175,7 +175,6 @@ def create_train_state(rng,
     # if pretrained_ckpt is not None:
     #     params = load_pretrained_params(pretrained_ckpt, params)
 
-
     @partial(optax.inject_hyperparams, hyperparam_dtype=jnp.float32)
     def create_optimizer_fn(
             learning_rate: optax.Schedule,
@@ -267,31 +266,31 @@ def train_and_evaluate(args
 
     rng, init_rng = jax.random.split(rng)
     state = create_train_state(init_rng,
-                                          layers=args.layers,
-                                          dim=args.dim,
-                                          heads=args.heads,
-                                          labels=args.labels,
-                                          layerscale=args.layerscale,
-                                          patch_size=args.patch_size,
-                                          image_size=args.image_size,
-                                          posemb=args.posemb,
-                                          pooling=args.pooling,
-                                          dropout=args.dropout,
-                                          droppath=args.droppath,
-                                          warmup_steps=args.warmup_steps,
-                                          training_steps=args.training_steps,
-                                          learning_rate=args.learning_rate,
-                                          weight_decay=args.weight_decay,
-                                          ema_decay=args.ema_decay,
-                                          trade_beta=args.beta,
-                                          label_smoothing=args.label_smoothing,
-                                          use_fc_norm=args.use_fc_norm,
-                                          reduce_include_prefix=args.reduce_include_prefix,
-                                          b1=args.adam_b1,
-                                          b2=args.adam_b2,
-                                          clip_grad=0.0,
+                               layers=args.layers,
+                               dim=args.dim,
+                               heads=args.heads,
+                               labels=args.labels,
+                               layerscale=args.layerscale,
+                               patch_size=args.patch_size,
+                               image_size=args.image_size,
+                               posemb=args.posemb,
+                               pooling=args.pooling,
+                               dropout=args.dropout,
+                               droppath=args.droppath,
+                               warmup_steps=args.warmup_steps,
+                               training_steps=args.training_steps,
+                               learning_rate=args.learning_rate,
+                               weight_decay=args.weight_decay,
+                               ema_decay=args.ema_decay,
+                               trade_beta=args.beta,
+                               label_smoothing=args.label_smoothing,
+                               use_fc_norm=args.use_fc_norm,
+                               reduce_include_prefix=args.reduce_include_prefix,
+                               b1=args.adam_b1,
+                               b2=args.adam_b2,
+                               clip_grad=0.0,
 
-                                          )
+                               )
 
     checkpointer = ocp.AsyncCheckpointer(ocp.StandardCheckpointHandler())
     if args.pretrained_ckpt is not None:
@@ -301,6 +300,19 @@ def train_and_evaluate(args
         init_step = 1
 
     state = flax.jax_utils.replicate(state)
+
+    postfix = "ema"
+    name = args.name,
+    output_dir = args.output_dir
+    filename = os.path.join(output_dir, f"{name}-{postfix}")
+    print(filename)
+    checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
+                      force=True)
+
+    print('hellow')
+    while True:
+        pass
+
 
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
@@ -360,13 +372,12 @@ def train_and_evaluate(args
                 # save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
                 #                               output_dir=os.getenv('GCS_DATASET_DIR'))
                 postfix = "ema"
-                name=args.name,
+                name = args.name,
                 output_dir = args.output_dir
                 filename = os.path.join(output_dir, f"{name}-{postfix}")
 
                 checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
                                   force=True)
-
 
                 # params = flax.jax_utils.unreplicate(state.ema_params)
                 # params_bytes = msgpack_serialize(params )
