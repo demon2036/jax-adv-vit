@@ -300,18 +300,18 @@ def train_and_evaluate(args
         init_step = 1
 
     state = flax.jax_utils.replicate(state)
-    if jax.process_index() == 0:
-        postfix = "ema"
-        name = args.name,
-        output_dir = args.output_dir
-        filename = os.path.join(output_dir, f"{name}-{postfix}")
-        print(filename)
-        checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
-                          force=True)
-
-        print('hellow')
-    while True:
-        pass
+    # if jax.process_index() == 0:
+    #     postfix = "ema"
+    #     name = args.name
+    #     output_dir = args.output_dir
+    #     filename = os.path.join(output_dir, f"{name}-{postfix}")
+    #     print(filename)
+    #     checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
+    #                       force=True)
+    #
+    #     print('hellow')
+    # while True:
+    #     pass
 
 
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
@@ -372,7 +372,7 @@ def train_and_evaluate(args
                 # save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
                 #                               output_dir=os.getenv('GCS_DATASET_DIR'))
                 postfix = "ema"
-                name = args.name,
+                name = args.name
                 output_dir = args.output_dir
                 filename = os.path.join(output_dir, f"{name}-{postfix}")
 
