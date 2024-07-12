@@ -342,7 +342,7 @@ def train_and_evaluate(args
     postfix = "ema"
     name = args.name
     output_dir = args.output_dir
-    output_dir = '/root'
+    output_dir = '/root/test'
     filename = os.path.join(output_dir, f"{name}-{postfix}")
     print(filename)
 
@@ -350,9 +350,11 @@ def train_and_evaluate(args
 
     from flax.training import orbax_utils
     print(1)
-    orbax_checkpointer = ocp.Checkpointer(ocp.StandardCheckpointHandler())
+    orbax_checkpointer = ocp.AsyncCheckpointer(ocp.StandardCheckpointHandler())
     save_args = orbax_utils.save_args_from_target(save_data)
     orbax_checkpointer.save('/tmp/flax_ckpt/orbax/single_save', save_data, save_args=save_args)
+
+    orbax_checkpointer.wait_until_finished()
     print(1)
     # checkpointer.save(filename, args=ocp.args.StandardSave(save_data),
     #                   force=False)
