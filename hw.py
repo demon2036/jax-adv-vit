@@ -295,8 +295,8 @@ def train_and_evaluate(args
     checkpointer = ocp.AsyncCheckpointer(ocp.StandardCheckpointHandler())
     if args.pretrained_ckpt is not None:
 
-
-        restored=checkpointer.restore(args.pretrained_ckpt)
+        restored = checkpointer.restore(args.pretrained_ckpt)
+        print(restored)
 
         state = state.replace(**restored)
         init_step = state.step + 1
@@ -318,7 +318,6 @@ def train_and_evaluate(args
     #     print('hellow')
     # while True:
     #     pass
-
 
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
@@ -387,13 +386,10 @@ def train_and_evaluate(args
             checkpointer.save(filename, args=ocp.args.StandardSave(state_host),
                               force=True)
 
-
-
-
-                # params = flax.jax_utils.unreplicate(state.ema_params)
-                # params_bytes = msgpack_serialize(params )
-                # save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
-                #                               output_dir=args.output_dir)
+            # params = flax.jax_utils.unreplicate(state.ema_params)
+            # params_bytes = msgpack_serialize(params )
+            # save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
+            #                               output_dir=args.output_dir)
 
     return state
 
