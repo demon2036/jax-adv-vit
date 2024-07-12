@@ -27,7 +27,7 @@ state=replicate(state)
 def p(state):
     return jax.tree_util.tree_map(lambda x:x+1,state)
 
-state=jax.pmap(p,axis_name='batch')(state)
+# state=jax.pmap(p,axis_name='batch')(state)
 
 
 state=unreplicate(state)
