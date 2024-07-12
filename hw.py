@@ -313,7 +313,6 @@ def train_and_evaluate(args
     # while True:
     #     pass
 
-
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
                                                                   test_shard_path=args.valid_dataset_shards,
@@ -377,17 +376,14 @@ def train_and_evaluate(args
 
             filename = os.path.join(output_dir, f"{name}-{postfix}")
             print(filename)
+            path = ocp.test_utils.erase_and_create_empty(filename)
 
-            checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
-                              force=True)
+            checkpointer.save(path, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)), force=True)
 
-
-
-
-                # params = flax.jax_utils.unreplicate(state.ema_params)
-                # params_bytes = msgpack_serialize(params )
-                # save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
-                #                               output_dir=args.output_dir)
+            # params = flax.jax_utils.unreplicate(state.ema_params)
+            # params_bytes = msgpack_serialize(params )
+            # save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
+            #                               output_dir=args.output_dir)
 
     return state
 
