@@ -386,9 +386,13 @@ def train_and_evaluate(args
     # filename = '.'
     # erase_and_create_empty(filename)
     print(filename)
-    save_data = flax.jax_utils.unreplicate(state)
-
+    # save_data = flax.jax_utils.unreplicate(state)
+    state = jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))
     orbax_checkpointer = ocp.PyTreeCheckpointer()
+    from flax.training import checkpoints
+    checkpoints.save_checkpoint_multiprocess(filename, state, 1, keep=0)
+
+
     options = ocp.CheckpointManagerOptions(max_to_keep=1, create=False)
     checkpoint_manager = ocp.CheckpointManager(
         filename, orbax_checkpointer, options)
