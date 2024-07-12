@@ -2,24 +2,27 @@ import numpy as np
 import orbax.checkpoint as ocp
 import jax
 
-path = ocp.test_utils.erase_and_create_empty('/tmp/my-checkpoints/')
-
-
-my_tree = {
+path = ocp.test_utils.erase_and_create_empty('/tmp/checkpoint_manager')
+state = {
     'a': np.arange(8),
-    'b': {
-        'c': 42,
-        'd': np.arange(16),
-    },
+    'b': np.arange(16),
 }
-abstract_my_tree = jax.tree_util.tree_map(
-    ocp.utils.to_shape_dtype_struct, my_tree)
+extra_params = [42, 43]
 
 
-checkpointer = ocp.StandardCheckpointer()
-# 'checkpoint_name' must not already exist.
-checkpointer.save(path / 'checkpoint_name', my_tree)
-print(checkpointer.restore(
-    path / 'checkpoint_name/',
-    args=ocp.args.StandardRestore(abstract_my_tree)
-))
+options = ocp.CheckpointManagerOptions(max_to_keep=3, save_interval_steps=2)
+mngr = ocp.CheckpointManager(
+    path, options=options, item_names=('state', 'extra_params')
+)
+
+for step in range(11):  # [0, 1, ..., 10]
+  mngr.save(
+      step,
+      args=ocp.args.Composite(
+          state=ocp.args.StandardSave(state),
+          extra_params=ocp.args.JsonSave(extra_params),
+      ),
+  )
+mngr.wait_until_finished()
+restored = mngr.restore(10)
+restored_state, restored_extra_params = restored.state, restored.extra_params
