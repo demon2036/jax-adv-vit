@@ -15,7 +15,7 @@ import torchvision
 import tqdm
 from flax.training.common_utils import shard, shard_prng_key
 from flax import linen as nn
-from flax.training import train_state
+from flax.training import train_state, orbax_utils
 
 import jax.numpy as jnp
 import numpy as np
@@ -360,17 +360,17 @@ def train_and_evaluate(args
             wandb.log(metrics, step)
 
         if step % args.eval_interval == 0:
-            for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
-                data = shard(jax.tree_util.tree_map(np.asarray, data))
-                metrics = accuracy(state, data)
-
-                if jax.process_index() == 0:
-                    average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
-            if jax.process_index() == 0:
-                metrics = average_meter.summary("val/")
-                num_samples = metrics.pop("val/num_samples")
-                metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
-                wandb.log(metrics, step)
+            # for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
+            #     data = shard(jax.tree_util.tree_map(np.asarray, data))
+            #     metrics = accuracy(state, data)
+            #
+            #     if jax.process_index() == 0:
+            #         average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
+            # if jax.process_index() == 0:
+            #     metrics = average_meter.summary("val/")
+            #     num_samples = metrics.pop("val/num_samples")
+            #     metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
+            #     wandb.log(metrics, step)
             #
             #     # params = flax.jax_utils.unreplicate(state.params)
             #     # params_bytes = msgpack_serialize(params)
@@ -382,9 +382,24 @@ def train_and_evaluate(args
 
             filename = os.path.join(output_dir, f"{name}-{postfix}")
             print(filename)
-            state_host = jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))
-            checkpointer.save(filename, args=ocp.args.StandardSave(state_host),
-                              force=True)
+
+            ckpt = {'model': jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))}
+            orbax_checkpointer = ocp.PyTreeCheckpointer()
+            save_args = orbax_utils.save_args_from_target(ckpt)
+            orbax_checkpointer.save(filename, ckpt, save_args=save_args,force=True)
+
+            ckpt = {'model': state}
+            state = orbax_checkpointer.restore(filename, item=ckpt)['model']
+            state=flax.jax_utils.replicate(state)
+
+
+
+
+
+
+            # state_host =
+            # checkpointer.save(filename, args=ocp.args.StandardSave(state_host),
+            #                   force=True)
 
             # params = flax.jax_utils.unreplicate(state.ema_params)
             # params_bytes = msgpack_serialize(params )
