@@ -389,7 +389,7 @@ def train_and_evaluate(args
     save_data = flax.jax_utils.unreplicate(state)
 
     orbax_checkpointer = ocp.PyTreeCheckpointer()
-    options = ocp.CheckpointManagerOptions(max_to_keep=1, create=True)
+    options = ocp.CheckpointManagerOptions(max_to_keep=1, create=False)
     checkpoint_manager = ocp.CheckpointManager(
         filename, orbax_checkpointer, options)
 
