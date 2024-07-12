@@ -178,7 +178,7 @@ def create_train_state(rng,
         init_step = params['step']
         del params['step']
     else:
-        init_step = 1
+        init_step = 0
         raise NotImplementedError()
 
     @partial(optax.inject_hyperparams, hyperparam_dtype=jnp.float32)
@@ -223,7 +223,7 @@ def create_train_state(rng,
     tx = create_optimizer_fn(learning_rate)
 
     return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay,
-                                trade_beta=trade_beta, label_smoothing=label_smoothing),init_step
+                                trade_beta=trade_beta, label_smoothing=label_smoothing, step=init_step)
 
 
 @partial(jax.pmap, axis_name="batch", )
@@ -271,7 +271,7 @@ def train_and_evaluate(args
     rng = jax.random.key(0)
 
     rng, init_rng = jax.random.split(rng)
-    state,init_step = create_train_state(init_rng,
+    state = create_train_state(init_rng,
                                layers=args.layers,
                                dim=args.dim,
                                heads=args.heads,
@@ -297,9 +297,7 @@ def train_and_evaluate(args
                                clip_grad=0.0,
                                pretrained_ckpt=args.pretrained_ckpt
                                )
-
-
-
+    init_step = state.step+1
     state = flax.jax_utils.replicate(state)
 
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
