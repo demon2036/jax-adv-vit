@@ -307,10 +307,10 @@ def train_and_evaluate(args
 
         state = checkpointer.restore(filename, item=ckpt)['model']
 
-        restored = checkpointer.restore(args.pretrained_ckpt)
-        print(restored)
+        # restored = checkpointer.restore(args.pretrained_ckpt)
+        # print(restored)
 
-        state = state.replace(**restored)
+        # state = state.replace(**restored)
         init_step = state.step + 1
     else:
         init_step = 1
