@@ -1,5 +1,6 @@
 import jax
 import orbax.checkpoint as ocp
+from orbax.checkpoint.test_utils import erase_and_create_empty
 from orbax.checkpoint.utils import fully_replicated_host_local_array_to_global_array
 
 jax.distributed.initialize()
@@ -344,6 +345,8 @@ def train_and_evaluate(args
     output_dir = args.output_dir
     # output_dir = '/home/jtitor/PycharmProjects/jax-dit/test/a.ckpt'
     filename = os.path.join(output_dir, f"{name}-{postfix}")
+    filename='gs://caster-us-central-2b-2/test'
+    erase_and_create_empty('test')
     print(filename)
 
     save_data = flax.jax_utils.unreplicate(state)
