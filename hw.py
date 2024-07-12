@@ -358,29 +358,52 @@ def train_and_evaluate(args
     #
     # orbax_checkpointer.wait_until_finished()
     from flax.training import orbax_utils
-    if jax.process_index() == 0:
-        filename = 'gs://caster-us-central-2b-2/test'
-        filename = '/root/test'
-        erase_and_create_empty(filename)
-        save_data = flax.jax_utils.unreplicate(state)
+    # if jax.process_index() == 0:
+    #     filename = 'gs://caster-us-central-2b-2/test'
+    #     filename = '/root/test'
+    #     erase_and_create_empty(filename)
+    #     save_data = flax.jax_utils.unreplicate(state)
+    #
+    #     orbax_checkpointer = ocp.PyTreeCheckpointer()
+    #     options = ocp.CheckpointManagerOptions(max_to_keep=1, create=True)
+    #     checkpoint_manager = ocp.CheckpointManager(
+    #         filename, orbax_checkpointer, options)
+    #
+    #
+    #     model_ckpt = {'model': save_data, }
+    #     save_args = orbax_utils.save_args_from_target(model_ckpt)
+    #
+    #     print(filename)
+    #     print(1)
+    #     # orbax_checkpointer = ocp.PyTreeCheckpointer()
+    #     # save_args = orbax_utils.save_args_from_target(save_data)
+    #     # orbax_checkpointer.save(filename, model_ckpt, save_args=save_args, force=False)
+    #     checkpoint_manager.save(1, model_ckpt, save_kwargs={'save_args': save_args}, force=False)
+    #
+    #     print(2)
 
-        orbax_checkpointer = ocp.PyTreeCheckpointer()
-        options = ocp.CheckpointManagerOptions(max_to_keep=1, create=True)
-        checkpoint_manager = ocp.CheckpointManager(
-            filename, orbax_checkpointer, options)
+    filename = 'gs://caster-us-central-2b-2/test'
+    filename = '/root/test'
+    # erase_and_create_empty(filename)
+    print(filename)
+    save_data = flax.jax_utils.unreplicate(state)
 
+    orbax_checkpointer = ocp.PyTreeCheckpointer()
+    options = ocp.CheckpointManagerOptions(max_to_keep=1, create=True)
+    checkpoint_manager = ocp.CheckpointManager(
+        filename, orbax_checkpointer, options)
 
-        model_ckpt = {'model': save_data, }
-        save_args = orbax_utils.save_args_from_target(model_ckpt)
+    model_ckpt = {'model': save_data, }
+    save_args = orbax_utils.save_args_from_target(model_ckpt)
 
-        print(filename)
-        print(1)
-        # orbax_checkpointer = ocp.PyTreeCheckpointer()
-        # save_args = orbax_utils.save_args_from_target(save_data)
-        # orbax_checkpointer.save(filename, model_ckpt, save_args=save_args, force=False)
-        checkpoint_manager.save(1, model_ckpt, save_kwargs={'save_args': save_args}, force=False)
+    print(filename)
+    print(1)
+    # orbax_checkpointer = ocp.PyTreeCheckpointer()
+    # save_args = orbax_utils.save_args_from_target(save_data)
+    # orbax_checkpointer.save(filename, model_ckpt, save_args=save_args, force=False)
+    checkpoint_manager.save(1, model_ckpt, save_kwargs={'save_args': save_args}, force=False)
 
-        print(2)
+    print(2)
     # checkpointer.save(filename, args=ocp.args.StandardSave(save_data),
     #                   force=False)
     """
