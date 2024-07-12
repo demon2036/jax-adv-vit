@@ -301,7 +301,7 @@ def train_and_evaluate(args
     ckpt = {'model': state, }
 
     save_args = orbax_utils.save_args_from_target(ckpt)
-    orbax_checkpointer.save('/tmp/flax_ckpt/orbax/single_save', ckpt, save_args=save_args)
+    orbax_checkpointer.save('/tmp/flax_ckpt/orbax/single_save2', ckpt, save_args=save_args)
 
 
     return state
