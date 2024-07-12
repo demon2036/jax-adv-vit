@@ -345,14 +345,9 @@ def train_and_evaluate(args
     output_dir = args.output_dir
     # output_dir = '/home/jtitor/PycharmProjects/jax-dit/test/a.ckpt'
     filename = os.path.join(output_dir, f"{name}-{postfix}")
-    filename='gs://caster-us-central-2b-2/test'
-    erase_and_create_empty('test')
-    print(filename)
 
-    save_data = flax.jax_utils.unreplicate(state)
 
-    from flax.training import orbax_utils
-    print(1)
+
     # orbax_checkpointer = ocp.AsyncCheckpointer(ocp.PyTreeCheckpointHandler())
     # save_args = orbax_utils.save_args_from_target(save_data)
     # orbax_checkpointer.save(filename, save_data, save_args=save_args)
@@ -362,15 +357,19 @@ def train_and_evaluate(args
     #
     #
     # orbax_checkpointer.wait_until_finished()
-    if jax.process_index()==0:
+    from flax.training import orbax_utils
+    if jax.process_index() == 0:
+        filename = 'gs://caster-us-central-2b-2/test'
+        filename = '/root/test'
+        erase_and_create_empty(filename)
+        save_data = flax.jax_utils.unreplicate(state)
+        print(filename)
+        print(1)
         orbax_checkpointer = ocp.PyTreeCheckpointer()
         save_args = orbax_utils.save_args_from_target(save_data)
-        orbax_checkpointer.save(filename, save_data, save_args=save_args,force=True)
+        orbax_checkpointer.save(filename, save_data, save_args=save_args, force=False)
 
-
-
-
-    print(1)
+        print(1)
     # checkpointer.save(filename, args=ocp.args.StandardSave(save_data),
     #                   force=False)
     """
