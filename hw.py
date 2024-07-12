@@ -299,22 +299,77 @@ def train_and_evaluate(args
     else:
         init_step = 1
 
+    train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
+                                                                  shard_path=args.train_dataset_shards,
+                                                                  test_shard_path=args.valid_dataset_shards,
+                                                                  origin_shard_path=args.train_origin_dataset_shards)
 
-    if jax.process_index()==0:
+    def prepare_tf_data(xs):
+        """Convert a input batch from tf Tensors to numpy arrays."""
+        local_device_count = jax.local_device_count()
 
-        state = flax.jax_utils.replicate(state)
-        postfix = "ema"
-        name = args.name
-        output_dir = args.output_dir
-        output_dir = '/home/jtitor/pythonProject1/jax_vit'
-        filename = os.path.join(output_dir, f"{name}-{postfix}")
-        print(filename)
-        # state_cpu = jax.device_get(flax.jax_utils.unreplicate(state), )
-        state_cpu = flax.jax_utils.unreplicate(state),
-        checkpointer.save(filename, args=ocp.args.StandardSave(state_cpu),
-                          force=True)
+        def _prepare(x):
+            # Use _numpy() for zero-copy conversion between TF and NumPy.
+            # x = {'img': x['img'], 'cls': x['cls']}
+            x = np.asarray(x)
+            # x = x._numpy()  # pylint: disable=protected-access
 
-        print(1)
+            # reshape (host_batch_size, height, width, 3) to
+            # (local_devices, device_batch_size, height, width, 3)
+            return x.reshape((local_device_count, -1) + x.shape[1:])
+
+        return jax.tree_util.tree_map(_prepare, xs)
+
+    train_dataloader_iter = map(prepare_tf_data, train_dataloader_iter)
+
+    train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
+
+    for step in tqdm.tqdm(range(init_step, args.training_steps)):
+        rng, input_rng = jax.random.split(rng)
+        data = next(train_dataloader_iter)
+
+        rng, train_step_key = jax.random.split(rng, num=2)
+        train_step_key = shard_prng_key(train_step_key)
+
+        state, metrics = apply_model_trade(state, data, train_step_key)
+
+        if jax.process_index() == 0 and step % args.log_interval == 0:
+            average_meter.update(**flax.jax_utils.unreplicate(metrics))
+            metrics = average_meter.summary('train/')
+            # print(metrics)
+            wandb.log(metrics, step)
+
+        if step % args.eval_interval == 0:
+            for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
+                data = shard(jax.tree_util.tree_map(np.asarray, data))
+                metrics = accuracy(state, data)
+
+                if jax.process_index() == 0:
+                    average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
+            if jax.process_index() == 0:
+                metrics = average_meter.summary("val/")
+                num_samples = metrics.pop("val/num_samples")
+                metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
+                wandb.log(metrics, step)
+
+                # params = flax.jax_utils.unreplicate(state.params)
+                # params_bytes = msgpack_serialize(params)
+                # save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
+                #                               output_dir=os.getenv('GCS_DATASET_DIR'))
+                postfix = "ema"
+                name = args.name
+                output_dir = args.output_dir
+                output_dir = '/root'
+                filename = os.path.join(output_dir, f"{name}-{postfix}")
+                print(filename)
+
+                checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
+                                  force=True)
+
+                # params = flax.jax_utils.unreplicate(state.ema_params)
+                # params_bytes = msgpack_serialize(params )
+                # save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
+                #                               output_dir=args.output_dir)
     return state
 
 
@@ -328,7 +383,7 @@ if __name__ == "__main__":
     parser.add_argument("--train-dataset-shards")
     parser.add_argument("--train-origin-dataset-shards")
     parser.add_argument("--valid-dataset-shards")
-    parser.add_argument("--train-batch-size", type=int, default=2048)
+    parser.add_argument("--train-batch-size", type=int, default=64)
     # parser.add_argument("--valid-batch-size", type=int, default=256)
     # parser.add_argument("--train-loader-workers", type=int, default=40)
     # parser.add_argument("--valid-loader-workers", type=int, default=5)
@@ -382,7 +437,7 @@ if __name__ == "__main__":
     parser.add_argument("--warmup-steps", type=int, default=10000)
     parser.add_argument("--training-steps", type=int, default=200000)
     parser.add_argument("--log-interval", type=int, default=50)
-    parser.add_argument("--eval-interval", type=int, default=200)
+    parser.add_argument("--eval-interval", type=int, default=10)
     #
     parser.add_argument("--project")
     parser.add_argument("--name")
