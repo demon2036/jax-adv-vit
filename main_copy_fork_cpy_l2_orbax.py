@@ -1,4 +1,5 @@
 import jax
+import orbax.checkpoint as ocp
 
 jax.distributed.initialize()
 
@@ -295,10 +296,16 @@ def train_and_evaluate(args
                                           b1=args.adam_b1,
                                           b2=args.adam_b2,
                                           clip_grad=0.0,
-                                          pretrained_ckpt=args.pretrained_ckpt
+
                                           )
-    state = state.replace(step=init_step)
-    init_step = state.step + 1
+
+    checkpointer = ocp.AsyncCheckpointer(ocp.StandardCheckpointHandler())
+    if args.pretrained_ckpt is not None:
+        state = state.replace(**checkpointer.restore(args.pretrained_ckpt))
+        init_step = state.step + 1
+    else:
+        init_step = 1
+
     state = flax.jax_utils.replicate(state)
 
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
@@ -358,11 +365,19 @@ def train_and_evaluate(args
                 # params_bytes = msgpack_serialize(params)
                 # save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
                 #                               output_dir=os.getenv('GCS_DATASET_DIR'))
+                postfix = "ema"
+                name=args.name,
+                output_dir = args.output_dir
+                filename = os.path.join(output_dir, f"{name}-{postfix}")
 
-                params = flax.jax_utils.unreplicate(state.ema_params)
-                params_bytes = msgpack_serialize(params | {'step': step})
-                save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
-                                              output_dir=args.output_dir)
+                checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
+                                  force=True)
+
+
+                # params = flax.jax_utils.unreplicate(state.ema_params)
+                # params_bytes = msgpack_serialize(params )
+                # save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
+                #                               output_dir=args.output_dir)
 
     return state
 
