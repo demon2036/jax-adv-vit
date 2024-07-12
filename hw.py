@@ -1,5 +1,6 @@
 import jax
 import orbax.checkpoint as ocp
+from orbax.checkpoint.utils import fully_replicated_host_local_array_to_global_array
 
 jax.distributed.initialize()
 
@@ -377,7 +378,10 @@ def train_and_evaluate(args
             output_dir = '/root'
             filename = os.path.join(output_dir, f"{name}-{postfix}")
             print(filename)
-            checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state.params)),
+
+            save_data=fully_replicated_host_local_array_to_global_array(flax.jax_utils.unreplicate(state.params))
+
+            checkpointer.save(filename, args=ocp.args.StandardSave(save_data),
                               force=False)
 
                 # params = flax.jax_utils.unreplicate(state.ema_params)
