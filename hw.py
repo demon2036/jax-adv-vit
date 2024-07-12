@@ -352,7 +352,7 @@ def train_and_evaluate(args
     print(1)
     orbax_checkpointer = ocp.AsyncCheckpointer(ocp.StandardCheckpointHandler())
     save_args = orbax_utils.save_args_from_target(save_data)
-    orbax_checkpointer.save('/tmp/flax_ckpt/orbax/single_save', save_data, save_args=save_args)
+    orbax_checkpointer.save(filename, save_data, save_args=save_args)
 
     orbax_checkpointer.wait_until_finished()
     print(1)
