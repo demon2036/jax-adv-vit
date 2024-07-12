@@ -292,7 +292,8 @@ def train_and_evaluate(args
 
                                )
 
-    checkpointer = ocp.AsyncCheckpointer(ocp.StandardCheckpointHandler())
+    # checkpointer = ocp.AsyncCheckpointer(ocp.StandardCheckpointHandler())
+    checkpointer =ocp.PyTreeCheckpointer()
     ckpt = {'model': state}
 
     postfix = "ema"
