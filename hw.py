@@ -346,7 +346,7 @@ def train_and_evaluate(args
     filename = os.path.join(output_dir, f"{name}-{postfix}")
     print(filename)
 
-    save_data = flax.jax_utils.unreplicate(state.params)
+    save_data = flax.jax_utils.unreplicate(state)
 
     checkpointer.save(filename, args=ocp.args.StandardSave(save_data),
                       force=False)
