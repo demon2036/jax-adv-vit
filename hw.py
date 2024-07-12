@@ -348,8 +348,14 @@ def train_and_evaluate(args
 
     save_data = flax.jax_utils.unreplicate(state)
 
-    checkpointer.save(filename, args=ocp.args.StandardSave(save_data),
-                      force=False)
+    from flax.training import orbax_utils
+
+    orbax_checkpointer = ocp.PyTreeCheckpointer()
+    save_args = orbax_utils.save_args_from_target(save_data)
+    orbax_checkpointer.save('/tmp/flax_ckpt/orbax/single_save', save_data, save_args=save_args)
+
+    # checkpointer.save(filename, args=ocp.args.StandardSave(save_data),
+    #                   force=False)
     """
 
     for step in tqdm.tqdm(range(init_step, args.training_steps)):
