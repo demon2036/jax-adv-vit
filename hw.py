@@ -297,7 +297,7 @@ def train_and_evaluate(args
     from flax.training import orbax_utils
 
     orbax_checkpointer = ocp.PyTreeCheckpointer()
-
+    erase_and_create_empty('/tmp/flax_ckpt/orbax/single_save')
     ckpt = {'model': state, }
 
     save_args = orbax_utils.save_args_from_target(ckpt)
