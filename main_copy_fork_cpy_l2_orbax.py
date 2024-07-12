@@ -300,16 +300,16 @@ def train_and_evaluate(args
         init_step = 1
 
     state = flax.jax_utils.replicate(state)
+    if jax.process_index() == 0:
+        postfix = "ema"
+        name = args.name,
+        output_dir = args.output_dir
+        filename = os.path.join(output_dir, f"{name}-{postfix}")
+        print(filename)
+        checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
+                          force=True)
 
-    postfix = "ema"
-    name = args.name,
-    output_dir = args.output_dir
-    filename = os.path.join(output_dir, f"{name}-{postfix}")
-    print(filename)
-    checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
-                      force=True)
-
-    print('hellow')
+        print('hellow')
     while True:
         pass
 
