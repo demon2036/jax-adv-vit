@@ -383,7 +383,7 @@ def train_and_evaluate(args
     #     print(2)
 
     filename = 'gs://caster-us-central-2b-2/test'
-    filename = '/root/test'
+    filename = '/root'
     # erase_and_create_empty(filename)
     print(filename)
     save_data = flax.jax_utils.unreplicate(state)
