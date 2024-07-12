@@ -176,7 +176,7 @@ def create_train_state(rng,
 
     if 'step' in params:
         init_step = params['step']
-
+        del params['step']
     else:
         init_step = 1
         raise NotImplementedError()
