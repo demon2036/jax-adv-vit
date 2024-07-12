@@ -5,7 +5,7 @@ import jax
 jax.distributed.initialize()
 
 
-path = ocp.test_utils.erase_and_create_empty('gs://caster-us-central-2b-2/test')
+# path = ocp.test_utils.erase_and_create_empty('gs://caster-us-central-2b-2/test')
 state = {
     'a': np.arange(8),
     'b': np.arange(16),
@@ -23,7 +23,7 @@ for step in range(11):  # [0, 1, ..., 10]
         args=ocp.args.Composite(
             state=ocp.args.StandardSave(state),
             extra_params=ocp.args.JsonSave(extra_params),
-        ),
+        ),force=True
     )
 mngr.wait_until_finished()
 restored = mngr.restore(10)
