@@ -377,8 +377,8 @@ def train_and_evaluate(args
 
             filename = os.path.join(output_dir, f"{name}-{postfix}")
             print(filename)
-
-            checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
+            state_host = jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))
+            checkpointer.save(filename, args=ocp.args.StandardSave(state_host),
                               force=True)
 
 

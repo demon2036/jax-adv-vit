@@ -32,9 +32,6 @@ def p(state):
 state = jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))
 # state=unreplicate(state)
 
-
-
-
 for step in range(11):  # [0, 1, ..., 10]
     mngr.save(
         step,
@@ -43,10 +40,6 @@ for step in range(11):  # [0, 1, ..., 10]
             extra_params=ocp.args.JsonSave(extra_params),
         ),force=True
     )
-
-
-
-
 
 
 mngr.wait_until_finished()
