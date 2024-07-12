@@ -292,7 +292,7 @@ def train_and_evaluate(args
 
                                )
 
-    checkpointer = ocp.AsyncCheckpointer(ocp.StandardCheckpointHandler())
+    checkpointer = ocp.Checkpointer(ocp.StandardCheckpointHandler())
     if args.pretrained_ckpt is not None:
         state = state.replace(**checkpointer.restore(args.pretrained_ckpt))
         init_step = state.step + 1
