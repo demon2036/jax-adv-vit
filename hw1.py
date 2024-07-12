@@ -6,6 +6,7 @@ jax.distributed.initialize()
 
 
 # path = ocp.test_utils.erase_and_create_empty('gs://caster-us-central-2b-2/test')
+path='gs://caster-us-central-2b-2/test'
 state = {
     'a': np.arange(8),
     'b': np.arange(16),
