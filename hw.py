@@ -1,6 +1,7 @@
 import numpy as np
 import orbax.checkpoint as ocp
 import jax
+jax.distributed.initialize()
 
 path = ocp.test_utils.erase_and_create_empty('/tmp/checkpoint_manager')
 state = {
