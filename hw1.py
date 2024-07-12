@@ -1,6 +1,7 @@
 import numpy as np
 import orbax.checkpoint as ocp
 import jax
+from flax.jax_utils import replicate,unreplicate
 
 jax.distributed.initialize()
 
@@ -26,6 +27,11 @@ for step in range(11):  # [0, 1, ..., 10]
             extra_params=ocp.args.JsonSave(extra_params),
         ),force=True
     )
+
+
+state=replicate(state)
+state=unreplicate(state)
+
 mngr.wait_until_finished()
 restored = mngr.restore(10)
 restored_state, restored_extra_params = restored.state, restored.extra_params
