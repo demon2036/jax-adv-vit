@@ -29,7 +29,7 @@ def p(state):
 
 # state=jax.pmap(p,axis_name='batch')(state)
 
-
+state = jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))
 # state=unreplicate(state)
 
 
