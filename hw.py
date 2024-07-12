@@ -1,7 +1,7 @@
 import jax
 import orbax.checkpoint as ocp
 
-# jax.distributed.initialize()
+jax.distributed.initialize()
 
 import argparse
 from typing import Any
