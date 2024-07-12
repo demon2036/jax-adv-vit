@@ -339,6 +339,19 @@ def train_and_evaluate(args
 
     train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
+    postfix = "ema"
+    name = args.name
+    output_dir = args.output_dir
+    output_dir = '/root'
+    filename = os.path.join(output_dir, f"{name}-{postfix}")
+    print(filename)
+
+    save_data = flax.jax_utils.unreplicate(state.params)
+
+    checkpointer.save(filename, args=ocp.args.StandardSave(save_data),
+                      force=False)
+    """
+
     for step in tqdm.tqdm(range(init_step, args.training_steps)):
         rng, input_rng = jax.random.split(rng)
         data = next(train_dataloader_iter)
@@ -372,23 +385,13 @@ def train_and_evaluate(args
                 # params_bytes = msgpack_serialize(params)
                 # save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
                 #                               output_dir=os.getenv('GCS_DATASET_DIR'))
-            postfix = "ema"
-            name = args.name
-            output_dir = args.output_dir
-            output_dir = '/root'
-            filename = os.path.join(output_dir, f"{name}-{postfix}")
-            print(filename)
 
-            save_data=fully_replicated_host_local_array_to_global_array(flax.jax_utils.unreplicate(state.params))
-
-            checkpointer.save(filename, args=ocp.args.StandardSave(save_data),
-                              force=False)
 
                 # params = flax.jax_utils.unreplicate(state.ema_params)
                 # params_bytes = msgpack_serialize(params )
                 # save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
                 #                               output_dir=args.output_dir)
-
+        """
     return state
 
 
