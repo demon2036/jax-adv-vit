@@ -30,3 +30,4 @@ if jax.process_index()==0:
     mngr.wait_until_finished()
     restored = mngr.restore(10)
     restored_state, restored_extra_params = restored.state, restored.extra_params
+    print(restored)
