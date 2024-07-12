@@ -355,7 +355,7 @@ def train_and_evaluate(args
             wandb.log(metrics, step)
 
         if step % args.eval_interval == 0:
-            for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
+            # for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
                 # data = shard(jax.tree_util.tree_map(np.asarray, data))
                 # metrics = accuracy(state, data)
                 #
