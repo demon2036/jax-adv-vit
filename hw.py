@@ -258,11 +258,6 @@ def train_and_evaluate(args
     The train state (which includes the `.params`).
   """
 
-    if jax.process_index() == 0:
-        wandb.init(name=args.name, project=args.project, config=args.__dict__,
-                   settings=wandb.Settings(_disable_stats=True),
-                   config_exclude_keys=['train_dataset_shards', 'valid_dataset_shards', 'train_origin_dataset_shards'])
-        average_meter = AverageMeter(use_latest=["learning_rate"])
 
     rng = jax.random.key(0)
 
@@ -294,51 +289,8 @@ def train_and_evaluate(args
 
                                )
 
-    checkpointer = ocp.Checkpointer(ocp.StandardCheckpointHandler())
-    if args.pretrained_ckpt is not None:
-        state = state.replace(**checkpointer.restore(args.pretrained_ckpt))
-        init_step = state.step + 1
-    else:
-        init_step = 1
 
-    state = flax.jax_utils.replicate(state)
-    # if jax.process_index() == 0:
-    #     postfix = "ema"
-    #     name = args.name
-    #     output_dir = args.output_dir
-    #     filename = os.path.join(output_dir, f"{name}-{postfix}")
-    #     print(filename)
-    #     checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
-    #                       force=True)
-    #
-    #     print('hellow')
-    # while True:
-    #     pass
 
-    train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
-                                                                  shard_path=args.train_dataset_shards,
-                                                                  test_shard_path=args.valid_dataset_shards,
-                                                                  origin_shard_path=args.train_origin_dataset_shards)
-
-    def prepare_tf_data(xs):
-        """Convert a input batch from tf Tensors to numpy arrays."""
-        local_device_count = jax.local_device_count()
-
-        def _prepare(x):
-            # Use _numpy() for zero-copy conversion between TF and NumPy.
-            # x = {'img': x['img'], 'cls': x['cls']}
-            x = np.asarray(x)
-            # x = x._numpy()  # pylint: disable=protected-access
-
-            # reshape (host_batch_size, height, width, 3) to
-            # (local_devices, device_batch_size, height, width, 3)
-            return x.reshape((local_device_count, -1) + x.shape[1:])
-
-        return jax.tree_util.tree_map(_prepare, xs)
-
-    train_dataloader_iter = map(prepare_tf_data, train_dataloader_iter)
-
-    train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
     postfix = "ema"
     name = args.name
@@ -348,110 +300,7 @@ def train_and_evaluate(args
 
 
 
-    # orbax_checkpointer = ocp.AsyncCheckpointer(ocp.PyTreeCheckpointHandler())
-    # save_args = orbax_utils.save_args_from_target(save_data)
-    # orbax_checkpointer.save(filename, save_data, save_args=save_args)
-    #
-    #
-    #
-    #
-    #
-    # orbax_checkpointer.wait_until_finished()
-    from flax.training import orbax_utils
-    # if jax.process_index() == 0:
-    #     filename = 'gs://caster-us-central-2b-2/test'
-    #     filename = '/root/test'
-    #     erase_and_create_empty(filename)
-    #     save_data = flax.jax_utils.unreplicate(state)
-    #
-    #     orbax_checkpointer = ocp.PyTreeCheckpointer()
-    #     options = ocp.CheckpointManagerOptions(max_to_keep=1, create=True)
-    #     checkpoint_manager = ocp.CheckpointManager(
-    #         filename, orbax_checkpointer, options)
-    #
-    #
-    #     model_ckpt = {'model': save_data, }
-    #     save_args = orbax_utils.save_args_from_target(model_ckpt)
-    #
-    #     print(filename)
-    #     print(1)
-    #     # orbax_checkpointer = ocp.PyTreeCheckpointer()
-    #     # save_args = orbax_utils.save_args_from_target(save_data)
-    #     # orbax_checkpointer.save(filename, model_ckpt, save_args=save_args, force=False)
-    #     checkpoint_manager.save(1, model_ckpt, save_kwargs={'save_args': save_args}, force=False)
-    #
-    #     print(2)
 
-    filename = 'gs://caster-us-central-2b-2/test'
-    # filename = '.'
-    # erase_and_create_empty(filename)
-    print(filename)
-    # save_data = flax.jax_utils.unreplicate(state)
-    state = jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))
-    orbax_checkpointer = ocp.PyTreeCheckpointer()
-    from flax.training import checkpoints
-    checkpoints.save_checkpoint_multiprocess(filename, state, 1, keep=0)
-
-
-    options = ocp.CheckpointManagerOptions(max_to_keep=1, create=False)
-    checkpoint_manager = ocp.CheckpointManager(
-        filename, orbax_checkpointer, options)
-
-    model_ckpt = {'model': save_data, }
-    save_args = orbax_utils.save_args_from_target(model_ckpt)
-
-    print(filename)
-    print(1)
-    # orbax_checkpointer = ocp.PyTreeCheckpointer()
-    # save_args = orbax_utils.save_args_from_target(save_data)
-    # orbax_checkpointer.save(filename, model_ckpt, save_args=save_args, force=False)
-    checkpoint_manager.save(1, model_ckpt, save_kwargs={'save_args': save_args}, force=False)
-
-    print(2)
-    # checkpointer.save(filename, args=ocp.args.StandardSave(save_data),
-    #                   force=False)
-    """
-
-    for step in tqdm.tqdm(range(init_step, args.training_steps)):
-        rng, input_rng = jax.random.split(rng)
-        data = next(train_dataloader_iter)
-
-        rng, train_step_key = jax.random.split(rng, num=2)
-        train_step_key = shard_prng_key(train_step_key)
-
-        state, metrics = apply_model_trade(state, data, train_step_key)
-
-        if jax.process_index() == 0 and step % args.log_interval == 0:
-            average_meter.update(**flax.jax_utils.unreplicate(metrics))
-            metrics = average_meter.summary('train/')
-            # print(metrics)
-            wandb.log(metrics, step)
-
-        if step % args.eval_interval == 0:
-            # for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
-            # data = shard(jax.tree_util.tree_map(np.asarray, data))
-            # metrics = accuracy(state, data)
-            #
-            # if jax.process_index() == 0:
-            #     average_meter.update(**jax.device_get(flax.jax_utils.unreplicate(metrics)))
-            if jax.process_index() == 0:
-                pass
-                # metrics = average_meter.summary("val/")
-                # num_samples = metrics.pop("val/num_samples")
-                # metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
-                # wandb.log(metrics, step)
-
-                # params = flax.jax_utils.unreplicate(state.params)
-                # params_bytes = msgpack_serialize(params)
-                # save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
-                #                               output_dir=os.getenv('GCS_DATASET_DIR'))
-
-
-                # params = flax.jax_utils.unreplicate(state.ema_params)
-                # params_bytes = msgpack_serialize(params )
-                # save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
-                #                               output_dir=args.output_dir)
-        """
     return state
 
 
