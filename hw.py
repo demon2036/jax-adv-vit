@@ -293,12 +293,12 @@ def train_and_evaluate(args
     output_dir = args.output_dir
     # output_dir = '/home/jtitor/PycharmProjects/jax-dit/test/a.ckpt'
     filename = os.path.join(output_dir, f"{name}-{postfix}")
-    filename='/root/test'
+    filename='/root/test2'
 
     from flax.training import orbax_utils
 
     orbax_checkpointer = ocp.PyTreeCheckpointer()
-    erase_and_create_empty(filename)
+    # erase_and_create_empty(filename)
     ckpt = {'model': state, }
 
     save_args = orbax_utils.save_args_from_target(ckpt)
