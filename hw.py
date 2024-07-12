@@ -19,6 +19,8 @@ if jax.process_index()==0:
         path, options=options, item_names=('state', 'extra_params')
     )
 
+    print(path)
+
     for step in range(11):  # [0, 1, ..., 10]
       mngr.save(
           step,
