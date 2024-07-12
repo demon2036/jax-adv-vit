@@ -173,6 +173,7 @@ def create_train_state(rng,
 
     if pretrained_ckpt is not None:
         params = load_pretrained_params(pretrained_ckpt, params)
+        print(params)
 
     @partial(optax.inject_hyperparams, hyperparam_dtype=jnp.float32)
     def create_optimizer_fn(
