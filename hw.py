@@ -292,12 +292,27 @@ def train_and_evaluate(args
 
                                )
 
-    checkpointer = ocp.Checkpointer(ocp.StandardCheckpointHandler())
+    checkpointer = ocp.AsyncCheckpointer(ocp.StandardCheckpointHandler())
     if args.pretrained_ckpt is not None:
         state = state.replace(**checkpointer.restore(args.pretrained_ckpt))
         init_step = state.step + 1
     else:
         init_step = 1
+
+    state = flax.jax_utils.replicate(state)
+    # if jax.process_index() == 0:
+    #     postfix = "ema"
+    #     name = args.name
+    #     output_dir = args.output_dir
+    #     filename = os.path.join(output_dir, f"{name}-{postfix}")
+    #     print(filename)
+    #     checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
+    #                       force=True)
+    #
+    #     print('hellow')
+    # while True:
+    #     pass
+
 
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
@@ -331,13 +346,13 @@ def train_and_evaluate(args
         rng, train_step_key = jax.random.split(rng, num=2)
         train_step_key = shard_prng_key(train_step_key)
 
-        state, metrics = apply_model_trade(state, data, train_step_key)
-
-        if jax.process_index() == 0 and step % args.log_interval == 0:
-            average_meter.update(**flax.jax_utils.unreplicate(metrics))
-            metrics = average_meter.summary('train/')
-            # print(metrics)
-            wandb.log(metrics, step)
+        # state, metrics = apply_model_trade(state, data, train_step_key)
+        #
+        # if jax.process_index() == 0 and step % args.log_interval == 0:
+        #     average_meter.update(**flax.jax_utils.unreplicate(metrics))
+        #     metrics = average_meter.summary('train/')
+        #     # print(metrics)
+        #     wandb.log(metrics, step)
 
         if step % args.eval_interval == 0:
             # for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
@@ -359,7 +374,7 @@ def train_and_evaluate(args
                 postfix = "ema"
                 name = args.name
                 output_dir = args.output_dir
-                output_dir = '/root'
+                output_dir='/root'
                 filename = os.path.join(output_dir, f"{name}-{postfix}")
                 print(filename)
 
@@ -370,6 +385,7 @@ def train_and_evaluate(args
                 # params_bytes = msgpack_serialize(params )
                 # save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
                 #                               output_dir=args.output_dir)
+
     return state
 
 
@@ -383,7 +399,7 @@ if __name__ == "__main__":
     parser.add_argument("--train-dataset-shards")
     parser.add_argument("--train-origin-dataset-shards")
     parser.add_argument("--valid-dataset-shards")
-    parser.add_argument("--train-batch-size", type=int, default=64)
+    parser.add_argument("--train-batch-size", type=int, default=2048)
     # parser.add_argument("--valid-batch-size", type=int, default=256)
     # parser.add_argument("--train-loader-workers", type=int, default=40)
     # parser.add_argument("--valid-loader-workers", type=int, default=5)
@@ -437,7 +453,7 @@ if __name__ == "__main__":
     parser.add_argument("--warmup-steps", type=int, default=10000)
     parser.add_argument("--training-steps", type=int, default=200000)
     parser.add_argument("--log-interval", type=int, default=50)
-    parser.add_argument("--eval-interval", type=int, default=10)
+    parser.add_argument("--eval-interval", type=int, default=200)
     #
     parser.add_argument("--project")
     parser.add_argument("--name")

@@ -1,7 +1,7 @@
 export EPOCH=6000 TRAIN_BATCH_SIZE=64 WARMUP_EPOCH=5
 
 
-python  -u main_copy_fork_cpy_l2_orbax.py \
+python  -u hw.py \
     --train-dataset-shards "$GCS_DATASET_DIR/cifar10-50m-wds/shards-{00000..00999}.tar" \
     --valid-dataset-shards  "$GCS_DATASET_DIR/cifar10-test-wds/shards-{00000..00099}.tar" \
     --train-origin-dataset-shards "$GCS_DATASET_DIR/cifar10-train-wds/shards-{00000..00099}.tar" \
