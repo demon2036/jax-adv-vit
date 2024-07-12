@@ -143,7 +143,7 @@ def create_train_state(rng,
                        use_fc_norm: bool = True,
                        reduce_include_prefix: bool = False,
                        b1=0.95,
-                       b2=0.98,pretrained_ckpt=None
+                       b2=0.98, pretrained_ckpt=None
 
                        ):
     """Creates initial `TrainState`."""
@@ -292,9 +292,10 @@ def train_and_evaluate(args
                                )
 
     if 'step' in state.params:
-        init_step=state.params['step']
+        init_step = state.params['step']
     else:
-        init_step=1
+        init_step = 1
+        raise NotImplementedError()
 
     state = flax.jax_utils.replicate(state)
 
@@ -302,16 +303,6 @@ def train_and_evaluate(args
                                                                   shard_path=args.train_dataset_shards,
                                                                   test_shard_path=args.valid_dataset_shards,
                                                                   origin_shard_path=args.train_origin_dataset_shards)
-
-    # train_dataloader_iter = iter(train_dataloader)
-
-    # test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
-    #                                             transform=Compose(
-    #                                                 transform_test))  # 0.5, 0.5
-
-    # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
-
-    log_interval = 200
 
     def prepare_tf_data(xs):
         """Convert a input batch from tf Tensors to numpy arrays."""

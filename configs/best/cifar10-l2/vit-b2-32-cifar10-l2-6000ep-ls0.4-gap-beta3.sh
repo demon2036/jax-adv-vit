@@ -26,4 +26,5 @@ python  -u main_copy_fork_cpy_l2.py \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/best/cifar10-l2" \
     --beta 3.0 \
-    --label-smoothing 0.4
+    --label-smoothing 0.4 \
+    --pretrained-ckpt  "$GCS_DATASET_DIR/best/cifar10-l2/vit-b2-32-cifar10-l2-6000ep-ls0.4-gap-beta3-ema.msgpack"
