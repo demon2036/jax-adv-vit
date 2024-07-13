@@ -25,5 +25,5 @@ python -u main_copy_fork.py \
     --project cifar100-50m-best \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/best/cifar100-50m" \
-    --beta 3.0 \
+    --beta 5.0 \
     --label-smoothing 0.4
