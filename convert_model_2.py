@@ -15,54 +15,14 @@ from timm.models import VisionTransformer
 from torch.utils.data import DataLoader
 import einops
 import flax.jax_utils
-import torchvision
-import tqdm
-from flax.training.common_utils import shard, shard_prng_key
-# See issue #620.
-# pytype: disable=wrong-keyword-args
-
-from absl import logging
-from flax import linen as nn
-# from flax.metrics import tensorboard
-from flax.training import train_state
 
 import jax.numpy as jnp
 import numpy as np
-import optax
-from optax.losses import softmax_cross_entropy_with_integer_labels
-from torchvision import transforms
-from torchvision.transforms import Compose, ToTensor
-
-# from auto_augment import AutoAugment, Cutout
-from datasets import get_train_dataloader
-from model import ViT
-import os
-import wandb
-from utils2 import AverageMeter
-import timm
-
-EPOCHS = 1000  # @param{type:"integer"}
-# @markdown Number of samples for each batch in the training set:
-TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
-# @markdown Number of samples for each batch in the test set:
-TEST_BATCH_SIZE = 64  # @param{type:"integer"}
-# @markdown Learning rate for the optimizer:
-LEARNING_RATE = 1e-3  # @param{type:"number"}
-# @markdown The dataset to use.
-DATASET = "cifar10-l2"  # @param{type:"string"}
-# @markdown The amount of L2 regularization to use:
-L2_REG = 0.0001  # @param{type:"number"}
-# @markdown Adversarial perturbations lie within the infinity-ball of radius epsilon.
-EPSILON = 8 / 255  # @param{type:"number"}
-
-os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
+import orbax
+import orbax.checkpoint as ocp
 
 
-def convert(pretrained_model, checkpoint):
-    with open(pretrained_model, "rb") as fp:
-        params = flax.serialization.msgpack_restore(fp.read())
-    from jax.tree_util import tree_flatten_with_path, tree_map_with_path
-
+def convert(params, checkpoint):
     params = {'model': params}
     pos_embed = params["model"]["embed"]["wpe"]
     pos_embed = pos_embed.reshape(1, -1, pos_embed.shape[-1])
@@ -173,7 +133,17 @@ def train_and_evaluate(args):
     The train state (which includes the `.params`).
   """
 
-    state_dict = convert(args.pretrained_model, args.checkpoint)
+    checkpointer = ocp.AsyncCheckpointer(ocp.PyTreeCheckpointHandler())
+    # checkpointer = ocp.PyTreeCheckpointer()
+
+    if args.restore_type == 'orbax':
+        state = checkpointer.restore(args.pretrained_model, )['model']
+        params = state['ema_params']
+    else:
+        with open(args.pretrained_model, "rb") as fp:
+            params = flax.serialization.msgpack_restore(fp.read())
+
+    state_dict = convert(params, args.checkpoint)
 
     return state_dict
 
@@ -181,8 +151,12 @@ def train_and_evaluate(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pretrained-model", type=str,
-                        default='checkpoint/jax_model/best/cifar10-l2/vit-b2-32-cifar10-l2-2000ep-ls0.4-gap-beta3-ema.msgpack')
+                        default='checkpoint/jax_model/best/cifar10-l2/vit-b2-32-cifar10-l2-6000ep-ls0.4-gap-beta3-ema')
     parser.add_argument("--checkpoint", type=str,
-                        default='checkpoint/pytorch_model/best/cifar10-l2/vit-b2-32-cifar10-l2-2000ep-ls0.4-gap-beta3-ema.pth')
+                        default='checkpoint/pytorch_model/best/cifar10-l2/vit-b2-32-cifar10-l2-6000ep-ls0.4-gap-beta3-ema.pth')
 
-    train_and_evaluate(parser.parse_args())
+    parser.add_argument("--restore-type", type=str,
+                        default='orbax')
+
+    args = parser.parse_args()
+    train_and_evaluate(args)

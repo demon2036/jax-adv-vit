@@ -1,11 +1,11 @@
-import argparse
-from typing import Any
-
 import jax
-from flax.serialization import msgpack_serialize
 
 jax.distributed.initialize()
 
+import argparse
+from typing import Any
+from flax.serialization import msgpack_serialize
+from attacks.pgd import pgd_attack3
 from functools import partial
 from torch.utils.data import DataLoader
 import einops
@@ -13,117 +13,23 @@ import flax.jax_utils
 import torchvision
 import tqdm
 from flax.training.common_utils import shard, shard_prng_key
-# See issue #620.
-# pytype: disable=wrong-keyword-args
-
-from absl import logging
 from flax import linen as nn
-# from flax.metrics import tensorboard
 from flax.training import train_state
 
 import jax.numpy as jnp
 import numpy as np
 import optax
 from optax.losses import softmax_cross_entropy_with_integer_labels
-from torchvision import transforms
-from torchvision.transforms import Compose, ToTensor
 
-# from auto_augment import AutoAugment, Cutout
-from datasets import get_train_dataloader
+from datasets_fork import get_train_dataloader
 from model import ViT
 import os
 import wandb
 from utils2 import AverageMeter, save_checkpoint_in_background
 
-EPOCHS = 2400  # @param{type:"integer"}
-# @markdown Number of samples for each batch in the training set:
-TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
-# @markdown Number of samples for each batch in the test set:
-TEST_BATCH_SIZE = 64  # @param{type:"integer"}
-# @markdown Learning rate for the optimizer:
-LEARNING_RATE = 1e-4  # @param{type:"number"}
-WEIGHT_DECAY = 0.5
-# WEIGHT_DECAY = 1.0
-# LEARNING_RATE = 1e-3  # @param{type:"number"}
-# WEIGHT_DECAY = 0.05
-
-# @markdown The dataset to use.
-DATASET = "cifar10-l2"  # @param{type:"string"}
-# @markdown The amount of L2 regularization to use:
-L2_REG = 0.0001  # @param{type:"number"}
-# @markdown Adversarial perturbations lie within the infinity-ball of radius epsilon.
 EPSILON = 8 / 255  # @param{type:"number"}
 
 os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
-
-
-class CNN(nn.Module):
-    """A simple CNN model."""
-
-    @nn.compact
-    def __call__(self, x):
-        x = nn.Conv(features=32, kernel_size=(3, 3))(x)
-        x = nn.relu(x)
-        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
-        x = nn.Conv(features=64, kernel_size=(3, 3))(x)
-        x = nn.relu(x)
-        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
-        x = x.reshape((x.shape[0], -1))  # flatten
-        x = nn.Dense(features=256)(x)
-        x = nn.relu(x)
-        x = nn.Dense(features=10)(x)
-        return x
-
-
-# @jax.jit
-# def loss_fun(params, l2reg, data):
-#     """Compute the loss of the network."""
-#     inputs, labels = data
-#     x = inputs.astype(jnp.float32)
-#     logits = net.apply({"params": params}, x)
-#     sqnorm = tree_l2_norm(params, squared=True)
-#     loss_value = jnp.mean(softmax_cross_entropy_with_integer_labels(logits, labels))
-#     return loss_value + 0.5 * l2reg * sqnorm
-
-
-def pgd_attack3(image, label, state, epsilon=8 / 255, step_size=2 / 255, maxiter=10):
-    """PGD attack on the L-infinity ball with radius epsilon.
-
-  Args:
-    image: array-like, input data for the CNN
-    label: integer, class label corresponding to image
-    params: tree, parameters of the model to attack
-    epsilon: float, radius of the L-infinity ball.
-    maxiter: int, number of iterations of this algorithm.
-
-  Returns:
-    perturbed_image: Adversarial image on the boundary of the L-infinity ball
-      of radius epsilon and centered at image.
-
-  Notes:
-    PGD attack is described in (Madry et al. 2017),
-    https://arxiv.org/pdf/1706.06083.pdf
-    :param step_size:
-  """
-    image_perturbation = jnp.zeros_like(image)
-
-    def adversarial_loss(perturbation):
-        logits = state.apply_fn({"params": state.ema_params}, image + perturbation)
-        loss_value = jnp.mean(softmax_cross_entropy_with_integer_labels(logits, label))
-        return loss_value
-
-    grad_adversarial = jax.grad(adversarial_loss)
-    for _ in range(maxiter):
-        # compute gradient of the loss wrt to the image
-        sign_grad = jnp.sign(grad_adversarial(image_perturbation))
-
-        # heuristic step-size 2 eps / maxiter
-        image_perturbation += step_size * sign_grad
-        # projection step onto the L-infinity ball centered at image
-        image_perturbation = jnp.clip(image_perturbation, - epsilon, epsilon)
-
-    # clip the image to ensure pixels are between 0 and 1
-    return jnp.clip(image + image_perturbation, 0, 1)
 
 
 @partial(jax.pmap, axis_name="batch", )
@@ -280,12 +186,12 @@ def apply_model_trade(state, data, key):
         logits = state.apply_fn({'params': params}, images)
         logits_adv = state.apply_fn({'params': params}, adv_image)
         one_hot = jax.nn.one_hot(labels, logits.shape[-1])
-        one_hot = optax.smooth_labels(one_hot, 0.1)
+        one_hot = optax.smooth_labels(one_hot, state.label_smoothing)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
         trade_loss = optax.kl_divergence(nn.log_softmax(logits_adv, axis=1), nn.softmax(logits, axis=1)).mean()
         metrics = {'loss': loss, 'trade_loss': trade_loss, 'logits': logits, 'logits_adv': logits_adv}
 
-        return loss + 5 * trade_loss, metrics
+        return loss + state.trade_beta * trade_loss, metrics
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, metrics), grads = grad_fn(state.params)
@@ -309,21 +215,20 @@ def apply_model_trade(state, data, key):
     return state, metrics | state.opt_state.hyperparams
 
 
-factor = 2
-
-
 class EMATrainState(flax.training.train_state.TrainState):
+    label_smoothing: int
+    trade_beta: int
     ema_decay: int = 0.995
     ema_params: Any = None
 
 
 def create_train_state(rng,
                        layers=12,
-                       dim=192 * factor ** 2,
-                       heads=3 * factor ** 2,
+                       dim=192,
+                       heads=3,
                        labels=10,
                        layerscale=True,
-                       patch_size=2 * factor,
+                       patch_size=2,
                        image_size=32,
                        posemb="learnable",
                        pooling='cls',
@@ -335,6 +240,13 @@ def create_train_state(rng,
                        learning_rate=None,
                        weight_decay=None,
                        ema_decay=0.9999,
+                       trade_beta=5.0,
+                       label_smoothing=0.1,
+                       use_fc_norm: bool = True,
+                       reduce_include_prefix: bool = False,
+                       b1=0.95,
+                       b2=0.98
+
                        ):
     """Creates initial `TrainState`."""
 
@@ -350,6 +262,8 @@ def create_train_state(rng,
         pooling=pooling,
         dropout=dropout,
         droppath=droppath,
+        use_fc_norm=use_fc_norm,
+        reduce_include_prefix=reduce_include_prefix
     )
 
     # cnn = CNN()
@@ -365,7 +279,7 @@ def create_train_state(rng,
     ) -> optax.GradientTransformation:
         tx = optax.lion(
             learning_rate=learning_rate,
-            # b1=0.95,b2=0.98,
+            b1=b1, b2=b2,
             # eps=args.adam_eps,
             weight_decay=weight_decay,
             mask=partial(jax.tree_util.tree_map_with_path, lambda kp, *_: kp[-1].key == "kernel"),
@@ -400,7 +314,8 @@ def create_train_state(rng,
 
     tx = create_optimizer_fn(learning_rate)
 
-    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay)
+    return EMATrainState.create(apply_fn=cnn.apply, params=params, tx=tx, ema_params=params, ema_decay=ema_decay,
+                                trade_beta=trade_beta, label_smoothing=label_smoothing)
 
 
 @partial(jax.pmap, axis_name="batch", )
@@ -419,7 +334,10 @@ def accuracy(state, data):
     logits = state.apply_fn({"params": state.ema_params}, inputs)
     clean_accuracy = jnp.argmax(logits, axis=-1) == labels
 
-    adversarial_images = pgd_attack3(inputs, labels, state, )
+    maxiter = 20
+
+    adversarial_images = pgd_attack3(inputs, labels, state, epsilon=EPSILON, maxiter=maxiter,
+                                     step_size=EPSILON * 2 / maxiter)
     logits_adv = state.apply_fn({"params": state.ema_params}, adversarial_images)
     adversarial_accuracy = jnp.argmax(logits_adv, axis=-1) == labels
 
@@ -446,12 +364,9 @@ def train_and_evaluate(args
   """
 
     if jax.process_index() == 0:
-        wandb.init(name=args.name, project=args.project)
+        wandb.init(name=args.name, project=args.project, config=args.__dict__,
+                   config_exclude_keys=['train_dataset_shards', 'valid_dataset_shards', 'train_origin_dataset_shards'])
         average_meter = AverageMeter(use_latest=["learning_rate"])
-
-    train_dataloader, test_dataloader = get_train_dataloader(args.train_batch_size,
-                                                             shard_path=args.train_dataset_shards,
-                                                             test_shard_path=args.valid_dataset_shards)
 
     rng = jax.random.key(0)
 
@@ -472,12 +387,23 @@ def train_and_evaluate(args
                                training_steps=args.training_steps,
                                learning_rate=args.learning_rate,
                                weight_decay=args.weight_decay,
-                               ema_decay=args.ema_decay
+                               ema_decay=args.ema_decay,
+                               trade_beta=args.beta,
+                               label_smoothing=args.label_smoothing,
+                               use_fc_norm=args.use_fc_norm,
+                               reduce_include_prefix=args.reduce_include_prefix,
+                               b1=args.adam_b1,
+                               b2=args.adam_b2
                                )
 
     state = flax.jax_utils.replicate(state)
 
-    train_dataloader_iter = iter(train_dataloader)
+    train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
+                                                                  shard_path=args.train_dataset_shards,
+                                                                  test_shard_path=args.valid_dataset_shards,
+                                                                  origin_shard_path=args.train_origin_dataset_shards)
+
+    # train_dataloader_iter = iter(train_dataloader)
 
     # test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
     #                                             transform=Compose(
@@ -516,13 +442,13 @@ def train_and_evaluate(args
 
         state, metrics = apply_model_trade(state, data, train_step_key)
 
-        if jax.process_index() == 0:
+        if jax.process_index() == 0 and step % args.log_interval == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
             # print(metrics)
             wandb.log(metrics, step)
 
-        if step % log_interval == 0:
+        if step % args.eval_interval == 0:
             for data in tqdm.tqdm(test_dataloader, leave=False, dynamic_ncols=True):
                 data = shard(jax.tree_util.tree_map(np.asarray, data))
                 metrics = accuracy(state, data)
@@ -535,15 +461,15 @@ def train_and_evaluate(args
                 metrics = jax.tree_util.tree_map(lambda x: x / num_samples, metrics)
                 wandb.log(metrics, step)
 
-                params = flax.jax_utils.unreplicate(state.params)
-                params_bytes = msgpack_serialize(params)
-                save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
-                                              output_dir=os.getenv('GCS_DATASET_DIR'))
+                # params = flax.jax_utils.unreplicate(state.params)
+                # params_bytes = msgpack_serialize(params)
+                # save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
+                #                               output_dir=os.getenv('GCS_DATASET_DIR'))
 
                 params = flax.jax_utils.unreplicate(state.ema_params)
                 params_bytes = msgpack_serialize(params)
                 save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
-                                              output_dir=os.getenv('GCS_DATASET_DIR'))
+                                              output_dir=args.output_dir)
 
     return state
 
@@ -556,6 +482,7 @@ if __name__ == "__main__":
     #     data=next(train_dataloader_iter)
     parser = argparse.ArgumentParser()
     parser.add_argument("--train-dataset-shards")
+    parser.add_argument("--train-origin-dataset-shards")
     parser.add_argument("--valid-dataset-shards")
     parser.add_argument("--train-batch-size", type=int, default=2048)
     # parser.add_argument("--valid-batch-size", type=int, default=256)
@@ -572,20 +499,25 @@ if __name__ == "__main__":
     # parser.add_argument("--mixup", type=float, default=0.8)
     # parser.add_argument("--cutmix", type=float, default=1.0)
     # parser.add_argument("--criterion", default="ce")
-    # parser.add_argument("--label-smoothing", type=float, default=0.1)
+    parser.add_argument("--label-smoothing", type=float, default=0.1)
+    parser.add_argument("--beta", type=float, default=5)
 
     parser.add_argument("--layers", type=int, default=12)
     parser.add_argument("--dim", type=int, default=768)
     parser.add_argument("--heads", type=int, default=12)
-    parser.add_argument("--labels", type=int, default=-1)
+    parser.add_argument("--labels", type=int, default=10)
     parser.add_argument("--layerscale", action="store_true", default=False)
-    parser.add_argument("--patch-size", type=int, default=16)
-    parser.add_argument("--image-size", type=int, default=224)
+    parser.add_argument("--patch-size", type=int, default=2)
+    parser.add_argument("--image-size", type=int, default=32)
     parser.add_argument("--posemb", default="learnable")
     parser.add_argument("--pooling", default="cls")
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--droppath", type=float, default=0.1)
     parser.add_argument("--grad-ckpt", action="store_true", default=False)
+    parser.add_argument("--use-fc-norm",action="store_true", default=False)
+    parser.add_argument("--reduce_include_prefix", action="store_true", default=False)
+
+
 
     # parser.add_argument("--init-seed", type=int, default=random.randint(0, 1000000))
     # parser.add_argument("--mixup-seed", type=int, default=random.randint(0, 1000000))
@@ -597,8 +529,8 @@ if __name__ == "__main__":
     # parser.add_argument("--optimizer", default="adamw")
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=0.05)
-    # parser.add_argument("--adam-b1", type=float, default=0.9)
-    # parser.add_argument("--adam-b2", type=float, default=0.999)
+    parser.add_argument("--adam-b1", type=float, default=0.95)
+    parser.add_argument("--adam-b2", type=float, default=0.98)
     # parser.add_argument("--adam-eps", type=float, default=1e-8)
     # parser.add_argument("--lr-decay", type=float, default=1.0)
     # parser.add_argument("--clip-grad", type=float, default=0.0)
@@ -607,12 +539,12 @@ if __name__ == "__main__":
     #
     parser.add_argument("--warmup-steps", type=int, default=10000)
     parser.add_argument("--training-steps", type=int, default=200000)
-    # parser.add_argument("--log-interval", type=int, default=50)
-    # parser.add_argument("--eval-interval", type=int, default=0)
+    parser.add_argument("--log-interval", type=int, default=50)
+    parser.add_argument("--eval-interval", type=int, default=200)
     #
     parser.add_argument("--project")
     parser.add_argument("--name")
     # parser.add_argument("--ipaddr")
     # parser.add_argument("--hostname")
-    # parser.add_argument("--output-dir", default=".")
+    parser.add_argument("--output-dir", default=".")
     train_and_evaluate(parser.parse_args())

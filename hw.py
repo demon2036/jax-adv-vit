@@ -293,44 +293,21 @@ def train_and_evaluate(args
                                )
 
     checkpointer = ocp.AsyncCheckpointer(ocp.PyTreeCheckpointHandler())
-    # checkpointer = ocp.PyTreeCheckpointer()
     ckpt = {'model': state}
-
     postfix = "ema"
     name = args.name
     output_dir = args.output_dir
-
     filename = os.path.join(output_dir, f"{name}-{postfix}")
     print(filename)
 
     if args.pretrained_ckpt is not None:
-
         state = checkpointer.restore(filename, item=ckpt)['model']
-
-        # restored = checkpointer.restore(args.pretrained_ckpt)
-        # print(restored)
-
-        # state = state.replace(**restored)
         init_step = state.step + 1
     else:
         init_step = 1
 
     print(init_step)
-
     state = flax.jax_utils.replicate(state)
-    # if jax.process_index() == 0:
-    #     postfix = "ema"
-    #     name = args.name
-    #     output_dir = args.output_dir
-    #     filename = os.path.join(output_dir, f"{name}-{postfix}")
-    #     print(filename)
-    #     checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
-    #                       force=True)
-    #
-    #     print('hellow')
-    # while True:
-    #     pass
-
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
                                                                   test_shard_path=args.valid_dataset_shards,
@@ -341,13 +318,8 @@ def train_and_evaluate(args
         local_device_count = jax.local_device_count()
 
         def _prepare(x):
-            # Use _numpy() for zero-copy conversion between TF and NumPy.
-            # x = {'img': x['img'], 'cls': x['cls']}
             x = np.asarray(x)
-            # x = x._numpy()  # pylint: disable=protected-access
 
-            # reshape (host_batch_size, height, width, 3) to
-            # (local_devices, device_batch_size, height, width, 3)
             return x.reshape((local_device_count, -1) + x.shape[1:])
 
         return jax.tree_util.tree_map(_prepare, xs)
@@ -368,7 +340,6 @@ def train_and_evaluate(args
         if jax.process_index() == 0 and step % args.log_interval == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
-            # print(metrics)
             wandb.log(metrics, step)
 
         if step % args.eval_interval == 0:

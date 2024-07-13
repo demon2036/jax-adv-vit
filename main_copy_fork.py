@@ -1,7 +1,7 @@
 import jax
 
 jax.distributed.initialize()
-
+import orbax.checkpoint as ocp
 import argparse
 from typing import Any
 from flax.serialization import msgpack_serialize
@@ -14,7 +14,7 @@ import torchvision
 import tqdm
 from flax.training.common_utils import shard, shard_prng_key
 from flax import linen as nn
-from flax.training import train_state
+from flax.training import train_state, orbax_utils
 
 import jax.numpy as jnp
 import numpy as np
@@ -350,7 +350,6 @@ def accuracy(state, data):
     # metrics = jax.lax.pmean(metrics, axis_name='batch')
     return metrics
 
-
 def train_and_evaluate(args
                        ) -> train_state.TrainState:
     """Execute model training and evaluation loop.
@@ -365,6 +364,7 @@ def train_and_evaluate(args
 
     if jax.process_index() == 0:
         wandb.init(name=args.name, project=args.project, config=args.__dict__,
+                   settings=wandb.Settings(_disable_stats=True),
                    config_exclude_keys=['train_dataset_shards', 'valid_dataset_shards', 'train_origin_dataset_shards'])
         average_meter = AverageMeter(use_latest=["learning_rate"])
 
@@ -393,38 +393,39 @@ def train_and_evaluate(args
                                use_fc_norm=args.use_fc_norm,
                                reduce_include_prefix=args.reduce_include_prefix,
                                b1=args.adam_b1,
-                               b2=args.adam_b2
+                               b2=args.adam_b2,
+                               clip_grad=0.0,
+
                                )
 
-    state = flax.jax_utils.replicate(state)
+    checkpointer = ocp.AsyncCheckpointer(ocp.PyTreeCheckpointHandler())
+    ckpt = {'model': state}
+    postfix = "ema"
+    name = args.name
+    output_dir = args.output_dir
+    filename = os.path.join(output_dir, f"{name}-{postfix}")
+    print(filename)
 
+    if args.pretrained_ckpt is not None:
+        state = checkpointer.restore(filename, item=ckpt)['model']
+        init_step = state.step + 1
+    else:
+        init_step = 1
+
+    print(init_step)
+    state = flax.jax_utils.replicate(state)
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
                                                                   test_shard_path=args.valid_dataset_shards,
                                                                   origin_shard_path=args.train_origin_dataset_shards)
-
-    # train_dataloader_iter = iter(train_dataloader)
-
-    # test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
-    #                                             transform=Compose(
-    #                                                 transform_test))  # 0.5, 0.5
-
-    # test_dataloader = DataLoader(test_dataset, TRAIN_BATCH_SIZE, shuffle=False, num_workers=16, drop_last=False)
-
-    log_interval = 200
 
     def prepare_tf_data(xs):
         """Convert a input batch from tf Tensors to numpy arrays."""
         local_device_count = jax.local_device_count()
 
         def _prepare(x):
-            # Use _numpy() for zero-copy conversion between TF and NumPy.
-            # x = {'img': x['img'], 'cls': x['cls']}
             x = np.asarray(x)
-            # x = x._numpy()  # pylint: disable=protected-access
 
-            # reshape (host_batch_size, height, width, 3) to
-            # (local_devices, device_batch_size, height, width, 3)
             return x.reshape((local_device_count, -1) + x.shape[1:])
 
         return jax.tree_util.tree_map(_prepare, xs)
@@ -433,7 +434,7 @@ def train_and_evaluate(args
 
     train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
-    for step in tqdm.tqdm(range(1, args.training_steps)):
+    for step in tqdm.tqdm(range(init_step, args.training_steps),initial=init_step,total=args.training_steps):
         rng, input_rng = jax.random.split(rng)
         data = next(train_dataloader_iter)
 
@@ -445,7 +446,6 @@ def train_and_evaluate(args
         if jax.process_index() == 0 and step % args.log_interval == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
-            # print(metrics)
             wandb.log(metrics, step)
 
         if step % args.eval_interval == 0:
@@ -466,10 +466,21 @@ def train_and_evaluate(args
                 # save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
                 #                               output_dir=os.getenv('GCS_DATASET_DIR'))
 
-                params = flax.jax_utils.unreplicate(state.ema_params)
-                params_bytes = msgpack_serialize(params)
-                save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
-                                              output_dir=args.output_dir)
+            ckpt = {'model': jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))}
+            # orbax_checkpointer = ocp.PyTreeCheckpointer()
+            save_args = orbax_utils.save_args_from_target(ckpt)
+            checkpointer.save(filename, ckpt, save_args=save_args, force=True)
+
+            # state=flax.jax_utils.replicate(state)
+
+            # state_host =
+            # checkpointer.save(filename, args=ocp.args.StandardSave(state_host),
+            #                   force=True)
+
+            # params = flax.jax_utils.unreplicate(state.ema_params)
+            # params_bytes = msgpack_serialize(params )
+            # save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
+            #                               output_dir=args.output_dir)
 
     return state
 
@@ -514,16 +525,14 @@ if __name__ == "__main__":
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--droppath", type=float, default=0.1)
     parser.add_argument("--grad-ckpt", action="store_true", default=False)
-    parser.add_argument("--use-fc-norm",action="store_true", default=False)
+    parser.add_argument("--use-fc-norm", action="store_true", default=False)
     parser.add_argument("--reduce_include_prefix", action="store_true", default=False)
-
-
 
     # parser.add_argument("--init-seed", type=int, default=random.randint(0, 1000000))
     # parser.add_argument("--mixup-seed", type=int, default=random.randint(0, 1000000))
     # parser.add_argument("--dropout-seed", type=int, default=random.randint(0, 1000000))
     # parser.add_argument("--shuffle-seed", type=int, default=random.randint(0, 1000000))
-    # parser.add_argument("--pretrained-ckpt")
+    parser.add_argument("--pretrained-ckpt")
     # parser.add_argument("--label-mapping")
     #
     # parser.add_argument("--optimizer", default="adamw")
