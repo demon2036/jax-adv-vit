@@ -15,7 +15,7 @@ import torchvision
 import tqdm
 from flax.training.common_utils import shard, shard_prng_key
 from flax import linen as nn
-from flax.training import train_state
+from flax.training import train_state, orbax_utils
 
 import jax.numpy as jnp
 import numpy as np
@@ -292,28 +292,22 @@ def train_and_evaluate(args
 
                                )
 
-    checkpointer = ocp.AsyncCheckpointer(ocp.StandardCheckpointHandler())
+    checkpointer = ocp.AsyncCheckpointer(ocp.PyTreeCheckpointHandler())
+    ckpt = {'model': state}
+    postfix = "ema"
+    name = args.name
+    output_dir = args.output_dir
+    filename = os.path.join(output_dir, f"{name}-{postfix}")
+    print(filename)
+
     if args.pretrained_ckpt is not None:
-        state = state.replace(**checkpointer.restore(args.pretrained_ckpt))
+        state = checkpointer.restore(filename, item=ckpt)['model']
         init_step = state.step + 1
     else:
         init_step = 1
 
+    print(init_step)
     state = flax.jax_utils.replicate(state)
-    # if jax.process_index() == 0:
-    #     postfix = "ema"
-    #     name = args.name
-    #     output_dir = args.output_dir
-    #     filename = os.path.join(output_dir, f"{name}-{postfix}")
-    #     print(filename)
-    #     checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
-    #                       force=True)
-    #
-    #     print('hellow')
-    # while True:
-    #     pass
-
-
     train_dataloader_iter, test_dataloader = get_train_dataloader(args.train_batch_size,
                                                                   shard_path=args.train_dataset_shards,
                                                                   test_shard_path=args.valid_dataset_shards,
@@ -324,13 +318,8 @@ def train_and_evaluate(args
         local_device_count = jax.local_device_count()
 
         def _prepare(x):
-            # Use _numpy() for zero-copy conversion between TF and NumPy.
-            # x = {'img': x['img'], 'cls': x['cls']}
             x = np.asarray(x)
-            # x = x._numpy()  # pylint: disable=protected-access
 
-            # reshape (host_batch_size, height, width, 3) to
-            # (local_devices, device_batch_size, height, width, 3)
             return x.reshape((local_device_count, -1) + x.shape[1:])
 
         return jax.tree_util.tree_map(_prepare, xs)
@@ -339,7 +328,7 @@ def train_and_evaluate(args
 
     train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
-    for step in tqdm.tqdm(range(init_step, args.training_steps)):
+    for step in tqdm.tqdm(range(init_step, args.training_steps),initial=init_step,total=args.training_steps):
         rng, input_rng = jax.random.split(rng)
         data = next(train_dataloader_iter)
 
@@ -351,7 +340,6 @@ def train_and_evaluate(args
         if jax.process_index() == 0 and step % args.log_interval == 0:
             average_meter.update(**flax.jax_utils.unreplicate(metrics))
             metrics = average_meter.summary('train/')
-            # print(metrics)
             wandb.log(metrics, step)
 
         if step % args.eval_interval == 0:
@@ -371,20 +359,22 @@ def train_and_evaluate(args
                 # params_bytes = msgpack_serialize(params)
                 # save_checkpoint_in_background(params_bytes=params_bytes, postfix="last", name=args.name,
                 #                               output_dir=os.getenv('GCS_DATASET_DIR'))
-                postfix = "ema"
-                name = args.name
-                output_dir = args.output_dir
-                output_dir='/root'
-                filename = os.path.join(output_dir, f"{name}-{postfix}")
-                print(filename)
 
-                checkpointer.save(filename, args=ocp.args.StandardSave(flax.jax_utils.unreplicate(state)),
-                                  force=True)
+            ckpt = {'model': jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))}
+            # orbax_checkpointer = ocp.PyTreeCheckpointer()
+            save_args = orbax_utils.save_args_from_target(ckpt)
+            checkpointer.save(filename, ckpt, save_args=save_args, force=True)
 
-                # params = flax.jax_utils.unreplicate(state.ema_params)
-                # params_bytes = msgpack_serialize(params )
-                # save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
-                #                               output_dir=args.output_dir)
+            # state=flax.jax_utils.replicate(state)
+
+            # state_host =
+            # checkpointer.save(filename, args=ocp.args.StandardSave(state_host),
+            #                   force=True)
+
+            # params = flax.jax_utils.unreplicate(state.ema_params)
+            # params_bytes = msgpack_serialize(params )
+            # save_checkpoint_in_background(params_bytes=params_bytes, postfix="ema", name=args.name,
+            #                               output_dir=args.output_dir)
 
     return state
 
