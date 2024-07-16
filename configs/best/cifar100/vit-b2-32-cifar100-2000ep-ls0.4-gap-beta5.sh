@@ -22,7 +22,7 @@ python -u main_copy_fork.py \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
      --eval-interval $((50000 * 50 / $TRAIN_BATCH_SIZE)) \
-    --project cifar100-50m \
+    --project cifar100-50m-best \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/best/cifar100-50m" \
     --beta 5.0 \
