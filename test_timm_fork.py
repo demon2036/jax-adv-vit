@@ -1,42 +1,22 @@
 import argparse
 import functools
-
 # import accelerate
 import numpy as np
 import torch
-
-from functools import partial
-
 from timm.models import VisionTransformer
 from torch.utils.data import DataLoader
-
 import torchvision
 
 from torchvision.transforms import Compose, ToTensor, Normalize
-
-import os
-
-EPOCHS = 1000  # @param{type:"integer"}
-# @markdown Number of samples for each batch in the training set:
-TRAIN_BATCH_SIZE = 1024  # @param{type:"integer"}
-# @markdown Number of samples for each batch in the test set:
-TEST_BATCH_SIZE = 64  # @param{type:"integer"}
-# @markdown Learning rate for the optimizer:
-LEARNING_RATE = 1e-3  # @param{type:"number"}
-# @markdown The dataset to use.
-DATASET = "cifar10-l2"  # @param{type:"string"}
-# @markdown The amount of L2 regularization to use:
-L2_REG = 0.0001  # @param{type:"number"}
-# @markdown Adversarial perturbations lie within the infinity-ball of radius epsilon.
-EPSILON = 8 / 255  # @param{type:"number"}
-
-os.environ['WANDB_API_KEY'] = 'ec6aa52f09f51468ca407c0c00e136aaaa18a445'
 
 IMAGENET_DEFAULT_MEAN = np.array([0.4914, 0.4822, 0.4465])
 IMAGENET_DEFAULT_STD = np.array([0.2471, 0.2435, 0.2616])
 
 
 def train_and_evaluate(args):
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+
     print(args)
 
     model = VisionTransformer(img_size=32, patch_size=2, num_classes=args.labels, init_values=1e-4, embed_dim=args.dim,
@@ -49,13 +29,12 @@ def train_and_evaluate(args):
     # model = timm.create_model("vit_tiny_patch16_224", init_values=1e-4)
     print(type(model))
     state_dict = torch.load(args.checkpoint)
-    # state_dict['head.weight']=state_dict['head.weight'][:10]
-    # state_dict['head.bias'] = state_dict['head.bias'][:10]
+
     print(model.load_state_dict(state_dict))
     # model.num_prefix_tokens = 0
     # model = torch.nn.Sequential(Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD), model)
     model = model.cuda()
-    import foolbox as fb
+
     model.eval()
     # from accelerate import Accelerator
     # model = Accelerator(mixed_precision='bf16').prepare_model(model)
@@ -63,9 +42,9 @@ def train_and_evaluate(args):
     from autoattack import AutoAttack
     # adversary = AutoAttack(model, norm='Linf', eps=8 / 255, version='custom', attacks_to_run=['apgd-ce', 'apgd-dlr'])
     # adversary = AutoAttack(model, norm='Linf', eps=8 / 255, )
-    if args.norm=='l2':
+    if args.norm == 'l2':
         adversary = AutoAttack(model, norm='L2', eps=0.5, )
-    elif args.norm=='linf':
+    elif args.norm == 'linf':
         adversary = AutoAttack(model, norm='Linf', eps=8 / 255, )
     else:
         raise NotImplemented()
@@ -93,9 +72,9 @@ def train_and_evaluate(args):
     # y_test = y_test.cuda()
 
     x_adv = adversary.run_standard_evaluation(x_test, y_test, bs=args.batch_size)
-    
-    
+
     """
+    import foolbox as fb
     fmodel = fb.PyTorchModel(model, bounds=(0, 1))
 
     for data in test_dataloader:
@@ -112,6 +91,7 @@ def train_and_evaluate(args):
         # print(success.shape)
         print(success[success == True].sum() / success.shape[1])
     """
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
