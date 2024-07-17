@@ -153,7 +153,7 @@ if __name__ == "__main__":
     parser.add_argument("--pretrained-model", type=str,
                         default='checkpoint/jax_model/best/cifar100/vit-b2-32-cifar100-2000ep-ls0.4-gap-beta5-ema')
     parser.add_argument("--checkpoint", type=str,
-                        default='checkpoint/pytorch_model/best/cifar100/vit-b2-32-cifar100-2000ep-ls0.4-gap-beta3-ema.pth')
+                        default='checkpoint/pytorch_model/best/cifar100/vit-b2-32-cifar100-2000ep-ls0.4-gap-beta5-ema.pth')
 
     parser.add_argument("--restore-type", type=str,
                         default='orbax',

@@ -24,13 +24,13 @@ def train_and_evaluate(args):
                               num_heads=args.heads, depth=args.layers,
                               global_pool=args.class_token,
                               class_token=False if args.use_class_token is None else True,
-                              fc_norm=False, act_layer=functools.partial(torch.nn.GELU, approximate='tanh'))
+                              fc_norm=args.fc_norm, act_layer=functools.partial(torch.nn.GELU, approximate='tanh'))
 
-    # model = timm.create_model("vit_tiny_patch16_224", init_values=1e-4)
     print(type(model))
     state_dict = torch.load(args.checkpoint)
-
+    print(state_dict['head.weight'].shape)
     print(model.load_state_dict(state_dict))
+
     # model.num_prefix_tokens = 0
     # model = torch.nn.Sequential(Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD), model)
     model = model.cuda()
@@ -106,5 +106,6 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str)
     parser.add_argument('--use-class-token', type=str, default=None)
     parser.add_argument("--class-token", type=str)
+    parser.add_argument("--fc-norm", type=bool,default=False)
 
     train_and_evaluate(parser.parse_args())
