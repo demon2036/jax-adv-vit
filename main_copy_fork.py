@@ -242,7 +242,7 @@ def create_train_state(rng,
                        ema_decay=0.9999,
                        trade_beta=5.0,
                        label_smoothing=0.1,
-                       use_fc_norm: bool = True,
+                       use_fc_norm: bool = False,
                        reduce_include_prefix: bool = False,
                        b1=0.95,
                        b2=0.98
@@ -394,7 +394,7 @@ def train_and_evaluate(args
                                reduce_include_prefix=args.reduce_include_prefix,
                                b1=args.adam_b1,
                                b2=args.adam_b2,
-                               clip_grad=0.0,
+                               clip_grad=args.clip_grad,
 
                                )
 
@@ -542,7 +542,7 @@ if __name__ == "__main__":
     parser.add_argument("--adam-b2", type=float, default=0.98)
     # parser.add_argument("--adam-eps", type=float, default=1e-8)
     # parser.add_argument("--lr-decay", type=float, default=1.0)
-    # parser.add_argument("--clip-grad", type=float, default=0.0)
+    parser.add_argument("--clip-grad", type=float, default=0.0)
     # parser.add_argument("--grad-accum", type=int, default=1)
     parser.add_argument("--ema-decay", type=float, default=0.9999)
     #
