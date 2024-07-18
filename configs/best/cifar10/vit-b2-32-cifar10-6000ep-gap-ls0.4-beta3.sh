@@ -21,9 +21,9 @@ python -u main_copy_fork.py \
     --weight-decay 0.5 \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
-    --eval-interval $((50000 * 25 / $TRAIN_BATCH_SIZE)) \
-    --project cifar1000-ablation-epoch \
+    --eval-interval $((50000 * 50 / $TRAIN_BATCH_SIZE)) \
+    --project cifar10-ablation-best \
     --name $(basename $0 .sh) \
-    --output-dir "$GCS_DATASET_DIR/ablation/epoch" \
+    --output-dir "$GCS_DATASET_DIR/best/cifar10" \
     --beta 3.0 \
     --label-smoothing 0.4
