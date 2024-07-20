@@ -1,4 +1,4 @@
-export EPOCH=2400 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5
+export EPOCH=2000 TRAIN_BATCH_SIZE=1024 WARMUP_EPOCH=5
 
 
 python -u main_copy_fork.py \
@@ -21,8 +21,9 @@ python -u main_copy_fork.py \
     --weight-decay 0.5 \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
+    --eval-interval $((50000 * 50 / $TRAIN_BATCH_SIZE)) \
     --project cifar1000-ablation-beta \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/ablation/beta" \
-    --beta 2.0 \
+    --beta 5.0 \
     --label-smoothing 0.4

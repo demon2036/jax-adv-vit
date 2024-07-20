@@ -52,7 +52,7 @@ def train_and_evaluate(args):
 
     if args.dataset == 'cifar10':
 
-        test_dataset = torchvision.datasets.CIFAR10('data/cifar10s', train=False, download=True,
+        test_dataset = torchvision.datasets.CIFAR10('data', train=False, download=True,
                                                     transform=Compose(
                                                         [ToTensor()]))  # 0.5, 0.5
     elif args.dataset == 'cifar100':
