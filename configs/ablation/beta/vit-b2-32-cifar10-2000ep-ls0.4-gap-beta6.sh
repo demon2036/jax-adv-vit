@@ -28,4 +28,5 @@ python -u main_copy_fork.py \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/ablation/beta" \
     --beta 6.0 \
-    --label-smoothing 0.4
+    --label-smoothing 0.4 \
+    --pretrained-ckpt  "$GCS_DATASET_DIR/ablation/beta/vit-b2-32-cifar10-2000ep-ls0.4-gap-beta6-ema/"
