@@ -27,4 +27,5 @@ python -u main_copy_fork.py \
     --name $(basename $0 .sh) \
     --output-dir "$GCS_DATASET_DIR/best/cifar100-50m" \
     --beta 5.0 \
-    --label-smoothing 0.4
+    --label-smoothing 0.4 \
+    --pretrained-ckpt  "$GCS_DATASET_DIR/best/cifar100-50m/vit-l2-32-cifar100-6000ep-ls0.4-gap-beta5-ema/"
