@@ -19,6 +19,7 @@ python -u main_copy_fork.py \
     --train-batch-size $TRAIN_BATCH_SIZE \
     --learning-rate 1e-4 \
     --weight-decay 0.5 \
+    --clip-grad 1.0 \
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
     --eval-interval $((50000 * 50 / $TRAIN_BATCH_SIZE)) \
