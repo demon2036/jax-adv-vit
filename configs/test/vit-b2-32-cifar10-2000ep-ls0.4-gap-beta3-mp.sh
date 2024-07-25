@@ -27,6 +27,6 @@ python -u main_copy_fork.py \
     --eval-interval $((50000 * 50 / $TRAIN_BATCH_SIZE)) \
     --project cifar1000-ablation-beta-new \
     --name $(basename $0 .sh) \
-    --output-dir "$GCS_DATASET_DIR/ablation/beta" \
+    --output-dir "$GCS_DATASET_DIR/ablation/mp" \
     --beta 3.0 \
     --label-smoothing 0.4
