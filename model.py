@@ -83,7 +83,7 @@ class ViTBase:
 class MPDense(ViTBase, nn.Module):
     kernel_init = init.truncated_normal(0.02)
 
-    def forward(self, x, gain=1):
+    def __call__(self, x, gain=1):
         w = self.param(
             'kernel',
             self.kernel_init,
