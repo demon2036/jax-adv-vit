@@ -88,7 +88,7 @@ class MPDense(ViTBase, nn.Module):
             'kernel',
             self.kernel_init,
             (jnp.shape(x)[-1], self.dim),
-            self.param_dtype,
+
         )
 
         w = normalize_jax(w, dim=0)
