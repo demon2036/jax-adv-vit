@@ -18,7 +18,7 @@ python -u main_copy_fork_sgd.py \
     --droppath 0.0  \
     --train-batch-size $TRAIN_BATCH_SIZE \
     --learning-rate 0.2 \
-    --weight-decay 0.5 \
+    --weight-decay 5e-4\
     --warmup-steps $((50000 * $WARMUP_EPOCH / $TRAIN_BATCH_SIZE)) \
     --training-steps $((50000 * $EPOCH / $TRAIN_BATCH_SIZE)) \
     --project cifar1000-ablation-beta \
