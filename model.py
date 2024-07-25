@@ -81,7 +81,7 @@ class ViTBase:
 
 
 class MPDense(ViTBase, nn.Module):
-    kernel_init = init.truncated_normal(0.02)
+    kernel_init:Any = init.truncated_normal(0.02)
 
     @nn.compact
     def __call__(self, x, gain=1):
@@ -148,8 +148,8 @@ class Attention(ViTBase, nn.Module):
 
 class FeedForward(ViTBase, nn.Module):
     def setup(self):
-        self.w1 = MPDense(self.hidden_dim)
-        self.w2 = MPDense(self.dim)
+        self.w1 = MPDense(dim=self.hidden_dim)
+        self.w2 = MPDense(dim=self.dim)
         self.drop = nn.Dropout(self.dropout)
 
     def __call__(self, x: Array, det: bool = True) -> Array:
