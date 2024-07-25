@@ -33,7 +33,7 @@ Dense = partial(nn.Dense, kernel_init=init.truncated_normal(0.02))
 Conv = partial(nn.Conv, kernel_init=init.truncated_normal(0.02))
 
 
-def normalize_jax(x, dim=None, eps=1e-7):
+def normalize_jax(x, dim=None, eps=1e-4):
     if dim is None:
         dim = tuple(range(1, x.ndim))
     norm = jnp.linalg.vector_norm(x, axis=dim, keepdims=True, )
