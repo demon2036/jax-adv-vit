@@ -40,8 +40,8 @@ class ViTBase:
     labels: int | None = 1000
     layerscale: bool = False
 
-    patch_size: int = 16
-    image_size: int = 224
+    patch_size: int = 2
+    image_size: int = 32
     posemb: Literal["learnable", "sincos2d"] = "learnable"
     pooling: Literal["cls", "gap"] = "gap"
     qk_norm: bool = False
@@ -144,10 +144,10 @@ class ViTLayer(ViTBase, nn.Module):
 
         self.scale1 = self.scale2 = 1.0
         if self.layerscale:
-            # self.scale1 = self.param("scale1", init.constant(1e-4), (self.dim,))
-            # self.scale2 = self.param("scale2", init.constant(1e-4), (self.dim,))
-            self.scale1 = self.param("scale1", init.constant(1e-6), (self.dim,))
-            self.scale2 = self.param("scale2", init.constant(1e-6), (self.dim,))
+            self.scale1 = self.param("scale1", init.constant(1e-4), (self.dim,))
+            self.scale2 = self.param("scale2", init.constant(1e-4), (self.dim,))
+            # self.scale1 = self.param("scale1", init.constant(1e-6), (self.dim,))
+            # self.scale2 = self.param("scale2", init.constant(1e-6), (self.dim,))
 
     def __call__(self, x: Array, det: bool = True) -> Array:
         x = x + self.drop(self.scale1 * self.attn(self.norm1(x), det), det)
@@ -169,9 +169,9 @@ class ViT(ViTBase, nn.Module):
         self.norm = nn.LayerNorm() if not self.use_fc_norm else Identity()
         self.fc_norm = nn.LayerNorm() if self.use_fc_norm else Identity()
 
-        print(self.norm, self.fc_norm)
+        print(self.kwargs)
 
-        self.head = Dense(self.labels) if self.labels is not None else None
+        self.head = nn.Dense(self.labels) if self.labels is not None else None
 
     def __call__(self, x: Array, det: bool = True) -> Array:
         # x = (x - IMAGENET_DEFAULT_MEAN) / IMAGENET_DEFAULT_STD

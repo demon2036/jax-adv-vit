@@ -22,6 +22,7 @@ import flax.linen as nn
 import flax.linen.initializers as init
 import jax.experimental.pallas.ops.tpu.flash_attention
 import jax.numpy as jnp
+import numpy as np
 from chex import Array
 
 from datasets import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
@@ -30,6 +31,14 @@ from utils2 import fixed_sincos2d_embeddings
 DenseGeneral = partial(nn.DenseGeneral, kernel_init=init.truncated_normal(0.02))
 Dense = partial(nn.Dense, kernel_init=init.truncated_normal(0.02))
 Conv = partial(nn.Conv, kernel_init=init.truncated_normal(0.02))
+
+
+def normalize_jax(x, dim=None, eps=1e-7):
+    if dim is None:
+        dim = tuple(range(1, x.ndim))
+    norm = jnp.linalg.vector_norm(x, axis=dim, keepdims=True, )
+    norm = jnp.add(eps, norm, ) * np.sqrt(norm.size / x.size)
+    return x / norm
 
 
 @dataclass
@@ -69,6 +78,22 @@ class ViTBase:
     @property
     def num_patches(self) -> tuple[int, int]:
         return (self.image_size // self.patch_size,) * 2
+
+
+class MPDense(ViTBase, nn.Module):
+    kernel_init = init.truncated_normal(0.02)
+
+    def forward(self, x, gain=1):
+        w = self.param(
+            'kernel',
+            self.kernel_init,
+            (jnp.shape(x)[-1], self.dim),
+            self.param_dtype,
+        )
+
+        w = normalize_jax(w, dim=0)
+        w = w * (gain / np.sqrt(w[:, 0].size))
+        return x @ w
 
 
 class PatchEmbed(ViTBase, nn.Module):
@@ -122,8 +147,8 @@ class Attention(ViTBase, nn.Module):
 
 class FeedForward(ViTBase, nn.Module):
     def setup(self):
-        self.w1 = Dense(self.hidden_dim)
-        self.w2 = Dense(self.dim)
+        self.w1 = MPDense(self.hidden_dim)
+        self.w2 = MPDense(self.dim)
         self.drop = nn.Dropout(self.dropout)
 
     def __call__(self, x: Array, det: bool = True) -> Array:
@@ -203,4 +228,3 @@ class ViT(ViTBase, nn.Module):
         x = self.fc_norm(x)
 
         return self.head(x)
-
