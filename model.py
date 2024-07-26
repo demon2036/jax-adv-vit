@@ -162,7 +162,7 @@ class Attention(ViTBase, nn.Module):
         y = self.to_qkv(x)  # b l d
 
         y = einops.rearrange(y, 'b l (h d v) -> b h d v l  ', h=self.heads, v=3)
-        y = y.reshape(y.shape[0], self.heads, -1, 3, y.shape[1])
+        # y = y.reshape(y.shape[0], self.heads, -1, 3, y.shape[1])
         q, k, v = jnp.split(normalize_jax(y, dim=2), 3, 3)  # pixel norm & split
         w = jnp.einsum('nhcq,nhck->nhqk', q, k / np.sqrt(q.shape[2]))
         w = nn.softmax(w, axis=3)
