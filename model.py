@@ -166,7 +166,6 @@ class Attention(ViTBase, nn.Module):
 
         q, k, v = einops.rearrange(y, ' b h d v l ->v b h d  l  ', )
 
-        print(q.shape, k.shape, v.shape)
 
         w = jnp.einsum('nhcq,nhck->nhqk', q, k / np.sqrt(q.shape[2]))
         w = nn.softmax(w, axis=3)
