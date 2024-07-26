@@ -81,7 +81,7 @@ class ViTBase:
 
 
 class MPDense(ViTBase, nn.Module):
-    kernel_init:Any = init.truncated_normal(0.02)
+    kernel_init: Any = init.truncated_normal(0.02)
 
     @nn.compact
     def __call__(self, x, gain=1):
@@ -130,20 +130,41 @@ class Identity(nn.Module):
         return x
 
 
+# class Attention(ViTBase, nn.Module):
+#     def setup(self):
+#         self.q_norm = nn.LayerNorm() if self.qk_norm else Identity()
+#         self.k_norm = nn.LayerNorm() if self.qk_norm else Identity()
+#         self.wq = DenseGeneral((self.heads, self.head_dim))
+#         self.wk = DenseGeneral((self.heads, self.head_dim))
+#         self.wv = DenseGeneral((self.heads, self.head_dim))
+#         self.wo = DenseGeneral(self.dim, axis=(-2, -1))
+#         self.drop = nn.Dropout(self.dropout)
+#
+#     def __call__(self, x: Array, det: bool = True) -> Array:
+#         z = jnp.einsum("bqhd,bkhd->bhqk", self.q_norm(self.wq(x)) / self.head_dim ** 0.5, self.k_norm(self.wk(x)))
+#         z = jnp.einsum("bhqk,bkhd->bqhd", self.drop(nn.softmax(z), det), self.wv(x))
+#         return self.drop(self.wo(z), det)
+
+
 class Attention(ViTBase, nn.Module):
     def setup(self):
         self.q_norm = nn.LayerNorm() if self.qk_norm else Identity()
         self.k_norm = nn.LayerNorm() if self.qk_norm else Identity()
-        self.wq = DenseGeneral((self.heads, self.head_dim))
-        self.wk = DenseGeneral((self.heads, self.head_dim))
-        self.wv = DenseGeneral((self.heads, self.head_dim))
-        self.wo = DenseGeneral(self.dim, axis=(-2, -1))
+        self.to_qkv = MPDense(dim=self.dim * 3, )
+        # self.wo = DenseGeneral(self.dim, axis=(-2, -1))
+
+        self.wo = MPDense(dim=self.dim)
+
         self.drop = nn.Dropout(self.dropout)
 
     def __call__(self, x: Array, det: bool = True) -> Array:
-        z = jnp.einsum("bqhd,bkhd->bhqk", self.q_norm(self.wq(x)) / self.head_dim ** 0.5, self.k_norm(self.wk(x)))
-        z = jnp.einsum("bhqk,bkhd->bqhd", self.drop(nn.softmax(z), det), self.wv(x))
-        return self.drop(self.wo(z), det)
+        y = self.to_qkv(x)
+        y = y.reshape(y.shape[0], self.num_heads, -1, 3, y.shape[2] * y.shape[3])
+        q, k, v = jnp.split(normalize_jax(y, dim=2), 3, 3)  # pixel norm & split
+        w = jnp.einsum('nhcq,nhck->nhqk', q, k / np.sqrt(q.shape[2]))
+        w = nn.softmax(w, axis=3)
+        z = jnp.einsum('nhqk,nhck->nhcq', w, v)
+        return self.drop(self.wo(z.reshape(*x.shape)), det)
 
 
 class FeedForward(ViTBase, nn.Module):
