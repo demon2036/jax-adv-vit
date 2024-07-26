@@ -149,19 +149,17 @@ class Identity(nn.Module):
 
 class Attention(ViTBase, nn.Module):
     def setup(self):
-
-        self.wq = nn.Dense(self.dim,)
-        self.wk = nn.Dense(self.dim,)
+        self.wq = nn.Dense(self.dim, )
+        self.wk = nn.Dense(self.dim, )
         self.wv = nn.Dense(self.dim)
-        self.wo = nn.Dense(self.dim,)
-
+        self.wo = nn.Dense(self.dim, )
 
     def __call__(self, x, det: bool = True):
-        q = einops.rearrange(self.wq(x), 'b q (h d)-> b h q d',h=self.heads)
-        k = einops.rearrange(self.wk(x), 'b q (h d)-> b h q d',h=self.heads)
-        v = einops.rearrange(self.wv(x), 'b q (h d)-> b h q d',h=self.heads)
-        z = jnp.einsum("bqhd,bkhd->bhqk", q / self.head_dim ** 0.5, k)
-        z = jnp.einsum("bhqk,bkhd->bqhd", nn.softmax(z),v)
+        q = einops.rearrange(self.wq(x), 'b q (h d)-> b h q d', h=self.heads)
+        k = einops.rearrange(self.wk(x), 'b q (h d)-> b h q d', h=self.heads)
+        v = einops.rearrange(self.wv(x), 'b q (h d)-> b h q d', h=self.heads)
+        z = jnp.einsum("bhqd,bhkd->bhqk", q / self.head_dim ** 0.5, k)
+        z = jnp.einsum("bhqk,bkhd->bhqd", nn.softmax(z), v)
         z = einops.rearrange(z, 'b h q d ->  b q (h d) ')
 
         return self.wo(z)
