@@ -164,7 +164,7 @@ class Attention(ViTBase, nn.Module):
         y = einops.rearrange(y, 'b l (h d v) -> b h d v l  ', h=self.heads, v=3)
         y = normalize_jax(y, dim=2)
 
-        q, k, v = einops.rearrange(y, ' b h d v  ->v b h d  l  ', )
+        q, k, v = einops.rearrange(y, ' b h d v l ->v b h d  l  ', )
 
         print(q.shape, k.shape, v.shape)
 
