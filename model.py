@@ -149,10 +149,10 @@ class Identity(nn.Module):
 
 class Attention(ViTBase, nn.Module):
     def setup(self):
-        self.wq = nn.Dense(self.dim, )
-        self.wk = nn.Dense(self.dim, )
-        self.wv = nn.Dense(self.dim)
-        self.wo = nn.Dense(self.dim, )
+        self.wq = MPDense(self.dim, )
+        self.wk = MPDense(self.dim, )
+        self.wv = MPDense(self.dim)
+        self.wo = MPDense(self.dim, )
 
     def __call__(self, x, det: bool = True):
         q = einops.rearrange(self.wq(x), 'b q (h d)-> b h q d', h=self.heads)
