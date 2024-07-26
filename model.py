@@ -159,6 +159,10 @@ class Attention(ViTBase, nn.Module):
         k = einops.rearrange(self.wk(x), 'b q (h d)-> b h q d', h=self.heads)
         v = einops.rearrange(self.wv(x), 'b q (h d)-> b h q d', h=self.heads)
         z = jnp.einsum("bhqd,bhkd->bhqk", q / self.head_dim ** 0.5, k)
+
+
+        print(z.shape,v.shape)
+
         z = jnp.einsum("bhqk,bkhd->bhqd", nn.softmax(z), v)
         z = einops.rearrange(z, 'b h q d ->  b q (h d) ')
 
