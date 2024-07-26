@@ -149,25 +149,22 @@ class Identity(nn.Module):
 
 class Attention(ViTBase, nn.Module):
     def setup(self):
-        self.q_norm = nn.LayerNorm() if self.qk_norm else Identity()
-        self.k_norm = nn.LayerNorm() if self.qk_norm else Identity()
-        self.to_qkv = MPDense(dim=self.dim * 3, )
-        # self.wo = DenseGeneral(self.dim, axis=(-2, -1))
 
-        self.wo = MPDense(dim=self.dim)
+        self.wq = nn.Dense(self.dim,)
+        self.wk = nn.Dense(self.dim,)
+        self.wv = nn.Dense(self.dim)
+        self.wo = nn.Dense(self.dim,)
 
-        self.drop = nn.Dropout(self.dropout)
 
-    def __call__(self, x: Array, det: bool = True) -> Array:
-        y = self.to_qkv(x)  # b l d
-        y = einops.rearrange(y, 'b l (h d v) -> b h d v l  ', h=self.heads, v=3)
-        # y = normalize_jax(y, dim=2)
+    def __call__(self, x, det: bool = True):
+        q = einops.rearrange(self.wq(x), 'b q (h d)-> b h q d',h=self.heads)
+        k = einops.rearrange(self.wk(x), 'b q (h d)-> b h q d',h=self.heads)
+        v = einops.rearrange(self.wv(x), 'b q (h d)-> b h q d',h=self.heads)
+        z = jnp.einsum("bqhd,bkhd->bhqk", q / self.head_dim ** 0.5, k)
+        z = jnp.einsum("bhqk,bkhd->bqhd", nn.softmax(z),v)
+        z = einops.rearrange(z, 'b h q d ->  b q (h d) ')
 
-        q, k, v = einops.rearrange(y, ' b h d v l ->v b h d  l  ', )
-        w = jnp.einsum('nhcq,nhck->nhqk', q, k / np.sqrt(q.shape[2]))
-        w = nn.softmax(w, axis=-1)
-        z = jnp.einsum('nhqk,nhck->nhcq', w, v)
-        return self.drop(self.wo(z.reshape(*x.shape)), det)
+        return self.wo(z)
 
 
 class FeedForward(ViTBase, nn.Module):
