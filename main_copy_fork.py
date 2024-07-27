@@ -204,7 +204,7 @@ def apply_model_trade(state, data, key):
 
         if p[0].key != 'embed' and p[-1].key == 'kernel':
             # print(p, 1)
-            return normalize_jax(x)
+            return normalize_jax(x,dim=0)
         else:
             # print(p, 0)
             return x
