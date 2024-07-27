@@ -211,9 +211,12 @@ def apply_model_trade(state, data, key):
 
         # print(p)
 
-    state = state.replace(params=jax.tree_util.tree_map_with_path(f, state.params))
+
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
+
+    state = state.replace(params=jax.tree_util.tree_map_with_path(f, state.params))
+
     (loss, metrics), grads = grad_fn(state.params)
     accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
     accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
