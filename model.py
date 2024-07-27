@@ -116,14 +116,14 @@ def compute_capacity(
 class SoftRouter(nn.Module):
     """Soft router merging tokens as inputs/outputs of the experts."""
     dim:int
-    num_experts: int =16
+    num_experts: int =4
     num_slots: Optional[int] = None
     capacity_factor: Optional[float] = 1.0
     noise_std: float = 0.0
     deterministic: bool = False
     dtype: Optional[DType] = None
     mu_init: Initializer = jax.nn.initializers.lecun_normal()
-    expert_init: Initializer = jax.nn.initializers.lecun_normal()
+    expert_init: Initializer = init.truncated_normal(0.02)
     scale_init: Initializer = jax.nn.initializers.ones
     precision: jax.lax.Precision = jax.lax.Precision.DEFAULT
 
