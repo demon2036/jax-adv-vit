@@ -105,10 +105,11 @@ def compute_capacity(
         capacity += (-capacity) % multiple_of
     actual_capacity_factor = capacity * num_experts / num_tokens
     if abs(actual_capacity_factor - capacity_factor) > 1e-6:
-        logging.warning(
-            "The target capacity_factor is %f, but with num_tokens=%d and "
-            "num_experts=%d the actual capacity_factor is %f.",
-            capacity_factor, num_tokens, num_experts, actual_capacity_factor)
+        pass
+        # logging.warning(
+        #     "The target capacity_factor is %f, but with num_tokens=%d and "
+        #     "num_experts=%d the actual capacity_factor is %f.",
+        #     capacity_factor, num_tokens, num_experts, actual_capacity_factor)
     return capacity
 
 
@@ -280,7 +281,7 @@ class ViT(ViTBase, nn.Module):
         self.norm = nn.LayerNorm() if not self.use_fc_norm else Identity()
         self.fc_norm = nn.LayerNorm() if self.use_fc_norm else Identity()
 
-        print(self.kwargs)
+        # print(self.kwargs)
 
         self.head = nn.Dense(self.labels) if self.labels is not None else None
 
