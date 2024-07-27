@@ -42,6 +42,16 @@ def normalize_jax(x, dim=None, eps=1e-4):
     return x / norm
 
 
+def mp_silu(x):
+    return nn.silu(x) / 0.596
+
+
+def mp_sum(a, b, t=0.5):
+    return (a + t * (b - a)) / np.sqrt((1 - t) ** 2 + t ** 2)
+
+    # return a.lerp(b, t) / np.sqrt((1 - t) ** 2 + t ** 2)
+
+
 @dataclass
 class ViTBase:
     layers: int = 12
@@ -160,7 +170,6 @@ class Attention(ViTBase, nn.Module):
         v = einops.rearrange(self.wv(x), 'b q (h d)-> b h q d', h=self.heads)
         z = jnp.einsum("bhqd,bhkd->bhqk", q / self.head_dim ** 0.5, k)
 
-
         # print(z.shape,v.shape)
 
         z = jnp.einsum("bhqk,bhkd->bhqd", nn.softmax(z), v)
@@ -176,7 +185,9 @@ class FeedForward(ViTBase, nn.Module):
         self.drop = nn.Dropout(self.dropout)
 
     def __call__(self, x: Array, det: bool = True) -> Array:
-        return self.drop(self.w2(self.drop(nn.gelu(self.w1(x)), det)), det)
+        return self.w2(mp_silu(self.w1(x)))
+
+        # return self.drop(self.w2(self.drop(nn.gelu(self.w1(x)), det)), det)
 
 
 class ViTLayer(ViTBase, nn.Module):
@@ -199,8 +210,12 @@ class ViTLayer(ViTBase, nn.Module):
             # self.scale2 = self.param("scale2", init.constant(1e-6), (self.dim,))
 
     def __call__(self, x: Array, det: bool = True) -> Array:
-        x = x + self.drop(self.scale1 * self.attn(self.norm1(x), det), det)
-        x = x + self.drop(self.scale2 * self.ff(self.norm2(x), det), det)
+        # x = x + self.drop(self.scale1 * self.attn(self.norm1(x), det), det)
+        # x = x + self.drop(self.scale2 * self.ff(self.norm2(x), det), det)
+
+        x = mp_sum(x, self.attn(self.norm1(x)), 0.3)
+        x = mp_sum(x, self.ff(self.norm2(x)), 0.3)
+
         return x
 
 
