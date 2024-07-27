@@ -235,7 +235,7 @@ class ViT(ViTBase, nn.Module):
 
         print(self.kwargs)
 
-        self.head = nn.Dense(self.labels) if self.labels is not None else None
+        self.head = MPDense(self.labels) if self.labels is not None else None
 
     def __call__(self, x: Array, det: bool = True) -> Array:
         # x = (x - IMAGENET_DEFAULT_MEAN) / IMAGENET_DEFAULT_STD
