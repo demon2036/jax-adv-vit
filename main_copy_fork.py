@@ -193,7 +193,7 @@ def apply_model_trade(state, data, key):
 
         return loss + state.trade_beta * trade_loss, metrics
 
-    def normalize_jax(x, dim=None, eps=1e-7):
+    def normalize_jax(x, dim=None, eps=1e-4):
         if dim is None:
             dim = tuple(range(1, x.ndim))
         norm = jnp.linalg.vector_norm(x, axis=dim, keepdims=True, )
