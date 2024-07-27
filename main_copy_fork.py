@@ -193,6 +193,26 @@ def apply_model_trade(state, data, key):
 
         return loss + state.trade_beta * trade_loss, metrics
 
+    def normalize_jax(x, dim=None, eps=1e-7):
+        if dim is None:
+            dim = tuple(range(1, x.ndim))
+        norm = jnp.linalg.vector_norm(x, axis=dim, keepdims=True, )
+        norm = jnp.add(eps, norm, ) * np.sqrt(norm.size / x.size)
+        return x / norm
+
+    def f(p, x):
+
+        if p[0].key != 'embed' and p[-1].key == 'kernel':
+            # print(p, 1)
+            return normalize_jax(x)
+        else:
+            # print(p, 0)
+            return x
+
+        # print(p)
+
+    state = state.replace(params=jax.tree_util.tree_map_with_path(f, state.params))
+
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, metrics), grads = grad_fn(state.params)
     accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
@@ -350,6 +370,7 @@ def accuracy(state, data):
     # metrics = jax.lax.pmean(metrics, axis_name='batch')
     return metrics
 
+
 def train_and_evaluate(args
                        ) -> train_state.TrainState:
     """Execute model training and evaluation loop.
@@ -434,7 +455,7 @@ def train_and_evaluate(args
 
     train_dataloader_iter = flax.jax_utils.prefetch_to_device(train_dataloader_iter, 2)
 
-    for step in tqdm.tqdm(range(init_step, args.training_steps),initial=init_step,total=args.training_steps):
+    for step in tqdm.tqdm(range(init_step, args.training_steps), initial=init_step, total=args.training_steps):
         rng, input_rng = jax.random.split(rng)
         data = next(train_dataloader_iter)
 
