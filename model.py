@@ -38,6 +38,7 @@ Conv = partial(nn.Conv, kernel_init=init.truncated_normal(0.02))
 
 CeilOrRound = Literal["ceil", "round"]
 
+
 @dataclass
 class ViTBase:
     layers: int = 12
@@ -115,8 +116,8 @@ def compute_capacity(
 
 class SoftRouter(nn.Module):
     """Soft router merging tokens as inputs/outputs of the experts."""
-    dim:int
-    num_experts: int =4
+    dim: int
+    num_experts: int = 4
     num_slots: Optional[int] = None
     capacity_factor: Optional[float] = 1.0
     noise_std: float = 0.0
@@ -170,6 +171,7 @@ class SoftRouter(nn.Module):
         combine_weights = jax.nn.softmax(logits, axis=(2, 3))
 
         w = self.param('w', self.expert_init, (self.num_experts, dim, self.dim))
+        print(inputs.shape,dispatch_weights.shape)
         x = einsum(inputs, dispatch_weights, 'b m d, b m n p->b n p d')
         x = einsum(x, w, 'b n p d1,n d1 d2->b n p d2')
         x = einsum(x, combine_weights, 'b n p d,b m n p->b m d')
@@ -230,8 +232,8 @@ class FeedForward(ViTBase, nn.Module):
         # self.w1 = Dense(self.hidden_dim)
         # self.w2 = Dense(self.dim)
 
-        self.w1=SoftRouter(self.hidden_dim)
-        self.w2=SoftRouter(self.dim)
+        self.w1 = SoftRouter(self.hidden_dim)
+        self.w2 = SoftRouter(self.dim)
 
         self.drop = nn.Dropout(self.dropout)
 
