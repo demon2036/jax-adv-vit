@@ -287,8 +287,8 @@ def create_train_state(rng,
     )
 
     image_shape = [1, 32, 32, 3]
-    # if jax.process_index() == 0:
-    cnn.tabulate(rng, jnp.ones(image_shape))
+    if jax.process_index() == 0:
+        print(cnn.tabulate(rng, jnp.ones(image_shape)))
 
     # cnn = CNN()
 
