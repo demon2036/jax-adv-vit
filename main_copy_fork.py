@@ -224,7 +224,7 @@ def apply_model_trade(state, data, key):
     metrics = jax.lax.pmean(metrics, axis_name="batch")
 
     grads = jax.lax.pmean(grads, axis_name="batch")
-    state = state.replace(params=jax.tree_util.tree_map_with_path(f, state.params))
+    # state = state.replace(params=jax.tree_util.tree_map_with_path(f, state.params))
 
     state = state.apply_gradients(grads=grads)
 
