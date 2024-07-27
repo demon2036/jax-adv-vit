@@ -204,18 +204,15 @@ def apply_model_trade(state, data, key):
 
         if p[0].key != 'embed' and p[-1].key == 'kernel':
             # print(p, 1)
-            return normalize_jax(x,dim=0)
+            return normalize_jax(x, dim=0)
         else:
             # print(p, 0)
             return x
 
         # print(p)
 
-
-
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
 
-    state = state.replace(params=jax.tree_util.tree_map_with_path(f, state.params))
 
     (loss, metrics), grads = grad_fn(state.params)
     accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
@@ -227,6 +224,7 @@ def apply_model_trade(state, data, key):
     metrics = jax.lax.pmean(metrics, axis_name="batch")
 
     grads = jax.lax.pmean(grads, axis_name="batch")
+    state = state.replace(params=jax.tree_util.tree_map_with_path(f, state.params))
 
     state = state.apply_gradients(grads=grads)
 

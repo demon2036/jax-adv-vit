@@ -24,6 +24,11 @@ import orbax.checkpoint as ocp
 
 
 def convert(params, checkpoint):
+
+
+    while True:
+        pass
+
     params = {'model': params}
     pos_embed = params["model"]["embed"]["wpe"]
     pos_embed = pos_embed.reshape(1, -1, pos_embed.shape[-1])
@@ -136,9 +141,9 @@ def train_and_evaluate(args):
 
     checkpointer = ocp.AsyncCheckpointer(ocp.PyTreeCheckpointHandler())
     # checkpointer = ocp.PyTreeCheckpointer()
-    print(os.getcwd()+'/'+args.pretrained_model)
+    print(os.getcwd() + '/' + args.pretrained_model)
     if args.restore_type == 'orbax':
-        state = checkpointer.restore(os.getcwd()+'/'+args.pretrained_model, )['model']
+        state = checkpointer.restore(os.getcwd() + '/' + args.pretrained_model, )['model']
         params = state['ema_params']
     else:
         with open(args.pretrained_model, "rb") as fp:
@@ -152,9 +157,16 @@ def train_and_evaluate(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pretrained-model", type=str,
-                        default='checkpoint/jax_model/best/cifar10/vit-l2-32-cifar10-2000ep-ls0.4-gap-beta3-ema')
+                        default='checkpoint/jax_model/ls-new/vit-b2-32-cifar10-2000ep-ls0.0-gap-ema')
     parser.add_argument("--checkpoint", type=str,
-                        default='checkpoint/pytorch_model/best/cifar10/vit-l2-32-cifar10-2000ep-ls0.4-gap-beta3-ema.pth')
+                        default='checkpoint/pytorch_model/ls-new/vit-b2-32-cifar10-2000ep-ls0.0-gap-ema'
+                                '.pth')
+
+    # parser.add_argument("--pretrained-model", type=str,
+    #                     default='checkpoint/jax_model/best/cifar100/vit-l2-32-cifar100-6000ep-ls0.4-gap-beta5-ema')
+    # parser.add_argument("--checkpoint", type=str,
+    #                     default='checkpoint/pytorch_model/best/cifar100/vit-l2-32-cifar100-6000ep-ls0.4-gap-beta5-ema'
+    #                             '.pth')
 
     parser.add_argument("--restore-type", type=str,
                         default='orbax',
