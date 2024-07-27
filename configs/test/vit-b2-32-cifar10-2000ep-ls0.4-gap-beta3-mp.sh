@@ -18,7 +18,7 @@ python -u main_copy_fork.py \
     --droppath 0.0  \
     --train-batch-size $TRAIN_BATCH_SIZE \
     --learning-rate 1e-4 \
-    --weight-decay 0.0 \
+    --weight-decay 0.05 \
     --adam-b1 0.9 \
     --adam-b2 0.99 \
     --clip-grad 10.0 \
