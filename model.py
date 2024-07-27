@@ -124,7 +124,7 @@ class SoftRouter(nn.Module):
     deterministic: bool = False
     dtype: Optional[DType] = None
     mu_init: Initializer = jax.nn.initializers.lecun_normal()
-    expert_init: Initializer = init.kaiming_uniform
+    expert_init: Initializer = init.kaiming_uniform()
     scale_init: Initializer = jax.nn.initializers.ones
     precision: jax.lax.Precision = jax.lax.Precision.DEFAULT
 
