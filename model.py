@@ -199,8 +199,8 @@ class PatchEmbed(ViTBase, nn.Module):
     def __call__(self, x: Array) -> Array:
         x = (self.wte(x) + self.wpe).reshape(x.shape[0], -1, self.dim)
         # if self.pooling == "cls":
-        cls_token = jnp.repeat(self.cls_token, x.shape[0], axis=0)
-        x = jnp.concatenate((cls_token, x), axis=1)
+        # cls_token = jnp.repeat(self.cls_token, x.shape[0], axis=0)
+        # x = jnp.concatenate((cls_token, x), axis=1)
         return x
 
 
