@@ -14,17 +14,20 @@
 
 from __future__ import annotations
 
+import logging
+import math
 from dataclasses import dataclass, fields
 from functools import partial
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
-import einops
 import flax.linen as nn
 import flax.linen.initializers as init
 import jax.experimental.pallas.ops.tpu.flash_attention
 import jax.numpy as jnp
-import numpy as np
 from chex import Array
+from einops import einsum
+from flax.typing import Initializer
+from jax._src.typing import DType
 
 from datasets import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from utils2 import fixed_sincos2d_embeddings
@@ -33,24 +36,7 @@ DenseGeneral = partial(nn.DenseGeneral, kernel_init=init.truncated_normal(0.02))
 Dense = partial(nn.Dense, kernel_init=init.truncated_normal(0.02))
 Conv = partial(nn.Conv, kernel_init=init.truncated_normal(0.02))
 
-
-def normalize_jax(x, dim=None, eps=1e-4):
-    if dim is None:
-        dim = tuple(range(1, x.ndim))
-    norm = jnp.linalg.vector_norm(x, axis=dim, keepdims=True, )
-    norm = jnp.add(eps, norm, ) * np.sqrt(norm.size / x.size)
-    return x / norm
-
-
-def mp_silu(x):
-    return nn.silu(x) / 0.596
-
-
-def mp_sum(a, b, t=0.5):
-    return (a + t * (b - a)) / np.sqrt((1 - t) ** 2 + t ** 2)
-
-    # return a.lerp(b, t) / np.sqrt((1 - t) ** 2 + t ** 2)
-
+CeilOrRound = Literal["ceil", "round"]
 
 @dataclass
 class ViTBase:
@@ -91,21 +77,104 @@ class ViTBase:
         return (self.image_size // self.patch_size,) * 2
 
 
-class MPDense(ViTBase, nn.Module):
-    kernel_init: Any = init.truncated_normal(0.02)
+def normalize(x: Array, axis: int = -1, eps: float = 1e-6) -> Array:
+    m = jax.lax.rsqrt(jnp.square(x).sum(axis=axis, keepdims=True) + eps)
+    return x * m
+
+
+def compute_capacity(
+        num_tokens: int,
+        num_experts: int,
+        capacity_factor: float,
+        ceil_or_round: CeilOrRound = "ceil",
+        multiple_of: Optional[int] = 4) -> int:
+    """Returns the capacity per expert needed to distribute num_tokens among num_experts."""
+    if ceil_or_round == "ceil":
+        capacity = int(math.ceil(num_tokens * capacity_factor / num_experts))
+    elif ceil_or_round == "round":
+        capacity = int(round(num_tokens * capacity_factor / num_experts))
+    else:
+        raise ValueError(f"Unsupported {ceil_or_round=}")
+    if capacity < 1:
+        raise ValueError(f"The values num_tokens = f{num_tokens}, num_experts = "
+                         f"{num_experts} and capacity_factor = {capacity_factor} "
+                         f"lead to capacity = {capacity}, but it must be greater "
+                         "than or equal to 1.")
+    if multiple_of and multiple_of > 0:
+        # Make capacity multiple of 4 to try to avoid padding.
+        capacity += (-capacity) % multiple_of
+    actual_capacity_factor = capacity * num_experts / num_tokens
+    if abs(actual_capacity_factor - capacity_factor) > 1e-6:
+        logging.warning(
+            "The target capacity_factor is %f, but with num_tokens=%d and "
+            "num_experts=%d the actual capacity_factor is %f.",
+            capacity_factor, num_tokens, num_experts, actual_capacity_factor)
+    return capacity
+
+
+class SoftRouter(nn.Module):
+    """Soft router merging tokens as inputs/outputs of the experts."""
+    num_experts: int =16
+    num_slots: Optional[int] = None
+    capacity_factor: Optional[float] = 1.0
+    noise_std: float = 0.0
+    deterministic: bool = False
+    dtype: Optional[DType] = None
+    mu_init: Initializer = jax.nn.initializers.lecun_normal()
+    expert_init: Initializer = jax.nn.initializers.lecun_normal()
+    scale_init: Initializer = jax.nn.initializers.ones
+    precision: jax.lax.Precision = jax.lax.Precision.DEFAULT
 
     @nn.compact
-    def __call__(self, x, gain=1):
-        w = self.param(
-            'kernel',
-            self.kernel_init,
-            (jnp.shape(x)[-1], self.dim),
+    def __call__(self, inputs: Array):
+        # Normalize inputs to have unit norm.
+        dtype = self.dtype or inputs.dtype
+        inputs = normalize(inputs.astype(dtype), axis=-1)
+        # Create num_experts * num_slots parameters, normalized to have unit norm.
+        _, group_size, dim = inputs.shape
+        if self.num_slots is None:
+            num_slots = compute_capacity(
+                group_size, self.num_experts, self.capacity_factor,
+                ceil_or_round='round', multiple_of=1)
+        else:
+            num_slots = self.num_slots
+            actual_capacity_factor = self.num_experts * num_slots / group_size
+            pre = f'{self.capacity_factor=} ignored. ' if self.capacity_factor else ''
+            logging.info(
+                '%sWith num_tokens=%d, num_experts=%d and num_slots=%d, the actual '
+                'capacity_factor is %f.', pre, group_size, self.num_experts,
+                self.num_slots, actual_capacity_factor)
+        mu = self.param('mu', self.mu_init, (dim, self.num_experts, num_slots))
+        mu = normalize(mu.astype(dtype), axis=0)
+        self.sow('intermediates', 'mu_unit', mu)
+        # Scale inputs/mu before computing the logits.
+        scale = self.param('scale', self.scale_init, ()).astype(dtype)
+        if inputs.size < mu.size:
+            inputs = inputs * scale
+        else:
+            mu = mu * scale
+        # Notation:
+        # g = number of groups (typically batch size).
+        # m = number of items per group (typically sequence length).
+        # n = number of experts.
+        # p = number of slots per expert.
+        # n * p = number of total slots.
+        # Compute router logits between pairs of items (m) and total slots (n * p),
+        # independently on each group (g).
+        logits = jnp.einsum('gmd,dnp->gmnp', inputs, mu, precision=self.precision)
+        # Each slot takes a convex combination of the inputs.
+        dispatch_weights = jax.nn.softmax(logits, axis=1)
+        # Each item takes a convex combination of all the outputs of each slot.
+        combine_weights = jax.nn.softmax(logits, axis=(2, 3))
 
-        )
-
-        w = normalize_jax(w, dim=0)
-        w = w * (gain / np.sqrt(w[:, 0].size))
-        return x @ w
+        w = self.param('w', self.expert_init, (self.num_experts, dim, dim))
+        x = einsum(inputs, dispatch_weights, 'b m d, b m n p->b n p d')
+        # print(x.shape)
+        x = einsum(x, w, 'b n p d1,n d1 d2->b n p d2')
+        # print(x.shape)
+        x = einsum(x, combine_weights, 'b n p d,b m n p->b m d')
+        # print(x.shape)
+        return x
 
 
 class PatchEmbed(ViTBase, nn.Module):
@@ -141,53 +210,30 @@ class Identity(nn.Module):
         return x
 
 
-# class Attention(ViTBase, nn.Module):
-#     def setup(self):
-#         self.q_norm = nn.LayerNorm() if self.qk_norm else Identity()
-#         self.k_norm = nn.LayerNorm() if self.qk_norm else Identity()
-#         self.wq = DenseGeneral((self.heads, self.head_dim))
-#         self.wk = DenseGeneral((self.heads, self.head_dim))
-#         self.wv = DenseGeneral((self.heads, self.head_dim))
-#         self.wo = DenseGeneral(self.dim, axis=(-2, -1))
-#         self.drop = nn.Dropout(self.dropout)
-#
-#     def __call__(self, x: Array, det: bool = True) -> Array:
-#         z = jnp.einsum("bqhd,bkhd->bhqk", self.q_norm(self.wq(x)) / self.head_dim ** 0.5, self.k_norm(self.wk(x)))
-#         z = jnp.einsum("bhqk,bkhd->bqhd", self.drop(nn.softmax(z), det), self.wv(x))
-#         return self.drop(self.wo(z), det)
-
-
 class Attention(ViTBase, nn.Module):
     def setup(self):
-        self.wq = MPDense(self.dim, )
-        self.wk = MPDense(self.dim, )
-        self.wv = MPDense(self.dim)
-        self.wo = MPDense(self.dim, )
+        self.q_norm = nn.LayerNorm() if self.qk_norm else Identity()
+        self.k_norm = nn.LayerNorm() if self.qk_norm else Identity()
+        self.wq = DenseGeneral((self.heads, self.head_dim))
+        self.wk = DenseGeneral((self.heads, self.head_dim))
+        self.wv = DenseGeneral((self.heads, self.head_dim))
+        self.wo = DenseGeneral(self.dim, axis=(-2, -1))
+        self.drop = nn.Dropout(self.dropout)
 
-    def __call__(self, x, det: bool = True):
-        q = einops.rearrange(self.wq(x), 'b q (h d)-> b h q d', h=self.heads)
-        k = einops.rearrange(self.wk(x), 'b q (h d)-> b h q d', h=self.heads)
-        v = einops.rearrange(self.wv(x), 'b q (h d)-> b h q d', h=self.heads)
-        z = jnp.einsum("bhqd,bhkd->bhqk", q / self.head_dim ** 0.5, k)
-
-        # print(z.shape,v.shape)
-
-        z = jnp.einsum("bhqk,bhkd->bhqd", nn.softmax(z), v)
-        z = einops.rearrange(z, 'b h q d ->  b q (h d) ')
-
-        return self.wo(z)
+    def __call__(self, x: Array, det: bool = True) -> Array:
+        z = jnp.einsum("bqhd,bkhd->bhqk", self.q_norm(self.wq(x)) / self.head_dim ** 0.5, self.k_norm(self.wk(x)))
+        z = jnp.einsum("bhqk,bkhd->bqhd", self.drop(nn.softmax(z), det), self.wv(x))
+        return self.drop(self.wo(z), det)
 
 
 class FeedForward(ViTBase, nn.Module):
     def setup(self):
-        self.w1 = MPDense(dim=self.hidden_dim)
-        self.w2 = MPDense(dim=self.dim)
+        self.w1 = Dense(self.hidden_dim)
+        self.w2 = Dense(self.dim)
         self.drop = nn.Dropout(self.dropout)
 
     def __call__(self, x: Array, det: bool = True) -> Array:
-        return self.w2(mp_silu(self.w1(x)))
-
-        # return self.drop(self.w2(self.drop(nn.gelu(self.w1(x)), det)), det)
+        return self.drop(self.w2(self.drop(nn.gelu(self.w1(x)), det)), det)
 
 
 class ViTLayer(ViTBase, nn.Module):
@@ -212,10 +258,6 @@ class ViTLayer(ViTBase, nn.Module):
     def __call__(self, x: Array, det: bool = True) -> Array:
         x = x + self.drop(self.scale1 * self.attn(self.norm1(x), det), det)
         x = x + self.drop(self.scale2 * self.ff(self.norm2(x), det), det)
-
-        # x = mp_sum(x, self.attn(self.norm1(x)), 0.3)
-        # x = mp_sum(x, self.ff(self.norm2(x)), 0.3)
-
         return x
 
 
