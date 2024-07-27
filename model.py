@@ -124,12 +124,16 @@ class SoftRouter(nn.Module):
     deterministic: bool = False
     dtype: Optional[DType] = None
     mu_init: Initializer = jax.nn.initializers.lecun_normal()
-    expert_init: Initializer = init.kaiming_uniform()
+    expert_init: Initializer = init.truncated_normal(0.02)
     scale_init: Initializer = jax.nn.initializers.ones
     precision: jax.lax.Precision = jax.lax.Precision.DEFAULT
 
     @nn.compact
     def __call__(self, inputs: Array):
+
+        y=nn.Dense(self.dim)(inputs)
+
+
         # Normalize inputs to have unit norm.
         dtype = self.dtype or inputs.dtype
         inputs = normalize(inputs.astype(dtype), axis=-1)
@@ -175,7 +179,7 @@ class SoftRouter(nn.Module):
         x = einsum(inputs, dispatch_weights, 'b m d, b m n p->b n p d')
         x = einsum(x, w, 'b n p d1,n d1 d2->b n p d2')
         x = einsum(x, combine_weights, 'b n p d,b m n p->b m d')
-        return x
+        return x+y
 
 
 class PatchEmbed(ViTBase, nn.Module):
