@@ -213,7 +213,6 @@ def apply_model_trade(state, data, key):
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
 
-
     (loss, metrics), grads = grad_fn(state.params)
     accuracy_std = jnp.mean(jnp.argmax(metrics['logits'], -1) == labels)
     accuracy_adv = jnp.mean(jnp.argmax(metrics['logits_adv'], -1) == labels)
@@ -287,10 +286,13 @@ def create_train_state(rng,
         reduce_include_prefix=reduce_include_prefix
     )
 
+    image_shape = [1, 32, 32, 3]
+    if jax.process_index() == 0:
+        cnn.tabulate(rng, jnp.ones(image_shape))
+
     # cnn = CNN()
 
     # image_shape = [1, 28, 28, 1]
-    image_shape = [1, 32, 32, 3]
 
     params = cnn.init(rng, jnp.ones(image_shape))['params']
 

@@ -114,6 +114,7 @@ def compute_capacity(
 
 class SoftRouter(nn.Module):
     """Soft router merging tokens as inputs/outputs of the experts."""
+    dim:int
     num_experts: int =16
     num_slots: Optional[int] = None
     capacity_factor: Optional[float] = 1.0
@@ -167,7 +168,7 @@ class SoftRouter(nn.Module):
         # Each item takes a convex combination of all the outputs of each slot.
         combine_weights = jax.nn.softmax(logits, axis=(2, 3))
 
-        w = self.param('w', self.expert_init, (self.num_experts, dim, dim))
+        w = self.param('w', self.expert_init, (self.num_experts, dim, self.dim))
         x = einsum(inputs, dispatch_weights, 'b m d, b m n p->b n p d')
         # print(x.shape)
         x = einsum(x, w, 'b n p d1,n d1 d2->b n p d2')
@@ -228,8 +229,12 @@ class Attention(ViTBase, nn.Module):
 
 class FeedForward(ViTBase, nn.Module):
     def setup(self):
-        self.w1 = Dense(self.hidden_dim)
-        self.w2 = Dense(self.dim)
+        # self.w1 = Dense(self.hidden_dim)
+        # self.w2 = Dense(self.dim)
+
+        self.w1=SoftRouter(self.hidden_dim)
+        self.w2=SoftRouter(self.dim)
+
         self.drop = nn.Dropout(self.dropout)
 
     def __call__(self, x: Array, det: bool = True) -> Array:
