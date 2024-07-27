@@ -123,7 +123,7 @@ class SoftRouter(nn.Module):
     deterministic: bool = False
     dtype: Optional[DType] = None
     mu_init: Initializer = jax.nn.initializers.lecun_normal()
-    expert_init: Initializer = init.truncated_normal(0.02)
+    expert_init: Initializer = init.kaiming_uniform
     scale_init: Initializer = jax.nn.initializers.ones
     precision: jax.lax.Precision = jax.lax.Precision.DEFAULT
 
@@ -171,11 +171,8 @@ class SoftRouter(nn.Module):
 
         w = self.param('w', self.expert_init, (self.num_experts, dim, self.dim))
         x = einsum(inputs, dispatch_weights, 'b m d, b m n p->b n p d')
-        # print(x.shape)
         x = einsum(x, w, 'b n p d1,n d1 d2->b n p d2')
-        # print(x.shape)
         x = einsum(x, combine_weights, 'b n p d,b m n p->b m d')
-        # print(x.shape)
         return x
 
 
