@@ -61,6 +61,8 @@ class ViTBase:
     use_kan: bool = False
     polynomial_degree: int = 8
 
+    use_moe: bool = False
+
     @property
     def kwargs(self) -> dict[str, Any]:
         return {f.name: getattr(self, f.name) for f in fields(ViTBase)}
@@ -117,7 +119,7 @@ def compute_capacity(
 class SoftRouter(nn.Module):
     """Soft router merging tokens as inputs/outputs of the experts."""
     dim: int
-    num_experts: int = 4
+    num_experts: int = 8
     num_slots: Optional[int] = None
     capacity_factor: Optional[float] = 1.0
     noise_std: float = 0.0
@@ -131,8 +133,7 @@ class SoftRouter(nn.Module):
     @nn.compact
     def __call__(self, inputs: Array):
 
-        y=nn.Dense(self.dim)(inputs)
-
+        y = nn.Dense(self.dim)(inputs)
 
         # Normalize inputs to have unit norm.
         dtype = self.dtype or inputs.dtype
@@ -179,7 +180,7 @@ class SoftRouter(nn.Module):
         x = einsum(inputs, dispatch_weights, 'b m d, b m n p->b n p d')
         x = einsum(x, w, 'b n p d1,n d1 d2->b n p d2')
         x = einsum(x, combine_weights, 'b n p d,b m n p->b m d')
-        return x+y
+        return x + y
 
 
 class PatchEmbed(ViTBase, nn.Module):
@@ -233,11 +234,16 @@ class Attention(ViTBase, nn.Module):
 
 class FeedForward(ViTBase, nn.Module):
     def setup(self):
-        # self.w1 = Dense(self.hidden_dim)
-        # self.w2 = Dense(self.dim)
 
-        self.w1 = SoftRouter(self.hidden_dim)
-        self.w2 = SoftRouter(self.dim)
+        if self.use_moe:
+            self.w1 = SoftRouter(self.hidden_dim)
+            self.w2 = SoftRouter(self.dim)
+        else:
+            self.w1 = Dense(self.hidden_dim)
+            self.w2 = Dense(self.dim)
+
+
+
 
         self.drop = nn.Dropout(self.dropout)
 
@@ -277,7 +283,7 @@ class ViT(ViTBase, nn.Module):
 
         # The layer class should be wrapped with `nn.remat` if `grad_ckpt` is enabled.
         layer_fn = nn.remat(ViTLayer) if self.grad_ckpt else ViTLayer
-        self.layer = [layer_fn(**self.kwargs) for _ in range(self.layers)]
+        self.layer = [layer_fn(use_moe=False if i < 6 else True, **self.kwargs) for i in range(self.layers)]
 
         # self.norm = nn.LayerNorm()
 
