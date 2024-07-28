@@ -29,7 +29,6 @@ from flax.training.common_utils import shard_prng_key
 from flax.training.train_state import TrainState
 
 from utils import  get_layer_index_fn
-from kan import KANLayer
 
 import optax
 import jax
