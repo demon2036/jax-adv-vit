@@ -119,7 +119,7 @@ def compute_capacity(
 class SoftRouter(nn.Module):
     """Soft router merging tokens as inputs/outputs of the experts."""
     dim: int
-    num_experts: int = 8
+    num_experts: int = 16
     num_slots: Optional[int] = None
     capacity_factor: Optional[float] = 1.0
     noise_std: float = 0.0
@@ -154,7 +154,7 @@ class SoftRouter(nn.Module):
                 self.num_slots, actual_capacity_factor)
         mu = self.param('mu', self.mu_init, (dim, self.num_experts, num_slots))
         mu = normalize(mu.astype(dtype), axis=0)
-        self.sow('intermediates', 'mu_unit', mu)
+        # self.sow('intermediates', 'mu_unit', mu)
         # Scale inputs/mu before computing the logits.
         scale = self.param('scale', self.scale_init, ()).astype(dtype)
         if inputs.size < mu.size:
