@@ -88,6 +88,14 @@ def main(args: argparse.Namespace):
             if jax.process_index() == 0:
                 params_bytes = msgpack_serialize(unreplicate(state.params))
                 save_checkpoint_in_background(args, params_bytes, postfix="last")
+
+
+            ckpt = {'model': jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))}
+            # orbax_checkpointer = ocp.PyTreeCheckpointer()
+            save_args = orbax_utils.save_args_from_target(ckpt)
+            checkpointer.save(filename, ckpt, save_args=save_args, force=True)
+
+
             if valid_dataloader is None:
                 continue
 
@@ -101,10 +109,7 @@ def main(args: argparse.Namespace):
                 metrics["processed_samples"] = step * args.train_batch_size
                 wandb.log(metrics, step)
 
-            ckpt = {'model': jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))}
-            # orbax_checkpointer = ocp.PyTreeCheckpointer()
-            save_args = orbax_utils.save_args_from_target(ckpt)
-            checkpointer.save(filename, ckpt, save_args=save_args, force=True)
+
 
 
 if __name__ == "__main__":
