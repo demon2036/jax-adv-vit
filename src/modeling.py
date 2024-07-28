@@ -28,7 +28,7 @@ from flax.training import train_state
 from flax.training.common_utils import shard_prng_key
 from flax.training.train_state import TrainState
 
-from utils import  get_layer_index_fn
+from utils import get_layer_index_fn
 
 import optax
 import jax
@@ -434,9 +434,9 @@ class MAE(ViTBase, MAEBase, nn.Module):
         # target = einops.rearrange(x, 'b (h k1) (w k2) c->b (h w) (c k1 k2)', k1=self.patch_size, k2=self.patch_size)
         target = self.patchify(x)
 
-        mean = target.mean(axis=-1, keepdims=True)
-        var = target.var(axis=-1, keepdims=True, ddof=1)
-        target = (target - mean) / (var + 1.e-6) ** .5
+        # mean = target.mean(axis=-1, keepdims=True)
+        # var = target.var(axis=-1, keepdims=True, ddof=1)
+        # target = (target - mean) / (var + 1.e-6) ** .5
 
         loss = (pred - target) ** 2
         loss = loss.mean(axis=-1)
