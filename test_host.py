@@ -36,7 +36,8 @@ def case1():
         print(device_mesh)
         print()
         print(mesh)
-        jax.debug.visualize_array_sharding(x_sharding)
+        jax.debug.visualize_sharding(shape,sharding=x_sharding)
+        # jax.debug.visualize_array_sharding(x_sharding)
 
 
 if __name__ == "__main__":
