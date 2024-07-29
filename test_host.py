@@ -25,18 +25,17 @@ def case1():
 
             return x
 
-
-    shape=(128,256,384)
-    x=jnp.ones(shape)
-    x_sharding=mesh_sharding(PartitionSpec('data'))
-    x=jax.device_put(x,x_sharding)
-
+    shape = (128, 256, 384)
+    x = jnp.ones(shape)
+    x_sharding = mesh_sharding(PartitionSpec('data'))
+    # x = jax.device_put(x, x_sharding)
+    x = jax.make_array_from_callback(x.shape, x_sharding, lambda idx: x[idx])
 
     if jax.process_index() == 0:
         print(device_mesh)
         print()
         print(mesh)
-        jax.debug.visualize_sharding((shape[0],shape[1]),sharding=x_sharding)
+        jax.debug.visualize_sharding((shape[0], shape[1]), sharding=x_sharding)
         jax.debug.visualize_array_sharding(x)
 
 
