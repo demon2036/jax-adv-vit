@@ -7,8 +7,11 @@ from jax.sharding import Mesh, PartitionSpec, NamedSharding
 
 def case1():
     device_mesh = mesh_utils.create_device_mesh((8, 1))
+    mesh=Mesh(device_mesh,axis_names=('data','model'))
     if jax.process_index() == 0:
         print(device_mesh)
+        print()
+        print(mesh)
 
 
 if __name__ == "__main__":
