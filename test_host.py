@@ -6,7 +6,7 @@ from jax.sharding import Mesh, PartitionSpec, NamedSharding
 
 
 def case1():
-    device_mesh = mesh_utils.create_device_mesh((2, 8))
+    device_mesh = mesh_utils.create_device_mesh((2, 1))
     if jax.process_index() == 0:
         print(device_mesh)
 
