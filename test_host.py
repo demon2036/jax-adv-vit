@@ -70,28 +70,22 @@ def case1():
 
     train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=x_sharding, )
 
-    if jax.process_index() == 0:
-        print(global_batch_array.shape)
-
-        print(device_mesh)
-        print()
-        print(mesh)
-        jax.debug.visualize_sharding((shape[0], shape[1]), sharding=x_sharding)
-        jax.debug.visualize_array_sharding(global_batch_array[:, :, 0])
-
-        print(x_sharding.addressable_devices)
-        print(state_sharding)
-        jax.debug.visualize_array_sharding(params['Dense_0']['kernel'])
-
-        #
-        # start = time.time()
-        # print(abs(global_batch_array[-1]))
-        # end = time.time()
-        # print(end - start)
+    #
+    # start = time.time()
+    # print(abs(global_batch_array[-1]))
+    # end = time.time()
+    # print(end - start)
 
     def block_all(xs):
         jax.tree_util.tree_map(lambda x: x.block_until_ready(), xs)
         return xs
+
+    try:
+        out = block_all(train_step_jit(x, params))
+        print(out.shape)
+    except Exception as e:
+        print(e)
+
 
     with mesh:
         try:
@@ -99,7 +93,6 @@ def case1():
             print(out.shape)
         except Exception as e:
             print(e)
-
 
         while True:
             pass
@@ -112,6 +105,19 @@ def case1():
             out = block_all(train_step(x, params))
         end = time.time()
         print(end - start)
+
+    if jax.process_index() == 0:
+        print(global_batch_array.shape)
+
+        print(device_mesh)
+        print()
+        print(mesh)
+        jax.debug.visualize_sharding((shape[0], shape[1]), sharding=x_sharding)
+        jax.debug.visualize_array_sharding(global_batch_array[:, :, 0])
+
+        print(x_sharding.addressable_devices)
+        print(state_sharding)
+        jax.debug.visualize_array_sharding(params['Dense_0']['kernel'])
 
 
 if __name__ == "__main__":
