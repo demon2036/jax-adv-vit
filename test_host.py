@@ -55,15 +55,17 @@ def case1():
         jax.debug.visualize_sharding((shape[0], shape[1]), sharding=x_sharding)
         jax.debug.visualize_array_sharding(global_batch_array[:, :, 0])
 
-        start = time.time()
-        print(abs(global_batch_array[0]))
-        end = time.time()
-        print(end - start)
+        print(x_sharding.addressable_devices)
 
-        start = time.time()
-        print(abs(global_batch_array[-1]))
-        end = time.time()
-        print(end - start)
+        # start = time.time()
+        # print(abs(global_batch_array[0]))
+        # end = time.time()
+        # print(end - start)
+        #
+        # start = time.time()
+        # print(abs(global_batch_array[-1]))
+        # end = time.time()
+        # print(end - start)
 
 
 if __name__ == "__main__":
