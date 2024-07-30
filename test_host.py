@@ -19,22 +19,25 @@ def block_all(xs):
 
 
 def case1():
+
+    class DPDense(nn.Module):
+        dim: int
+        precision:jax.lax.Precision=jax.lax.Precision.HIGHEST
+
+        @nn.compact
+        def __call__(self, x, *args, **kwargs):
+            for i in range(12):
+                x = nn.Dense(self.dim, precision=self.precision)(x)
+
+            return x
+
     device_mesh = mesh_utils.create_device_mesh((jax.device_count(),))
     mesh = Mesh(device_mesh, axis_names=('data',))
 
     def mesh_sharding(pspec: PartitionSpec) -> NamedSharding:
         return NamedSharding(mesh, pspec)
 
-    class DPDense(nn.Module):
-        dim: int
 
-        @nn.compact
-        def __call__(self, x, *args, **kwargs):
-            for i in range(12):
-                x = nn.Dense(self.dim, )(x)
-
-            # x = jax.lax.with_sharding_constraint(x, mesh_sharding(PartitionSpec('data', )))
-            return x
 
     shape = (128, 256, 384)
     x = jnp.ones(shape)
@@ -126,11 +129,12 @@ def case1():
 def case2():
     class DPDense(nn.Module):
         dim: int
+        precision:jax.lax.Precision=jax.lax.Precision.HIGHEST
 
         @nn.compact
         def __call__(self, x, *args, **kwargs):
             for i in range(12):
-                x = nn.Dense(self.dim, )(x)
+                x = nn.Dense(self.dim, precision=self.precision)(x)
 
             return x
 
