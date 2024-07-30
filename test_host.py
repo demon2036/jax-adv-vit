@@ -328,7 +328,7 @@ if __name__ == "__main__":
 
     out4 = unreplicate(out4)
 
-    print(jax.tree_util.tree_map(lambda x, y: x - y, out3, out4))
+    # print(jax.tree_util.tree_map(lambda x, y: x - y, out3, out4))
 
     # out1 = case1()
     # out2 = case2()
