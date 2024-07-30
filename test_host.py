@@ -67,7 +67,7 @@ def case1():
                           in_shardings=x_sharding,  # PRNG key and x
                           out_shardings=state_sharding)
 
-    params = jit_init_fn(x, model)
+    params = jit_init_fn(global_batch_array, model)
 
     def train_step(x, params):
         out = model.apply({'params': params}, x)
