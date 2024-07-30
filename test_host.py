@@ -208,7 +208,7 @@ def case3():
             #
             # print(x_sharding.addressable_devices)
             # print(state_sharding)
-            jax.debug.visualize_array_sharding(grad['Dense_0']['kernel'])
+            # jax.debug.visualize_array_sharding(grad['Dense_0']['kernel'])
             print(global_batch_array.shape)
             print(end - start)
 
