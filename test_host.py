@@ -25,9 +25,9 @@ def case1():
 
         @nn.compact
         def __call__(self, x, *args, **kwargs):
-            x = nn.Dense(self.dim,
+            for i in range(12):
+                x = nn.Dense(self.dim, )(x)
 
-                         )(x)
 
             return x
 
@@ -121,7 +121,8 @@ def case2():
 
         @nn.compact
         def __call__(self, x, *args, **kwargs):
-            x = nn.Dense(self.dim, )(x)
+            for i in range(12):
+                x = nn.Dense(self.dim, )(x)
 
             return x
 
