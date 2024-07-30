@@ -1,3 +1,5 @@
+import time
+
 import jax
 import flax
 import jax.numpy as jnp
@@ -31,23 +33,20 @@ def case1():
     x_sharding = mesh_sharding(PartitionSpec('data'))
     # x = jax.device_put(x, x_sharding)
 
-    global_batch_shape=(256,256,384)
+    global_batch_shape = (256, 256, 384)
 
     per_replica_batches = np.split(x, jax.local_device_count())
 
-
-    global_batch_array=jax.make_array_from_single_device_arrays(
-        global_batch_shape,sharding=x_sharding,
+    global_batch_array = jax.make_array_from_single_device_arrays(
+        global_batch_shape, sharding=x_sharding,
         arrays=[
-            jax.device_put(batch,device)
-            for batch,device in zip(per_replica_batches,x_sharding.addressable_devices)
+            jax.device_put(batch, device)
+            for batch, device in zip(per_replica_batches, x_sharding.addressable_devices)
         ]
     )
     """"""
-    # x = jax.make_array_from_callback(x.shape, x_sharding, lambda idx: x[idx])
 
     if jax.process_index() == 0:
-
         print(global_batch_array.shape)
 
         print(device_mesh)
@@ -55,6 +54,16 @@ def case1():
         print(mesh)
         jax.debug.visualize_sharding((shape[0], shape[1]), sharding=x_sharding)
         jax.debug.visualize_array_sharding(global_batch_array[:, :, 0])
+
+        start = time.time()
+        print(abs(global_batch_array[0]))
+        end = time.time()
+        print(end - start)
+
+        start = time.time()
+        print(abs(global_batch_array[-1]))
+        end = time.time()
+        print(end - start)
 
 
 if __name__ == "__main__":
