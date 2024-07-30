@@ -80,25 +80,17 @@ def case1():
         jax.tree_util.tree_map(lambda x: x.block_until_ready(), xs)
         return xs
 
-
-
-
     with mesh:
-        try:
-            out = block_all(train_step_jit(global_batch_array, params))
-            print(out.shape)
-        except Exception as e:
-            print(e)
-
-        while True:
-            pass
+        print(1)
+        out = block_all(train_step_jit(global_batch_array, params))
+        print(out.shape)
 
         for i in range(100):
-            out = block_all(train_step(x, params))
+            out = block_all(train_step(global_batch_array, params))
 
         start = time.time()
         for i in range(1000):
-            out = block_all(train_step(x, params))
+            out = block_all(train_step(global_batch_array, params))
         end = time.time()
         print(end - start)
 
