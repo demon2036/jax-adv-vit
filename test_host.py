@@ -96,6 +96,7 @@ def case1():
 
         for i in range(100):
             global_batch_array = block_all(train_step(global_batch_array, params))
+            print(train_step_jit._cache())
 
         start = time.time()
         for i in range(1000):
@@ -185,5 +186,7 @@ if __name__ == "__main__":
 
     if jax.process_index() == 0:
         print(jax.devices())
-    case2()
+
     case1()
+    case2()
+
