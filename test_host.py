@@ -33,7 +33,7 @@ def case1():
             # for i in range(12):
             x = nn.Dense(self.dim, )(x)
 
-            # x = jax.lax.with_sharding_constraint(x, mesh_sharding(PartitionSpec('data', )))
+            x = jax.lax.with_sharding_constraint(x, mesh_sharding(PartitionSpec('data', )))
             return x
 
     shape = (128, 256, 384)
