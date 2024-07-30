@@ -200,4 +200,7 @@ if __name__ == "__main__":
 
     out1=case1()
     out2=case2()
+
+    out2=out2.reshape(out1.shape)
+
     print(out1-out2)
