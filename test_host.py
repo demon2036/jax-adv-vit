@@ -62,8 +62,13 @@ def case1():
                           in_shardings=x_sharding,  # PRNG key and x
                           out_shardings=state_sharding)
 
-    params=jit_init_fn(x,model)
+    params = jit_init_fn(x, model)
 
+    def train_step(x, params):
+        out = model.apply({'params': params}, x)
+        return out
+
+    train_step = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=x_sharding, )
 
     if jax.process_index() == 0:
         print(global_batch_array.shape)
@@ -78,16 +83,27 @@ def case1():
         print(state_sharding)
         jax.debug.visualize_array_sharding(params['Dense_0']['kernel'])
 
-
-        # start = time.time()
-        # print(abs(global_batch_array[0]))
-        # end = time.time()
-        # print(end - start)
         #
         # start = time.time()
         # print(abs(global_batch_array[-1]))
         # end = time.time()
         # print(end - start)
+
+    def block_all(xs):
+        jax.tree_util.tree_map(lambda x: x.block_until_ready(), xs)
+        return xs
+
+    with mesh:
+        out = block_all(train_step(x, params))
+
+        for i in range(100):
+            out = block_all(train_step(x, params))
+
+        start = time.time()
+        for i in range(1000):
+            out = block_all(train_step(x, params))
+        end = time.time()
+        print(end - start)
 
 
 if __name__ == "__main__":
