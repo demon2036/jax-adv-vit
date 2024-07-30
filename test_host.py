@@ -225,7 +225,7 @@ def case3():
             print(end - start)
 
 
-            print(grad)
+            # print(grad)
 
 
 
@@ -305,6 +305,72 @@ def case2():
     return global_batch_array
 
 
+
+def case4():
+    class DPDense(nn.Module):
+        dim: int
+        precision:jax.lax.Precision=jax.lax.Precision.HIGHEST
+
+        @nn.compact
+        def __call__(self, x, *args, **kwargs):
+            for i in range(12):
+                x = nn.Dense(self.dim, precision=self.precision)(x)
+
+            return x
+
+    shape = (128, 256, 384)
+    x = jnp.ones(shape)
+
+    """"""
+    rng = jax.random.PRNGKey(1)
+    model = DPDense(384)
+
+    def init_fn(x, model):
+        variables = model.init(rng, x)
+        return variables['params']
+
+    params = init_fn(x, model)
+
+    def train_step(x, params):
+        # out = model.apply({'params': params}, x)
+
+
+        def loss_fn(params):
+            out = model.apply({'params': params}, x)
+            loss = (jnp.zeros_like(out) - out).mean()
+            return loss
+
+        grad = jax.grad(loss_fn)(params)
+        grad = jax.lax.pmean(grad, axis_name='batch')
+
+        return grad
+
+    train_step_pmap = jax.pmap(train_step, axis_name='batch')
+
+
+    global_batch_array = shard(x)
+    params = replicate(params)
+
+    def block_all(xs):
+        jax.tree_util.tree_map(lambda x: x.block_until_ready(), xs)
+        return xs
+
+    grad = block_all(train_step_pmap(global_batch_array, params))
+
+    for i in range(100):
+        grad = block_all(train_step_pmap(global_batch_array, params))
+
+    start = time.time()
+    for i in range(1000):
+        grad = block_all(train_step_pmap(global_batch_array, params))
+    end = time.time()
+
+    if jax.process_index() == 0:
+        print(end - start)
+
+    return grad
+
+
 if __name__ == "__main__":
     jax.distributed.initialize()
 
@@ -313,6 +379,7 @@ if __name__ == "__main__":
 
 
     out3=case3()
+    out4 = case3()
 
     # out1 = case1()
     # out2 = case2()
