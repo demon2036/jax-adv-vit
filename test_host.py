@@ -109,33 +109,33 @@ def case1():
 
     initialized_params = jit_init_fn(global_batch_array, model)
 
-    # def train_step(x, params):
-    #     out = model.apply({'params': params}, x)
-    #     return out
-    #
-    #     def loss_fn(params):
-    #         out = model.apply({'params': params}, x)
-    #         loss = (jnp.zeros_like(out) - out).mean()
-    #         return loss
-    #
-    #     grad = jax.grad(loss_fn)(params)
-    #
-    #     return out
-    #
-    # train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=(x_sharding), )
-
-    @functools.partial(jax.jit, in_shardings=(x_sharding, state_sharding,),
-                       out_shardings=state_sharding)
     def train_step(x, params):
-        # A fake loss function.
-        def loss_unrolled(params):
-            y = model.apply({'params': params}, x)
-            return y.sum()
+        # out = model.apply({'params': params}, x)
+        # return out
 
-        grad_fn = jax.grad(loss_unrolled)
-        grads = grad_fn(params)
-        # state = state.apply_gradients(grads=grads)
-        return grads
+        def loss_fn(params):
+            out = model.apply({'params': params}, x)
+            loss = (jnp.zeros_like(out) - out).mean()
+            return loss
+
+        grad = jax.grad(loss_fn)(params)
+
+        return grad
+
+    train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=(state_sharding), )
+
+    # @functools.partial(jax.jit, in_shardings=(x_sharding, state_sharding,),
+    #                    out_shardings=state_sharding)
+    # def train_step(x, params):
+    #     # A fake loss function.
+    #     def loss_unrolled(params):
+    #         y = model.apply({'params': params}, x)
+    #         return y.sum()
+    #
+    #     grad_fn = jax.grad(loss_unrolled)
+    #     grads = grad_fn(params)
+    #     # state = state.apply_gradients(grads=grads)
+    #     return grads
 
 
     #
@@ -146,14 +146,14 @@ def case1():
 
     with mesh:
 
-        params = block_all(train_step(x, initialized_params))
+        params = block_all(train_step_jit(x, initialized_params))
 
         for i in range(100):
-            params = block_all(train_step(x, initialized_params))
+            params = block_all(train_step_jit(x, initialized_params))
 
         start = time.time()
         for i in range(1000):
-            params = block_all(train_step(x, initialized_params))
+            params = block_all(train_step_jit(x, initialized_params))
         end = time.time()
 
         if jax.process_index() == 0:
