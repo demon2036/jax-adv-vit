@@ -134,7 +134,7 @@ def case3():
     shape = (128, 32, 32, 3)
 
     rng = jax.random.PRNGKey(1)
-    model = DPDense(384)
+    model = ViT()
     # x = jnp.ones(shape)
     x = jax.random.normal(rng, shape)
     x_sharding = mesh_sharding(PartitionSpec('data'))
@@ -276,7 +276,7 @@ def case4():
     rng = jax.random.PRNGKey(1)
     # x = jnp.ones(shape)
     x = jax.random.normal(rng, shape)
-    model = DPDense(384)
+    model = ViT()
 
     def init_fn(x, model):
         variables = model.init(rng, x)
