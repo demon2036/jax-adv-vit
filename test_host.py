@@ -14,7 +14,7 @@ import flax.linen as nn
 
 
 def case1():
-    device_mesh = mesh_utils.create_device_mesh((8,))
+    device_mesh = mesh_utils.create_device_mesh((jax.device_count(),))
     mesh = Mesh(device_mesh, axis_names=('data',))
 
     def mesh_sharding(pspec: PartitionSpec) -> NamedSharding:
@@ -36,7 +36,7 @@ def case1():
     x_sharding = mesh_sharding(PartitionSpec('data'))
     # x = jax.device_put(x, x_sharding)
 
-    global_batch_shape = (256, 256, 384)
+    global_batch_shape = (128*jax.process_count(), 256, 384)
 
     per_replica_batches = np.split(x, jax.local_device_count())
 
@@ -105,6 +105,7 @@ def case1():
 
         if jax.process_index() == 0:
             print(device_mesh)
+            print(x_sharding.addressable_devices)
             # print()
             # print(mesh)
             # jax.debug.visualize_sharding((shape[0], shape[1]), sharding=x_sharding)
