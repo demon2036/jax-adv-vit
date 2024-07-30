@@ -5,7 +5,9 @@ import jax
 import flax
 import jax.numpy as jnp
 import numpy as np
+from flax.jax_utils import replicate
 from flax.linen.linear import default_kernel_init
+from flax.training.common_utils import shard
 from jax.experimental import mesh_utils
 from jax.sharding import Mesh, PartitionSpec, NamedSharding
 import flax.linen as nn
@@ -93,7 +95,7 @@ def case1():
         end = time.time()
 
         if jax.process_index() == 0:
-            print(end - start)
+
 
             print(device_mesh)
             print()
@@ -105,6 +107,80 @@ def case1():
             print(state_sharding)
             jax.debug.visualize_array_sharding(params['Dense_0']['kernel'])
             print(global_batch_array.shape)
+            print(end - start)
+
+
+
+
+
+
+
+
+
+def case2():
+
+
+    class DPDense(nn.Module):
+        dim: int
+
+        @nn.compact
+        def __call__(self, x, *args, **kwargs):
+            x = nn.Dense(self.dim,
+
+                         )(x)
+
+            return x
+
+    shape = (128, 256, 384)
+    x = jnp.ones(shape)
+
+    """"""
+    rng = jax.random.PRNGKey(1)
+    model = DPDense(384)
+
+    def init_fn(x, model):
+        variables = model.init(rng, x)
+        return variables['params']
+
+
+
+
+    params = init_fn(x, model)
+
+    def train_step(x, params):
+        out = model.apply({'params': params}, x)
+        return out
+
+    train_step_pmap = jax.pmap(train_step, axis_name='batch' )
+
+    #
+    # start = time.time()
+    # print(abs(global_batch_array[-1]))
+    # end = time.time()
+    # print(end - start)
+
+    global_batch_array=shard(x)
+    params=replicate(params)
+
+    def block_all(xs):
+        jax.tree_util.tree_map(lambda x: x.block_until_ready(), xs)
+        return xs
+
+
+
+    out = block_all(train_step_pmap(global_batch_array, params))
+
+    for i in range(100):
+        out = block_all(train_step_pmap(global_batch_array, params))
+
+    start = time.time()
+    for i in range(1000):
+        out = block_all(train_step_pmap(global_batch_array, params))
+    end = time.time()
+
+    if jax.process_index() == 0:
+        print(end - start)
+
 
 
 
@@ -113,5 +189,5 @@ if __name__ == "__main__":
 
     if jax.process_index() == 0:
         print(jax.devices())
-
+    case2()
     case1()
