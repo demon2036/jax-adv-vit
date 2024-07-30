@@ -73,7 +73,7 @@ def case1():
             loss = (jnp.zeros_like(out) - out).mean()
             return loss
 
-        grad=jax.grad(loss_fn)(params)
+        grad = jax.grad(loss_fn)(params)
 
         return grad
 
@@ -91,14 +91,14 @@ def case1():
 
     with mesh:
 
-        out = block_all(train_step_jit(global_batch_array, params))
+        params = block_all(train_step_jit(global_batch_array, params))
 
         for i in range(100):
-            out = block_all(train_step(global_batch_array, params))
+            params = block_all(train_step(global_batch_array, params))
 
         start = time.time()
         for i in range(1000):
-            out = block_all(train_step(global_batch_array, params))
+            params = block_all(train_step(global_batch_array, params))
         end = time.time()
 
         if jax.process_index() == 0:
@@ -145,7 +145,7 @@ def case2():
             return loss
 
         grad = jax.grad(loss_fn)(params)
-        grad=jax.lax.pmean(grad,axis_name='batch')
+        grad = jax.lax.pmean(grad, axis_name='batch')
 
         return grad
 
@@ -164,14 +164,14 @@ def case2():
         jax.tree_util.tree_map(lambda x: x.block_until_ready(), xs)
         return xs
 
-    out = block_all(train_step_pmap(global_batch_array, params))
+    params = block_all(train_step_pmap(global_batch_array, params))
 
     for i in range(100):
-        out = block_all(train_step_pmap(global_batch_array, params))
+        params = block_all(train_step_pmap(global_batch_array, params))
 
     start = time.time()
     for i in range(1000):
-        out = block_all(train_step_pmap(global_batch_array, params))
+        params = block_all(train_step_pmap(global_batch_array, params))
     end = time.time()
 
     if jax.process_index() == 0:
