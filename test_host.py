@@ -92,7 +92,7 @@ def case1():
     model = DPDense()
     rng = jax.random.PRNGKey(1)
 
-    global_batch_array=xx
+    global_batch_array=x
 
     def init_fn(x, model):
         variables = model.init(rng, x)
