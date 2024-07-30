@@ -76,8 +76,7 @@ def case1():
 
         print(x_sharding.addressable_devices)
         print(state_sharding)
-
-        print(params.keys())
+        jax.debug.visualize_array_sharding(params['Dense_0']['kernel'])
 
 
         # start = time.time()
