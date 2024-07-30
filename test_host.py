@@ -18,25 +18,25 @@ def block_all(xs):
     return xs
 
 
+class DPDense(nn.Module):
+    dim: int
+    precision: jax.lax.Precision = jax.lax.Precision.HIGHEST
+
+    @nn.compact
+    def __call__(self, x, *args, **kwargs):
+        # for i in range(12):
+        #     x = nn.Dense(self.dim, precision=self.precision)(x)
+        x = nn.Dense(self.dim, precision=self.precision)(x)
+
+        return x
+
+
 def case1():
-
-    class DPDense(nn.Module):
-        dim: int
-        precision:jax.lax.Precision=jax.lax.Precision.HIGHEST
-
-        @nn.compact
-        def __call__(self, x, *args, **kwargs):
-            for i in range(12):
-                x = nn.Dense(self.dim, precision=self.precision)(x)
-
-            return x
-
     device_mesh = mesh_utils.create_device_mesh((jax.device_count(),))
     mesh = Mesh(device_mesh, axis_names=('data',))
 
     def mesh_sharding(pspec: PartitionSpec) -> NamedSharding:
         return NamedSharding(mesh, pspec)
-
 
     shape = (128, 256, 384)
     x = jnp.ones(shape)
@@ -90,7 +90,6 @@ def case1():
 
     train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=(x_sharding), )
 
-
     with mesh:
 
         global_batch_array = block_all(train_step_jit(global_batch_array, params))
@@ -120,30 +119,12 @@ def case1():
     return global_batch_array
 
 
-
-
-
-
-
 def case3():
-
-    class DPDense(nn.Module):
-        dim: int
-        precision:jax.lax.Precision=jax.lax.Precision.HIGHEST
-
-        @nn.compact
-        def __call__(self, x, *args, **kwargs):
-            for i in range(12):
-                x = nn.Dense(self.dim, precision=self.precision)(x)
-
-            return x
-
     device_mesh = mesh_utils.create_device_mesh((jax.device_count(),))
     mesh = Mesh(device_mesh, axis_names=('data',))
 
     def mesh_sharding(pspec: PartitionSpec) -> NamedSharding:
         return NamedSharding(mesh, pspec)
-
 
     shape = (128, 256, 384)
     x = jnp.ones(shape)
@@ -197,7 +178,6 @@ def case3():
 
     train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=(state_sharding), )
 
-
     with mesh:
 
         grad = block_all(train_step_jit(global_batch_array, params))
@@ -224,34 +204,12 @@ def case3():
             # print(global_batch_array.shape)
             print(end - start)
 
-
             # print(grad)
-
-
-
-
 
     return grad
 
 
-
-
-
-
-
-
 def case2():
-    class DPDense(nn.Module):
-        dim: int
-        precision:jax.lax.Precision=jax.lax.Precision.HIGHEST
-
-        @nn.compact
-        def __call__(self, x, *args, **kwargs):
-            for i in range(12):
-                x = nn.Dense(self.dim, precision=self.precision)(x)
-
-            return x
-
     shape = (128, 256, 384)
     x = jnp.ones(shape)
 
@@ -281,7 +239,6 @@ def case2():
 
     train_step_pmap = jax.pmap(train_step, axis_name='batch')
 
-
     global_batch_array = shard(x)
     params = replicate(params)
 
@@ -305,19 +262,7 @@ def case2():
     return global_batch_array
 
 
-
 def case4():
-    class DPDense(nn.Module):
-        dim: int
-        precision:jax.lax.Precision=jax.lax.Precision.HIGHEST
-
-        @nn.compact
-        def __call__(self, x, *args, **kwargs):
-            for i in range(12):
-                x = nn.Dense(self.dim, precision=self.precision)(x)
-
-            return x
-
     shape = (128, 256, 384)
     x = jnp.ones(shape)
 
@@ -334,7 +279,6 @@ def case4():
     def train_step(x, params):
         # out = model.apply({'params': params}, x)
 
-
         def loss_fn(params):
             out = model.apply({'params': params}, x)
             loss = (jnp.zeros_like(out) - out).mean()
@@ -346,7 +290,6 @@ def case4():
         return grad
 
     train_step_pmap = jax.pmap(train_step, axis_name='batch')
-
 
     global_batch_array = shard(x)
     params = replicate(params)
@@ -377,8 +320,7 @@ if __name__ == "__main__":
     if jax.process_index() == 0:
         print(jax.devices())
 
-
-    out3=case3()
+    out3 = case3()
     out4 = case3()
 
     # out1 = case1()
