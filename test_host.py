@@ -285,8 +285,9 @@ def case4():
             return loss
 
         grad = jax.grad(loss_fn)(params)
-        grad=jax.tree_util.tree_map(lambda x:x+1,grad)
-        grad = jax.lax.psum(grad, axis_name='batch')
+        # grad = jax.tree_util.tree_map(lambda x: x + 1, grad)
+        # grad = jax.lax.psum(grad, axis_name='batch')
+        grad = jax.lax.pmean(grad, axis_name='batch')
 
         return grad
 
@@ -322,14 +323,11 @@ if __name__ == "__main__":
         print(jax.devices())
 
     out3 = case3()
-    out4 = case3()
+    out4 = case4()
 
+    out4 = unreplicate(out4)
 
-    out4=unreplicate(out4)
-
-    print(jax.tree_util.tree_map(lambda x,y:x-y,out3,out4))
-
-
+    print(jax.tree_util.tree_map(lambda x, y: x - y, out3, out4))
 
     # out1 = case1()
     # out2 = case2()
