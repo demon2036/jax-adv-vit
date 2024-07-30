@@ -97,14 +97,14 @@ def case1():
 
     with mesh:
 
-        global_batch_array = block_all(train_step_jit(global_batch_array, params))
+        out = block_all(train_step_jit(global_batch_array, params))
 
         for i in range(100):
-            global_batch_array = block_all(train_step_jit(global_batch_array, params))
+            out = block_all(train_step_jit(global_batch_array, params))
 
         start = time.time()
         for i in range(1000):
-            global_batch_array = block_all(train_step_jit(global_batch_array, params))
+            out = block_all(train_step_jit(global_batch_array, params))
         end = time.time()
 
         if jax.process_index() == 0:
@@ -121,7 +121,7 @@ def case1():
             # print(global_batch_array.shape)
             print(end - start)
 
-    return global_batch_array
+    return out
 
 
 def case2():
