@@ -81,9 +81,8 @@ def case1():
         return xs
 
     with mesh:
-        print(1)
+
         out = block_all(train_step_jit(global_batch_array, params))
-        print(out.shape)
 
         for i in range(100):
             out = block_all(train_step(global_batch_array, params))
@@ -92,20 +91,21 @@ def case1():
         for i in range(1000):
             out = block_all(train_step(global_batch_array, params))
         end = time.time()
-        print(end - start)
 
-    if jax.process_index() == 0:
-        print(global_batch_array.shape)
+        if jax.process_index() == 0:
+            print(end - start)
 
-        print(device_mesh)
-        print()
-        print(mesh)
-        jax.debug.visualize_sharding((shape[0], shape[1]), sharding=x_sharding)
-        jax.debug.visualize_array_sharding(global_batch_array[:, :, 0])
+            print(device_mesh)
+            print()
+            print(mesh)
+            jax.debug.visualize_sharding((shape[0], shape[1]), sharding=x_sharding)
+            jax.debug.visualize_array_sharding(global_batch_array[:, :, 0])
 
-        print(x_sharding.addressable_devices)
-        print(state_sharding)
-        jax.debug.visualize_array_sharding(params['Dense_0']['kernel'])
+            print(x_sharding.addressable_devices)
+            print(state_sharding)
+            jax.debug.visualize_array_sharding(params['Dense_0']['kernel'])
+            print(global_batch_array.shape)
+
 
 
 if __name__ == "__main__":
