@@ -33,28 +33,27 @@ def case1():
             # for i in range(12):
             x = nn.Dense(self.dim, )(x)
 
-            x = jax.lax.with_sharding_constraint(x, mesh_sharding(PartitionSpec('data', )))
+            # x = jax.lax.with_sharding_constraint(x, mesh_sharding(PartitionSpec('data', )))
             return x
 
     shape = (128, 256, 384)
     x = jnp.ones(shape)
     x_sharding = mesh_sharding(PartitionSpec('data'))
+    """
     # x = jax.device_put(x, x_sharding)
-
-    # global_batch_shape = (128*jax.process_count(), 256, 384)
-    #
-    # per_replica_batches = np.split(x, jax.local_device_count())
-    #
-    # global_batch_array = jax.make_array_from_single_device_arrays(
-    #     global_batch_shape, sharding=x_sharding,
-    #     arrays=[
-    #         jax.device_put(batch, device)
-    #         for batch, device in zip(per_replica_batches, x_sharding.addressable_devices)
-    #     ]
-    # )
-    """"""
-
     global_batch_array = jax.device_put(x, x_sharding)
+    """
+    global_batch_shape = (128 * jax.process_count(), 256, 384)
+
+    per_replica_batches = np.split(x, jax.local_device_count())
+
+    global_batch_array = jax.make_array_from_single_device_arrays(
+        global_batch_shape, sharding=x_sharding,
+        arrays=[
+            jax.device_put(batch, device)
+            for batch, device in zip(per_replica_batches, x_sharding.addressable_devices)
+        ]
+    )
 
     rng = jax.random.PRNGKey(1)
     model = DPDense(384)
@@ -151,6 +150,7 @@ def case2():
     def train_step(x, params):
         out = model.apply({'params': params}, x)
         return out
+
         def loss_fn(params):
             out = model.apply({'params': params}, x)
             loss = (jnp.zeros_like(out) - out).mean()
@@ -198,9 +198,9 @@ if __name__ == "__main__":
     if jax.process_index() == 0:
         print(jax.devices())
 
-    out1=case1()
-    out2=case2()
+    out1 = case1()
+    out2 = case2()
 
-    out2=out2.reshape(out1.shape)
+    out2 = out2.reshape(out1.shape)
 
-    print(out1-out2)
+    print(out1 - out2)
