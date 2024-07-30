@@ -105,14 +105,14 @@ def case1():
 
         if jax.process_index() == 0:
             print(device_mesh)
-            print()
-            print(mesh)
-            jax.debug.visualize_sharding((shape[0], shape[1]), sharding=x_sharding)
-            jax.debug.visualize_array_sharding(global_batch_array[:, :, 0])
-
-            print(x_sharding.addressable_devices)
-            print(state_sharding)
-            jax.debug.visualize_array_sharding(params['Dense_0']['kernel'])
+            # print()
+            # print(mesh)
+            # jax.debug.visualize_sharding((shape[0], shape[1]), sharding=x_sharding)
+            # jax.debug.visualize_array_sharding(global_batch_array[:, :, 0])
+            #
+            # print(x_sharding.addressable_devices)
+            # print(state_sharding)
+            # jax.debug.visualize_array_sharding(params['Dense_0']['kernel'])
             # print(global_batch_array.shape)
             print(end - start)
 
