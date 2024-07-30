@@ -127,7 +127,10 @@ def case3():
         return NamedSharding(mesh, pspec)
 
     shape = (128, 256, 384)
-    x = jnp.ones(shape)
+    rng = jax.random.PRNGKey(1)
+    model = DPDense(384)
+    # x = jnp.ones(shape)
+    x = jax.random.normal(rng, shape)
     x_sharding = mesh_sharding(PartitionSpec('data'))
     """
     # x = jax.device_put(x, x_sharding)
@@ -145,8 +148,7 @@ def case3():
         ]
     )
 
-    rng = jax.random.PRNGKey(1)
-    model = DPDense(384)
+
 
     def init_fn(x, model):
         variables = model.init(rng, x)
@@ -264,10 +266,11 @@ def case2():
 
 def case4():
     shape = (128, 256, 384)
-    x = jnp.ones(shape)
 
     """"""
-    rng = jax.random.PRNGKey(1+jax.process_index())
+    rng = jax.random.PRNGKey(1)
+    # x = jnp.ones(shape)
+    x = jax.random.normal(rng, shape)
     model = DPDense(384)
 
     def init_fn(x, model):
