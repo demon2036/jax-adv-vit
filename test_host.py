@@ -285,6 +285,7 @@ def case4():
             return loss
 
         grad = jax.grad(loss_fn)(params)
+        grad=jax.tree_util.tree_map(lambda x:x+1,grad)
         grad = jax.lax.psum(grad, axis_name='batch')
 
         return grad
