@@ -5,7 +5,7 @@ import jax
 import flax
 import jax.numpy as jnp
 import numpy as np
-from flax.jax_utils import replicate
+from flax.jax_utils import replicate, unreplicate
 from flax.linen.linear import default_kernel_init
 from flax.training.common_utils import shard
 from jax.experimental import mesh_utils
@@ -322,6 +322,13 @@ if __name__ == "__main__":
 
     out3 = case3()
     out4 = case3()
+
+
+    out4=unreplicate(out4)
+
+    print(jax.tree_util.tree_map(lambda x,y:x-y,out3,out4))
+
+
 
     # out1 = case1()
     # out2 = case2()
