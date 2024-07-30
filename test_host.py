@@ -285,7 +285,7 @@ def case4():
             return loss
 
         grad = jax.grad(loss_fn)(params)
-        grad = jax.lax.pmean(grad, axis_name='batch')
+        grad = jax.lax.psum(grad, axis_name='batch')
 
         return grad
 
