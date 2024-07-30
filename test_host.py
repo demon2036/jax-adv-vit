@@ -11,7 +11,7 @@ from flax.training.common_utils import shard
 from jax.experimental import mesh_utils
 from jax.sharding import Mesh, PartitionSpec, NamedSharding
 import flax.linen as nn
-from model import ViT
+from model_fork import ViT
 
 
 def block_all(xs):
