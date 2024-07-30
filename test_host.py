@@ -67,7 +67,8 @@ def case1():
     params = jit_init_fn(x, model)
 
     def train_step(x, params):
-
+        out = model.apply({'params': params}, x)
+        return out
         def loss_fn(params):
             out = model.apply({'params': params}, x)
             loss = (jnp.zeros_like(out) - out).mean()
@@ -75,9 +76,9 @@ def case1():
 
         grad = jax.grad(loss_fn)(params)
 
-        return out,grad
+        return out
 
-    train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=(x_sharding,state_sharding), )
+    train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=(x_sharding), )
 
     #
     # start = time.time()
@@ -91,14 +92,14 @@ def case1():
 
     with mesh:
 
-        global_batch_array,params = block_all(train_step_jit(global_batch_array, params))
+        global_batch_array = block_all(train_step_jit(global_batch_array, params))
 
         for i in range(100):
-            params = block_all(train_step(global_batch_array, params))
+            global_batch_array = block_all(train_step(global_batch_array, params))
 
         start = time.time()
         for i in range(1000):
-            params = block_all(train_step(global_batch_array, params))
+            global_batch_array = block_all(train_step(global_batch_array, params))
         end = time.time()
 
         if jax.process_index() == 0:
