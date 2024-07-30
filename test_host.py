@@ -11,6 +11,7 @@ from flax.training.common_utils import shard
 from jax.experimental import mesh_utils
 from jax.sharding import Mesh, PartitionSpec, NamedSharding
 import flax.linen as nn
+from model import ViT
 
 
 def block_all(xs):
@@ -18,17 +19,20 @@ def block_all(xs):
     return xs
 
 
-class DPDense(nn.Module):
-    dim: int
-    precision: jax.lax.Precision = jax.lax.Precision.HIGHEST
+# class DPDense(nn.Module):
+#     dim: int
+#     precision: jax.lax.Precision = jax.lax.Precision.HIGHEST
+#
+#     @nn.compact
+#     def __call__(self, x, *args, **kwargs):
+#         for i in range(12):
+#             x = nn.Dense(self.dim, precision=self.precision)(x)
+#         # x = nn.Dense(self.dim, precision=self.precision)(x)
+#
+#         return x
 
-    @nn.compact
-    def __call__(self, x, *args, **kwargs):
-        for i in range(12):
-            x = nn.Dense(self.dim, precision=self.precision)(x)
-        # x = nn.Dense(self.dim, precision=self.precision)(x)
 
-        return x
+DPDense=ViT
 
 
 def case1():
