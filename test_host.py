@@ -110,8 +110,8 @@ def case1():
     params = jit_init_fn(global_batch_array, model)
 
     def train_step(x, params):
-        out = model.apply({'params': params}, x)
-        return out
+        # out = model.apply({'params': params}, x)
+        # return out
 
         def loss_fn(params):
             out = model.apply({'params': params}, x)
@@ -120,9 +120,9 @@ def case1():
 
         grad = jax.grad(loss_fn)(params)
 
-        return out
+        return grad
 
-    train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=(x_sharding), )
+    train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=(state_sharding), )
 
     #
     # start = time.time()
