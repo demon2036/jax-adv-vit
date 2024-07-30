@@ -96,7 +96,7 @@ def case1():
 
         for i in range(100):
             global_batch_array = block_all(train_step(global_batch_array, params))
-            print(train_step_jit._cache_siz())
+            print(train_step_jit._cache_size())
 
         start = time.time()
         for i in range(1000):
