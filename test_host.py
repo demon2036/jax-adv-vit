@@ -80,10 +80,19 @@ def case1():
     # )
     """"""
 
-    global_batch_array = jax.device_put(x, x_sharding)
+    # global_batch_array = jax.device_put(x, x_sharding)
+    #
+    # rng = jax.random.PRNGKey(1)
+    # model = DPDense(384)
 
+    shape = (128, 256, 384)
+    x = jnp.ones(shape)
+    x_sharding = mesh_sharding(PartitionSpec('data'))
+    x = jax.device_put(x, x_sharding)
+    model = DPDense()
     rng = jax.random.PRNGKey(1)
-    model = DPDense(384)
+
+    global_batch_array=x
 
     def init_fn(x, model):
         variables = model.init(rng, x)
