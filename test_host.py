@@ -49,16 +49,20 @@ def case1():
     rng = jax.random.PRNGKey(1)
     model = DPDense(384)
 
-    def init_fn(x,model):
+    def init_fn(x, model):
         variables = model.init(rng, x)
         return variables['params']
 
     abstract_variables = jax.eval_shape(
-        functools.partial(init_fn, model=model, ),  global_batch_array)
+        functools.partial(init_fn, model=model, ), global_batch_array)
 
     state_sharding = nn.get_sharding(abstract_variables, mesh)
 
+    jit_init_fn = jax.jit(init_fn, static_argnums=(1,),
+                          in_shardings=x_sharding,  # PRNG key and x
+                          out_shardings=state_sharding)
 
+    params=jit_init_fn(x,model)
 
 
     if jax.process_index() == 0:
@@ -72,6 +76,9 @@ def case1():
 
         print(x_sharding.addressable_devices)
         print(state_sharding)
+
+        print(params.keys())
+
 
         # start = time.time()
         # print(abs(global_batch_array[0]))
