@@ -91,22 +91,17 @@ def case1():
 
     train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=(x_sharding), )
 
-    #
-    # start = time.time()
-    # print(abs(global_batch_array[-1]))
-    # end = time.time()
-    # print(end - start)
 
     with mesh:
 
-        out = block_all(train_step_jit(global_batch_array, params))
+        global_batch_array = block_all(train_step_jit(global_batch_array, params))
 
         for i in range(100):
-            out = block_all(train_step_jit(global_batch_array, params))
+            global_batch_array = block_all(train_step_jit(global_batch_array, params))
 
         start = time.time()
         for i in range(1000):
-            out = block_all(train_step_jit(global_batch_array, params))
+            global_batch_array = block_all(train_step_jit(global_batch_array, params))
         end = time.time()
 
         if jax.process_index() == 0:
@@ -123,7 +118,7 @@ def case1():
             # print(global_batch_array.shape)
             print(end - start)
 
-    return out
+    return global_batch_array
 
 
 def case2():
@@ -180,20 +175,20 @@ def case2():
         jax.tree_util.tree_map(lambda x: x.block_until_ready(), xs)
         return xs
 
-    out = block_all(train_step_pmap(global_batch_array, params))
+    global_batch_array = block_all(train_step_pmap(global_batch_array, params))
 
     for i in range(100):
-        out = block_all(train_step_pmap(global_batch_array, params))
+        global_batch_array = block_all(train_step_pmap(global_batch_array, params))
 
     start = time.time()
     for i in range(1000):
-        out = block_all(train_step_pmap(global_batch_array, params))
+        global_batch_array = block_all(train_step_pmap(global_batch_array, params))
     end = time.time()
 
     if jax.process_index() == 0:
         print(end - start)
 
-    return out
+    return global_batch_array
 
 
 if __name__ == "__main__":
