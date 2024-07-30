@@ -36,18 +36,21 @@ def case1():
     x_sharding = mesh_sharding(PartitionSpec('data'))
     # x = jax.device_put(x, x_sharding)
 
-    global_batch_shape = (128*jax.process_count(), 256, 384)
-
-    per_replica_batches = np.split(x, jax.local_device_count())
-
-    global_batch_array = jax.make_array_from_single_device_arrays(
-        global_batch_shape, sharding=x_sharding,
-        arrays=[
-            jax.device_put(batch, device)
-            for batch, device in zip(per_replica_batches, x_sharding.addressable_devices)
-        ]
-    )
+    # global_batch_shape = (128*jax.process_count(), 256, 384)
+    #
+    # per_replica_batches = np.split(x, jax.local_device_count())
+    #
+    # global_batch_array = jax.make_array_from_single_device_arrays(
+    #     global_batch_shape, sharding=x_sharding,
+    #     arrays=[
+    #         jax.device_put(batch, device)
+    #         for batch, device in zip(per_replica_batches, x_sharding.addressable_devices)
+    #     ]
+    # )
     """"""
+
+    global_batch_array=jax.device_put(x,x_sharding)
+
     rng = jax.random.PRNGKey(1)
     model = DPDense(384)
 
