@@ -183,14 +183,14 @@ def case3():
 
     with mesh:
 
-        params = block_all(train_step(x, params))
+        params = block_all(train_step(x, initialized_params))
 
         for i in range(100):
-            params = block_all(train_step(x, params))
+            params = block_all(train_step(x, initialized_params))
 
         start = time.time()
         for i in range(1000):
-            params = block_all(train_step(x, params))
+            params = block_all(train_step(x, initialized_params))
         end = time.time()
 
         if jax.process_index() == 0:
