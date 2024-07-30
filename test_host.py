@@ -68,7 +68,7 @@ def case1():
         out = model.apply({'params': params}, x)
         return out
 
-    train_step = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=x_sharding, )
+    train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=x_sharding, )
 
     if jax.process_index() == 0:
         print(global_batch_array.shape)
@@ -94,7 +94,15 @@ def case1():
         return xs
 
     with mesh:
-        out = block_all(train_step(x, params))
+        try:
+            out = block_all(train_step_jit(x, params))
+            print(out.shape)
+        except Exception as e:
+            print(e)
+
+
+        while True:
+            pass
 
         for i in range(100):
             out = block_all(train_step(x, params))
