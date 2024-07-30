@@ -32,7 +32,7 @@ def block_all(xs):
 #         return x
 
 
-DPDense=ViT
+DPDense = ViT
 
 
 def case1():
@@ -130,7 +130,9 @@ def case3():
     def mesh_sharding(pspec: PartitionSpec) -> NamedSharding:
         return NamedSharding(mesh, pspec)
 
-    shape = (128, 256, 384)
+    # shape = (128, 256, 384)
+    shape = (128, 32, 32, 3)
+
     rng = jax.random.PRNGKey(1)
     model = DPDense(384)
     # x = jnp.ones(shape)
@@ -267,7 +269,8 @@ def case2():
 
 
 def case4():
-    shape = (128, 256, 384)
+    # shape = (128, 256, 384)
+    shape = (128, 32, 32, 3)
 
     """"""
     rng = jax.random.PRNGKey(1)
