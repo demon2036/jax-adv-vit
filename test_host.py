@@ -32,11 +32,14 @@ def case1():
     x = jax.make_array_from_callback(x.shape, x_sharding, lambda idx: x[idx])
 
     if jax.process_index() == 0:
+
+        print(x.shape)
+
         print(device_mesh)
         print()
         print(mesh)
         jax.debug.visualize_sharding((shape[0], shape[1]), sharding=x_sharding)
-        jax.debug.visualize_array_sharding(x[:,:,0])
+        jax.debug.visualize_array_sharding(x[:, :, 0])
 
 
 if __name__ == "__main__":
