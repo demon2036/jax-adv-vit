@@ -92,7 +92,7 @@ def case1():
     model = DPDense()
     rng = jax.random.PRNGKey(1)
 
-    global_batch_array=x
+    global_batch_array=xx
 
     def init_fn(x, model):
         variables = model.init(rng, x)
@@ -107,11 +107,11 @@ def case1():
                           in_shardings=x_sharding,  # PRNG key and x
                           out_shardings=state_sharding)
 
-    initialized_params = jit_init_fn(global_batch_array, model)
+    params = jit_init_fn(global_batch_array, model)
 
     def train_step(x, params):
-        # out = model.apply({'params': params}, x)
-        # return out
+        out = model.apply({'params': params}, x)
+        return out
 
         def loss_fn(params):
             out = model.apply({'params': params}, x)
@@ -120,23 +120,9 @@ def case1():
 
         grad = jax.grad(loss_fn)(params)
 
-        return grad
+        return out
 
-    train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=(state_sharding), )
-
-    # @functools.partial(jax.jit, in_shardings=(x_sharding, state_sharding,),
-    #                    out_shardings=state_sharding)
-    # def train_step(x, params):
-    #     # A fake loss function.
-    #     def loss_unrolled(params):
-    #         y = model.apply({'params': params}, x)
-    #         return y.sum()
-    #
-    #     grad_fn = jax.grad(loss_unrolled)
-    #     grads = grad_fn(params)
-    #     # state = state.apply_gradients(grads=grads)
-    #     return grads
-
+    train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=(x_sharding), )
 
     #
     # start = time.time()
@@ -146,14 +132,14 @@ def case1():
 
     with mesh:
 
-        params = block_all(train_step_jit(x, initialized_params))
+        global_batch_array = block_all(train_step_jit(global_batch_array, params))
 
         for i in range(100):
-            params = block_all(train_step_jit(x, initialized_params))
+            global_batch_array = block_all(train_step_jit(global_batch_array, params))
 
         start = time.time()
         for i in range(1000):
-            params = block_all(train_step_jit(x, initialized_params))
+            global_batch_array = block_all(train_step_jit(global_batch_array, params))
         end = time.time()
 
         if jax.process_index() == 0:
