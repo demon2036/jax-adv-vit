@@ -96,7 +96,6 @@ def case1():
 
         for i in range(100):
             global_batch_array = block_all(train_step(global_batch_array, params))
-            print(train_step_jit._cache_size())
 
         start = time.time()
         for i in range(1000):
@@ -113,7 +112,7 @@ def case1():
             print(x_sharding.addressable_devices)
             print(state_sharding)
             jax.debug.visualize_array_sharding(params['Dense_0']['kernel'])
-            print(global_batch_array.shape)
+            # print(global_batch_array.shape)
             print(end - start)
 
 
