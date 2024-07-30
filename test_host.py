@@ -75,9 +75,9 @@ def case1():
 
         grad = jax.grad(loss_fn)(params)
 
-        return grad
+        return out,grad
 
-    train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=state_sharding, )
+    train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=(x_sharding,state_sharding), )
 
     #
     # start = time.time()
@@ -91,7 +91,7 @@ def case1():
 
     with mesh:
 
-        params = block_all(train_step_jit(global_batch_array, params))
+        global_batch_array,params = block_all(train_step_jit(global_batch_array, params))
 
         for i in range(100):
             params = block_all(train_step(global_batch_array, params))
