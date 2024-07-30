@@ -24,9 +24,9 @@ class DPDense(nn.Module):
 
     @nn.compact
     def __call__(self, x, *args, **kwargs):
-        # for i in range(12):
-        #     x = nn.Dense(self.dim, precision=self.precision)(x)
-        x = nn.Dense(self.dim, precision=self.precision)(x)
+        for i in range(12):
+            x = nn.Dense(self.dim, precision=self.precision)(x)
+        # x = nn.Dense(self.dim, precision=self.precision)(x)
 
         return x
 
@@ -147,8 +147,6 @@ def case3():
             for batch, device in zip(per_replica_batches, x_sharding.addressable_devices)
         ]
     )
-
-
 
     def init_fn(x, model):
         variables = model.init(rng, x)
