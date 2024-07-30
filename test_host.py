@@ -145,7 +145,7 @@ def case3():
         ]
     )
 
-    rng = jax.random.PRNGKey(1+jax.process_index())
+    rng = jax.random.PRNGKey(1)
     model = DPDense(384)
 
     def init_fn(x, model):
@@ -267,7 +267,7 @@ def case4():
     x = jnp.ones(shape)
 
     """"""
-    rng = jax.random.PRNGKey(1+jax.process_index())
+    rng = jax.random.PRNGKey(1)
     model = DPDense(384)
 
     def init_fn(x, model):
