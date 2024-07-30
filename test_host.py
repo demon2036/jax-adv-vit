@@ -232,6 +232,8 @@ def case2():
     params = init_fn(x, model)
 
     def train_step(x, params):
+        out = model.apply({'params': params}, x)
+        return out
         def loss_fn(params):
             out = model.apply({'params': params}, x)
             loss = (jnp.zeros_like(out) - out).mean()
@@ -257,14 +259,14 @@ def case2():
         jax.tree_util.tree_map(lambda x: x.block_until_ready(), xs)
         return xs
 
-    params = block_all(train_step_pmap(global_batch_array, params))
+    out = block_all(train_step_pmap(global_batch_array, params))
 
     for i in range(100):
-        params = block_all(train_step_pmap(global_batch_array, params))
+        out = block_all(train_step_pmap(global_batch_array, params))
 
     start = time.time()
     for i in range(1000):
-        params = block_all(train_step_pmap(global_batch_array, params))
+        out = block_all(train_step_pmap(global_batch_array, params))
     end = time.time()
 
     if jax.process_index() == 0:
