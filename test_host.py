@@ -67,10 +67,17 @@ def case1():
     params = jit_init_fn(x, model)
 
     def train_step(x, params):
-        out = model.apply({'params': params}, x)
-        return out
 
-    train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=x_sharding, )
+        def loss_fn(params):
+            out = model.apply({'params': params}, x)
+            loss = (jnp.zeros_like(out) - out).mean()
+            return loss
+
+        grad=jax.grad(loss_fn)(params)
+
+        return grad
+
+    train_step_jit = jax.jit(train_step, in_shardings=(x_sharding, state_sharding), out_shardings=state_sharding, )
 
     #
     # start = time.time()
@@ -95,8 +102,6 @@ def case1():
         end = time.time()
 
         if jax.process_index() == 0:
-
-
             print(device_mesh)
             print()
             print(mesh)
@@ -110,24 +115,13 @@ def case1():
             print(end - start)
 
 
-
-
-
-
-
-
-
 def case2():
-
-
     class DPDense(nn.Module):
         dim: int
 
         @nn.compact
         def __call__(self, x, *args, **kwargs):
-            x = nn.Dense(self.dim,
-
-                         )(x)
+            x = nn.Dense(self.dim, )(x)
 
             return x
 
@@ -142,16 +136,19 @@ def case2():
         variables = model.init(rng, x)
         return variables['params']
 
-
-
-
     params = init_fn(x, model)
 
     def train_step(x, params):
-        out = model.apply({'params': params}, x)
-        return out
+        def loss_fn(params):
+            out = model.apply({'params': params}, x)
+            loss = (jnp.zeros_like(out) - out).mean()
+            return loss
 
-    train_step_pmap = jax.pmap(train_step, axis_name='batch' )
+        grad = jax.grad(loss_fn)(params)
+
+        return grad
+
+    train_step_pmap = jax.pmap(train_step, axis_name='batch')
 
     #
     # start = time.time()
@@ -159,14 +156,12 @@ def case2():
     # end = time.time()
     # print(end - start)
 
-    global_batch_array=shard(x)
-    params=replicate(params)
+    global_batch_array = shard(x)
+    params = replicate(params)
 
     def block_all(xs):
         jax.tree_util.tree_map(lambda x: x.block_until_ready(), xs)
         return xs
-
-
 
     out = block_all(train_step_pmap(global_batch_array, params))
 
@@ -180,8 +175,6 @@ def case2():
 
     if jax.process_index() == 0:
         print(end - start)
-
-
 
 
 if __name__ == "__main__":
