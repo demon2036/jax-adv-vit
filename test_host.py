@@ -17,9 +17,14 @@ def block_all(xs):
     jax.tree_util.tree_map(lambda x: x.block_until_ready(), xs)
     return xs
 
+
 def case1():
+    """
     device_mesh = mesh_utils.create_device_mesh((jax.device_count(),))
-    mesh = Mesh(device_mesh, axis_names=('data',))
+    print(device_mesh)
+
+    mesh = Mesh(devices=device_mesh, axis_names=('data',))
+    print(mesh)
 
     def mesh_sharding(pspec: PartitionSpec) -> NamedSharding:
         return NamedSharding(mesh, pspec)
@@ -34,10 +39,32 @@ def case1():
 
             x = jax.lax.with_sharding_constraint(x, mesh_sharding(PartitionSpec('data', )))
             return x
+    """
+
+    device_mesh = mesh_utils.create_device_mesh((jax.device_count(),))
+    print(device_mesh)
+
+    mesh = Mesh(devices=device_mesh, axis_names=('data',))
+    print(mesh)
+
+    def mesh_sharding(pspec: PartitionSpec) -> NamedSharding:
+        return NamedSharding(mesh, pspec)
 
     shape = (128, 256, 384)
     x = jnp.ones(shape)
     x_sharding = mesh_sharding(PartitionSpec('data'))
+
+    class DPDense(nn.Module):
+        dim: int = 384
+
+        @nn.compact
+        def __call__(self, x, *args, **kwargs):
+            for i in range(12):
+                x = nn.Dense(self.dim, )(x)
+
+            x = jax.lax.with_sharding_constraint(x, mesh_sharding(PartitionSpec('data', )))
+            return x
+
     # x = jax.device_put(x, x_sharding)
 
     # global_batch_shape = (128*jax.process_count(), 256, 384)
@@ -94,8 +121,6 @@ def case1():
     # end = time.time()
     # print(end - start)
 
-
-
     with mesh:
 
         global_batch_array = block_all(train_step_jit(global_batch_array, params))
@@ -148,15 +173,15 @@ def case3():
     x = jnp.ones(shape)
     x_sharding = mesh_sharding(PartitionSpec('data'))
     x = jax.device_put(x, x_sharding)
-    model=DPDense()
+    model = DPDense()
     rng = jax.random.PRNGKey(1)
 
-    def init_fn( k,x, model):
+    def init_fn(k, x, model):
         variables = model.init(rng, x)  # Initialize the model.
         return variables['params']
 
     abstract_variables = jax.eval_shape(
-        functools.partial(init_fn, model=model,), rng, x)
+        functools.partial(init_fn, model=model, ), rng, x)
 
     # This `state_sharding` has the same pytree structure as `state`, the output
     # of the `init_fn`.
@@ -168,9 +193,9 @@ def case3():
 
     initialized_params = jit_init_fn(rng, x, model)
 
-    @functools.partial(jax.jit, in_shardings=(x_sharding,state_sharding, ),
+    @functools.partial(jax.jit, in_shardings=(x_sharding, state_sharding,),
                        out_shardings=state_sharding)
-    def train_step( x,params):
+    def train_step(x, params):
         # A fake loss function.
         def loss_unrolled(params):
             y = model.apply({'params': params}, x)
@@ -206,10 +231,6 @@ def case3():
             # jax.debug.visualize_array_sharding(params['Dense_0']['kernel'])
             # print(global_batch_array.shape)
             print(end - start)
-
-
-
-
 
 
 def case2():
@@ -281,6 +302,6 @@ if __name__ == "__main__":
 
     if jax.process_index() == 0:
         print(jax.devices())
-    case3()
+    case1()
     # case1()
     # case2()
