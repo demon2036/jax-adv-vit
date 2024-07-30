@@ -30,8 +30,8 @@ def case1():
 
         @nn.compact
         def __call__(self, x, *args, **kwargs):
-            # for i in range(12):
-            x = nn.Dense(self.dim, )(x)
+            for i in range(12):
+                x = nn.Dense(self.dim, )(x)
 
             # x = jax.lax.with_sharding_constraint(x, mesh_sharding(PartitionSpec('data', )))
             return x
@@ -129,8 +129,8 @@ def case2():
 
         @nn.compact
         def __call__(self, x, *args, **kwargs):
-            # for i in range(12):
-            x = nn.Dense(self.dim, )(x)
+            for i in range(12):
+                x = nn.Dense(self.dim, )(x)
 
             return x
 
