@@ -132,6 +132,7 @@ def case3():
 
     # shape = (128, 256, 384)
     shape = (128, 32, 32, 3)
+    batch,*res=shape
 
     rng = jax.random.PRNGKey(1)
     model = ViT()
@@ -142,7 +143,8 @@ def case3():
     # x = jax.device_put(x, x_sharding)
     global_batch_array = jax.device_put(x, x_sharding)
     """
-    global_batch_shape = (128 * jax.process_count(), 256, 384)
+    global_batch_shape = (128 * jax.process_count(), *res)
+    print(global_batch_shape)
 
     per_replica_batches = np.split(x, jax.local_device_count())
 
