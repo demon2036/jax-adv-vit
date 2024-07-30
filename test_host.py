@@ -152,7 +152,7 @@ def case3():
     rng = jax.random.PRNGKey(1)
 
     def init_fn( k,x, model):
-        variables = model.init(k, x)  # Initialize the model.
+        variables = model.init(rng, x)  # Initialize the model.
         return variables['params']
 
     abstract_variables = jax.eval_shape(
