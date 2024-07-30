@@ -14,8 +14,8 @@ import flax.linen as nn
 
 
 def case1():
-    device_mesh = mesh_utils.create_device_mesh((8, 1))
-    mesh = Mesh(device_mesh, axis_names=('data', 'model'))
+    device_mesh = mesh_utils.create_device_mesh((8,))
+    mesh = Mesh(device_mesh, axis_names=('data',))
 
     def mesh_sharding(pspec: PartitionSpec) -> NamedSharding:
         return NamedSharding(mesh, pspec)
@@ -28,7 +28,7 @@ def case1():
             for i in range(12):
                 x = nn.Dense(self.dim, )(x)
 
-            x=jax.lax.with_sharding_constraint(x,PartitionSpec('data',))
+            x = jax.lax.with_sharding_constraint(x, mesh_sharding(PartitionSpec('data', )))
             return x
 
     shape = (128, 256, 384)
@@ -69,6 +69,7 @@ def case1():
     def train_step(x, params):
         out = model.apply({'params': params}, x)
         return out
+
         def loss_fn(params):
             out = model.apply({'params': params}, x)
             loss = (jnp.zeros_like(out) - out).mean()
@@ -188,4 +189,3 @@ if __name__ == "__main__":
 
     case1()
     case2()
-
