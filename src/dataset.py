@@ -58,7 +58,7 @@ def auto_augment_factory(args: argparse.Namespace) -> T.Transform:
 def create_transforms(args: argparse.Namespace) -> tuple[nn.Module, nn.Module]:
     train_transforms=[T.ToPILImage()]
     if args.random_crop == "rrc":
-        train_transforms += [T.RandomResizedCrop(args.image_size,scale=(0.3, 1),  interpolation=3)]
+        train_transforms += [T.RandomResizedCrop(args.image_size,scale=(0.6, 1),  interpolation=3)]
     elif args.random_crop == "src":
         train_transforms += [
             T.Resize(args.image_size, interpolation=3),
