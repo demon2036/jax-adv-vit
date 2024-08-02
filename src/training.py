@@ -310,6 +310,9 @@ class TrainMAEModule(nn.Module):
 def training_mae_step(state: TrainState, batch: ArrayTree) -> tuple[TrainState, ArrayTree]:
     def loss_fn(params: ArrayTree) -> ArrayTree:
         metrics = state.apply_fn({"params": params}, *batch, det=False, rngs=rngs)
+
+        del metrics['pred'],metrics['mask']
+
         return metrics["mse_loss"], metrics
 
     def update_fn(state: TrainState) -> TrainState:
